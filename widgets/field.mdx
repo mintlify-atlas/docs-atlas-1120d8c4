@@ -1,0 +1,402 @@
+---
+title: "Field"
+description: "Form field wrapper widget with label, error message, and hint support"
+---
+
+## Overview
+
+The `field` widget wraps form inputs with a label, optional error message, required indicator, and hint text. It provides consistent form field layout and associates labels with inputs for better accessibility.
+
+## Basic Usage
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.field({
+  label: "Username",
+  children: ui.input({
+    id: "username",
+    value: state.username,
+    onInput: (value) => app.update({ username: value })
+  })
+})
+```
+
+## Props
+
+<ParamField path="label" type="string" required>
+  Field label displayed above the input. Shown in bold by default.
+</ParamField>
+
+<ParamField path="children" type="VNode" required>
+  The wrapped input widget (input, textarea, select, checkbox, etc.).
+</ParamField>
+
+<ParamField path="error" type="string">
+  Error message to display below the input in red. Only shown when non-empty.
+</ParamField>
+
+<ParamField path="required" type="boolean" default="false">
+  When true, displays an asterisk (*) after the label to indicate required field.
+</ParamField>
+
+<ParamField path="hint" type="string">
+  Help text displayed below the input in dimmed color. Shown below error if both exist.
+</ParamField>
+
+<ParamField path="key" type="string">
+  Optional reconciliation key for the field wrapper.
+</ParamField>
+
+## Label with Required Indicator
+
+```typescript
+ui.field({
+  label: "Email Address",
+  required: true,
+  children: ui.input({
+    id: "email",
+    value: state.email
+  })
+})
+// Displays: "Email Address *"
+```
+
+## Error Messages
+
+Error messages are displayed in red below the input:
+
+```typescript
+ui.field({
+  label: "Password",
+  required: true,
+  error: state.errors.password,
+  children: ui.input({
+    id: "password",
+    value: state.password,
+    onInput: (value) => app.update({ password: value }),
+    onBlur: () => validatePassword()
+  })
+})
+```
+
+## Hint Text
+
+Provide helpful guidance with hint text:
+
+```typescript
+ui.field({
+  label: "Username",
+  hint: "Must be 3-20 characters, letters and numbers only",
+  children: ui.input({
+    id: "username",
+    value: state.username
+  })
+})
+```
+
+## Form Integration
+
+Fields are typically used within `ui.form()` for consistent spacing:
+
+```typescript
+ui.form([
+  ui.field({
+    label: "Email",
+    required: true,
+    error: state.errors.email,
+    hint: "We'll never share your email",
+    children: ui.input({
+      id: "email",
+      value: state.email,
+      placeholder: "you@example.com",
+      onInput: (value) => app.update({ email: value }),
+      onBlur: () => validateEmail()
+    })
+  }),
+  ui.field({
+    label: "Password",
+    required: true,
+    error: state.errors.password,
+    hint: "At least 8 characters",
+    children: ui.input({
+      id: "password",
+      value: state.password,
+      onInput: (value) => app.update({ password: value })
+    })
+  }),
+  ui.actions([
+    ui.button("submit", "Sign Up", {
+      intent: "primary",
+      disabled: !state.isValid
+    })
+  ])
+])
+```
+
+## Validation Patterns
+
+### On Blur Validation
+
+```typescript
+ui.field({
+  label: "Email",
+  required: true,
+  error: state.touched.email ? state.errors.email : undefined,
+  children: ui.input({
+    id: "email",
+    value: state.email,
+    onInput: (value) => app.update({ email: value }),
+    onBlur: () => {
+      app.update({ touched: { ...state.touched, email: true } });
+      const error = validateEmail(state.email);
+      app.update({ errors: { ...state.errors, email: error } });
+    }
+  })
+})
+```
+
+### On Submit Validation
+
+```typescript
+ui.form([
+  ui.field({
+    label: "Username",
+    error: state.submitted ? state.errors.username : undefined,
+    children: ui.input({
+      id: "username",
+      value: state.username,
+      onInput: (value) => app.update({ username: value })
+    })
+  }),
+  ui.actions([
+    ui.button("submit", "Submit", {
+      intent: "primary",
+      onPress: () => {
+        const errors = validateForm(state);
+        app.update({ submitted: true, errors });
+        if (Object.keys(errors).length === 0) {
+          submitForm(state);
+        }
+      }
+    })
+  ])
+])
+```
+
+### Real-Time Validation
+
+```typescript
+ui.field({
+  label: "Username",
+  required: true,
+  error: state.username.length > 0 && state.username.length < 3
+    ? "Username must be at least 3 characters"
+    : undefined,
+  hint: `${state.username.length}/20 characters`,
+  children: ui.input({
+    id: "username",
+    value: state.username,
+    onInput: (value) => {
+      if (value.length <= 20) {
+        app.update({ username: value });
+      }
+    }
+  })
+})
+```
+
+## Examples
+
+### Text Input Field
+
+```typescript
+ui.field({
+  label: "Full Name",
+  required: true,
+  error: state.errors.name,
+  children: ui.input({
+    id: "name",
+    value: state.name,
+    placeholder: "John Doe",
+    onInput: (value) => app.update({ name: value })
+  })
+})
+```
+
+### Textarea Field
+
+```typescript
+ui.field({
+  label: "Description",
+  required: true,
+  error: state.errors.description,
+  hint: "Provide a detailed description (min 20 characters)",
+  children: ui.textarea({
+    id: "description",
+    value: state.description,
+    rows: 5,
+    onInput: (value) => app.update({ description: value })
+  })
+})
+```
+
+### Select Field
+
+```typescript
+ui.field({
+  label: "Country",
+  required: true,
+  error: state.errors.country,
+  children: ui.select({
+    id: "country",
+    value: state.country,
+    placeholder: "Select a country",
+    options: [
+      { value: "us", label: "United States" },
+      { value: "uk", label: "United Kingdom" },
+      { value: "ca", label: "Canada" }
+    ],
+    onChange: (value) => app.update({ country: value })
+  })
+})
+```
+
+### Checkbox Group Field
+
+```typescript
+ui.field({
+  label: "Notification Preferences",
+  hint: "Choose how you want to be notified",
+  children: ui.column({ gap: 1 }, [
+    ui.checkbox({
+      id: "email-notif",
+      checked: state.emailNotifications,
+      label: "Email notifications",
+      onChange: (checked) => app.update({ emailNotifications: checked })
+    }),
+    ui.checkbox({
+      id: "push-notif",
+      checked: state.pushNotifications,
+      label: "Push notifications",
+      onChange: (checked) => app.update({ pushNotifications: checked })
+    }),
+    ui.checkbox({
+      id: "sms-notif",
+      checked: state.smsNotifications,
+      label: "SMS notifications",
+      onChange: (checked) => app.update({ smsNotifications: checked })
+    })
+  ])
+})
+```
+
+### Radio Group Field
+
+```typescript
+ui.field({
+  label: "Subscription Plan",
+  required: true,
+  error: state.errors.plan,
+  children: ui.radioGroup({
+    id: "plan",
+    value: state.plan,
+    options: [
+      { value: "free", label: "Free - $0/month" },
+      { value: "pro", label: "Pro - $10/month" },
+      { value: "enterprise", label: "Enterprise - Contact Sales" }
+    ],
+    onChange: (value) => app.update({ plan: value })
+  })
+})
+```
+
+### Slider Field
+
+```typescript
+ui.field({
+  label: "Volume",
+  hint: "Adjust audio volume",
+  children: ui.slider({
+    id: "volume",
+    value: state.volume,
+    min: 0,
+    max: 100,
+    step: 5,
+    onChange: (value) => app.update({ volume: value })
+  })
+})
+```
+
+### Complex Validation
+
+```typescript
+ui.field({
+  label: "Password",
+  required: true,
+  error: (() => {
+    if (!state.touched.password) return undefined;
+    if (state.password.length < 8) return "Must be at least 8 characters";
+    if (!/[A-Z]/.test(state.password)) return "Must contain an uppercase letter";
+    if (!/[0-9]/.test(state.password)) return "Must contain a number";
+    return undefined;
+  })(),
+  hint: "At least 8 characters with uppercase and number",
+  children: ui.input({
+    id: "password",
+    value: state.password,
+    onInput: (value) => app.update({ password: value }),
+    onBlur: () => app.update({ touched: { ...state.touched, password: true } })
+  })
+})
+```
+
+## Layout Structure
+
+Fields render in a vertical column layout:
+
+```
+[Label] *           ← Bold, with asterisk if required
+[Input Widget]      ← The wrapped children
+[Error Message]     ← Red, only if error is set
+[Hint Text]         ← Dimmed, always shown if set
+```
+
+All elements are part of a column with `gap: 0` for tight spacing.
+
+## Styling
+
+Fields use default styles:
+- **Label**: Bold text
+- **Required indicator**: Asterisk (*) appended to label
+- **Error**: Red text (`fg: { r: 255, g: 0, b: 0 }`)
+- **Hint**: Dimmed text
+
+You cannot currently customize field wrapper styles, but you can style the wrapped input widget directly.
+
+## Accessibility
+
+- Labels are visually associated with inputs
+- Required fields are marked with asterisk
+- Error messages provide validation feedback
+- Hint text provides helpful guidance
+- Use semantic `label` text that clearly describes the field
+
+## Best Practices
+
+1. **Always provide a label** - Every input should have a descriptive label
+2. **Use required indicator** - Mark required fields with `required: true`
+3. **Show errors conditionally** - Only show errors after user interaction or submission
+4. **Provide helpful hints** - Use hint text to guide users on format or requirements
+5. **Keep labels concise** - Use 1-3 words when possible
+6. **Use sentence case** - "Email address" not "Email Address"
+
+## Related Widgets
+
+- [Input](/widgets/input) - Single-line text input
+- [Textarea](/widgets/textarea) - Multi-line text input
+- [Select](/widgets/select) - Dropdown selection
+- [Checkbox](/widgets/checkbox) - Boolean toggle
+- [Radio Group](/widgets/radio-group) - Mutually exclusive options
+- [Slider](/widgets/slider) - Numeric range input
+- [Button](/widgets/button) - Form submission

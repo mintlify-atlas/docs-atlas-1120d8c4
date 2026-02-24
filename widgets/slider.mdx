@@ -1,0 +1,447 @@
+---
+title: "Slider"
+description: "Numeric range input widget with keyboard adjustment and visual track"
+---
+
+## Overview
+
+The `slider` widget creates a focusable, adjustable slider for selecting numeric values within a range. It displays a track with a visual indicator showing the current position.
+
+## Basic Usage
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.slider({
+  id: "volume",
+  value: state.volume,
+  min: 0,
+  max: 100,
+  onChange: (value) => app.update({ volume: value })
+})
+```
+
+## Props
+
+<ParamField path="id" type="string" required>
+  Unique identifier for focus routing. Required for all sliders.
+</ParamField>
+
+<ParamField path="value" type="number" required>
+  Current slider value. Must be controlled by your application state.
+</ParamField>
+
+<ParamField path="min" type="number" default="0">
+  Minimum value for the slider range.
+</ParamField>
+
+<ParamField path="max" type="number" default="100">
+  Maximum value for the slider range.
+</ParamField>
+
+<ParamField path="step" type="number" default="1">
+  Step increment for keyboard adjustments and value quantization.
+</ParamField>
+
+<ParamField path="onChange" type="(value: number) => void">
+  Callback invoked when the value changes.
+</ParamField>
+
+<ParamField path="label" type="string">
+  Optional label shown before the track.
+</ParamField>
+
+<ParamField path="showValue" type="boolean" default="true">
+  Whether to display the numeric value text.
+</ParamField>
+
+<ParamField path="width" type="number">
+  Optional fixed track width in cells. Defaults to filling available width.
+</ParamField>
+
+<ParamField path="disabled" type="boolean" default="false">
+  When true, slider cannot be focused or adjusted.
+</ParamField>
+
+<ParamField path="readOnly" type="boolean" default="false">
+  When true, slider is focusable but non-editable.
+</ParamField>
+
+<ParamField path="focusable" type="boolean" default="true">
+  When false, opt out of Tab focus order while keeping id-based routing available.
+</ParamField>
+
+<ParamField path="accessibleLabel" type="string">
+  Optional semantic label for accessibility and debug announcements.
+</ParamField>
+
+### Styling Props
+
+<ParamField path="style" type="TextStyle">
+  Optional style applied to label/value text.
+</ParamField>
+
+<ParamField path="focusConfig" type="FocusConfig">
+  Optional focus appearance configuration for custom focus indicators.
+</ParamField>
+
+## Event Handling
+
+Sliders use a controlled pattern. You must manage the value in state:
+
+```typescript
+ui.slider({
+  id: "brightness",
+  value: state.brightness,
+  min: 0,
+  max: 100,
+  step: 5,
+  label: "Brightness",
+  onChange: (value) => {
+    app.update({ brightness: value });
+    
+    // Apply brightness setting
+    setBrightness(value);
+  }
+})
+```
+
+## Value Range and Step
+
+### Integer Steps
+
+```typescript
+ui.slider({
+  id: "count",
+  value: state.count,
+  min: 1,
+  max: 10,
+  step: 1,
+  label: "Count"
+})
+```
+
+### Decimal Steps
+
+```typescript
+ui.slider({
+  id: "opacity",
+  value: state.opacity,
+  min: 0,
+  max: 1,
+  step: 0.1,
+  label: "Opacity"
+})
+```
+
+### Large Range
+
+```typescript
+ui.slider({
+  id: "timeout",
+  value: state.timeout,
+  min: 0,
+  max: 10000,
+  step: 100,
+  label: "Timeout (ms)"
+})
+```
+
+## Form Integration
+
+Sliders are typically wrapped with `ui.field()` for labels:
+
+```typescript
+ui.form([
+  ui.field({
+    label: "Audio Settings",
+    children: ui.column({ gap: 1 }, [
+      ui.slider({
+        id: "volume",
+        value: state.volume,
+        min: 0,
+        max: 100,
+        step: 5,
+        label: "Volume",
+        onChange: (value) => app.update({ volume: value })
+      }),
+      ui.slider({
+        id: "bass",
+        value: state.bass,
+        min: -10,
+        max: 10,
+        step: 1,
+        label: "Bass",
+        onChange: (value) => app.update({ bass: value })
+      }),
+      ui.slider({
+        id: "treble",
+        value: state.treble,
+        min: -10,
+        max: 10,
+        step: 1,
+        label: "Treble",
+        onChange: (value) => app.update({ treble: value })
+      })
+    ])
+  }),
+  ui.actions([
+    ui.button("reset", "Reset", { intent: "secondary" }),
+    ui.button("save", "Save", { intent: "primary" })
+  ])
+])
+```
+
+## Visual Customization
+
+### With Label
+
+```typescript
+ui.slider({
+  id: "speed",
+  value: state.speed,
+  min: 0,
+  max: 100,
+  label: "Speed",
+  showValue: true
+})
+```
+
+### Without Value Display
+
+```typescript
+ui.slider({
+  id: "position",
+  value: state.position,
+  min: 0,
+  max: 100,
+  showValue: false
+})
+```
+
+### Fixed Width
+
+```typescript
+ui.slider({
+  id: "volume",
+  value: state.volume,
+  min: 0,
+  max: 100,
+  width: 20,
+  label: "Volume"
+})
+```
+
+## Examples
+
+### Volume Control
+
+```typescript
+ui.row({ gap: 1, items: "center" }, [
+  ui.icon(state.volume === 0 ? "audio.mute" : "audio.volume"),
+  ui.slider({
+    id: "volume",
+    value: state.volume,
+    min: 0,
+    max: 100,
+    step: 5,
+    width: 20,
+    onChange: (value) => {
+      app.update({ volume: value });
+      if (value === 0) {
+        muteAudio();
+      } else {
+        setVolume(value);
+      }
+    }
+  }),
+  ui.text(`${state.volume}%`)
+])
+```
+
+### Range Filter
+
+```typescript
+ui.panel("Price Range", [
+  ui.column({ gap: 1 }, [
+    ui.slider({
+      id: "min-price",
+      value: state.minPrice,
+      min: 0,
+      max: state.maxPrice,
+      step: 10,
+      label: "Min",
+      onChange: (value) => {
+        app.update({ minPrice: value });
+        filterProducts();
+      }
+    }),
+    ui.slider({
+      id: "max-price",
+      value: state.maxPrice,
+      min: state.minPrice,
+      max: 1000,
+      step: 10,
+      label: "Max",
+      onChange: (value) => {
+        app.update({ maxPrice: value });
+        filterProducts();
+      }
+    }),
+    ui.text(`$${state.minPrice} - $${state.maxPrice}`, { dim: true })
+  ])
+])
+```
+
+### Animation Speed
+
+```typescript
+ui.field({
+  label: "Animation Speed",
+  hint: "Adjust playback speed",
+  children: ui.slider({
+    id: "speed",
+    value: state.animationSpeed,
+    min: 0.25,
+    max: 2,
+    step: 0.25,
+    showValue: true,
+    onChange: (value) => {
+      app.update({ animationSpeed: value });
+      updateAnimationSpeed(value);
+    }
+  })
+})
+```
+
+### Progress Seeker
+
+```typescript
+ui.column({ gap: 0 }, [
+  ui.slider({
+    id: "progress",
+    value: state.currentTime,
+    min: 0,
+    max: state.duration,
+    step: 1,
+    showValue: false,
+    onChange: (value) => {
+      app.update({ currentTime: value });
+      seekTo(value);
+    }
+  }),
+  ui.row({ justify: "between" }, [
+    ui.text(formatTime(state.currentTime), { dim: true }),
+    ui.text(formatTime(state.duration), { dim: true })
+  ])
+])
+```
+
+### Settings Panel
+
+```typescript
+ui.panel("Display Settings", [
+  ui.column({ gap: 1 }, [
+    ui.slider({
+      id: "brightness",
+      value: state.brightness,
+      min: 0,
+      max: 100,
+      step: 5,
+      label: "🔆 Brightness",
+      onChange: (value) => app.update({ brightness: value })
+    }),
+    ui.slider({
+      id: "contrast",
+      value: state.contrast,
+      min: 0,
+      max: 100,
+      step: 5,
+      label: "🌗 Contrast",
+      onChange: (value) => app.update({ contrast: value })
+    }),
+    ui.slider({
+      id: "saturation",
+      value: state.saturation,
+      min: 0,
+      max: 100,
+      step: 5,
+      label: "🎨 Saturation",
+      onChange: (value) => app.update({ saturation: value })
+    }),
+    ui.divider(),
+    ui.actions([
+      ui.button("reset", "Reset to Defaults", {
+        intent: "secondary",
+        onPress: () => app.update({
+          brightness: 50,
+          contrast: 50,
+          saturation: 50
+        })
+      })
+    ])
+  ])
+])
+```
+
+## Keyboard Shortcuts
+
+When focused, sliders support:
+- **Arrow Left/Down** - Decrease by one step
+- **Arrow Right/Up** - Increase by one step
+- **Page Down** - Decrease by 10 steps
+- **Page Up** - Increase by 10 steps
+- **Home** - Jump to minimum value
+- **End** - Jump to maximum value
+- **Tab** - Move to next focusable element
+- **Shift+Tab** - Move to previous focusable element
+
+## Value Formatting
+
+Values are automatically formatted based on the step precision:
+
+```typescript
+// Integer step: displays "50"
+ui.slider({ id: "int", value: 50, step: 1 })
+
+// Decimal step: displays "0.5"
+ui.slider({ id: "dec", value: 0.5, step: 0.1 })
+
+// High precision: displays "3.14"
+ui.slider({ id: "pi", value: 3.14, step: 0.01 })
+```
+
+Trailing zeros are removed for cleaner display.
+
+## Read-Only State
+
+```typescript
+ui.slider({
+  id: "progress",
+  value: state.downloadProgress,
+  min: 0,
+  max: 100,
+  readOnly: true,
+  label: "Download Progress"
+})
+```
+
+Read-only sliders can be focused but not adjusted by the user.
+
+## Accessibility
+
+- Sliders require a unique `id` for focus routing
+- Use `accessibleLabel` for descriptive announcements
+- Use `label` prop to describe the slider's purpose
+- Wrap with `ui.field()` for additional context
+- Disabled sliders are not focusable or adjustable
+- Read-only sliders are focusable but not adjustable
+- Focus indicators are shown when navigating with keyboard
+- Keyboard navigation uses intuitive arrow keys
+
+## Related Widgets
+
+- [Input](/widgets/input) - For text-based numeric input
+- [Field](/widgets/field) - For wrapping inputs with labels
+- [Progress](/widgets/progress) - For displaying progress (non-interactive)
+- [Select](/widgets/select) - For discrete option selection

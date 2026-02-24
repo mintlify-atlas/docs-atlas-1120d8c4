@@ -1,80 +1,379 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quickstart
+description: Build your first Rezi counter app in under 5 minutes.
 ---
 
-## Get started in three steps
+This tutorial walks you through creating a simple counter application using Rezi's `ui.*` factory functions. You'll learn the basics of state management, widget composition, and event handling.
 
-Get your documentation site running locally and make your first customization.
+## Prerequisites
 
-### Step 1: Set up your local environment
+Before starting, make sure you have:
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
+- Node.js 18+ or Bun 1.3+ installed
+- A terminal with 256-color or true-color support
+
+<Tip>
+If you haven't installed Rezi yet, check out the [Installation Guide](/installation) first.
+</Tip>
+
+## Step 1: Scaffold a New Project
+
+The fastest way to start is using `create-rezi`:
+
+<CodeGroup>
+
+```bash npm
+npm create rezi counter-app
+cd counter-app
+```
+
+```bash bun
+bun create rezi counter-app
+cd counter-app
+```
+
+</CodeGroup>
+
+When prompted:
+1. Select **minimal** template (or press Enter for the default)
+2. Wait for dependencies to install
+
+## Step 2: Understanding the Project Structure
+
+The minimal template creates this structure:
+
+```
+counter-app/
+├── src/
+│   ├── main.ts              # App entry point
+│   ├── types.ts             # State and action types
+│   ├── theme.ts             # Theme configuration
+│   ├── screens/
+│   │   └── main-screen.ts   # View function
+│   ├── helpers/
+│   │   ├── state.ts         # State reducer
+│   │   └── keybindings.ts   # Key commands
+│   └── __tests__/
+│       ├── render.test.ts
+│       ├── reducer.test.ts
+│       └── keybindings.test.ts
+├── package.json
+└── tsconfig.json
+```
+
+## Step 3: Build a Counter App
+
+Let's modify the generated code to create a counter. Open `src/types.ts` and define your state:
+
+```ts src/types.ts
+export type AppState = {
+  count: number;
+  themeName: "dark" | "light" | "nord" | "dracula" | "dimmed" | "high-contrast";
+};
+
+export type AppAction =
+  | { type: "increment" }
+  | { type: "decrement" }
+  | { type: "reset" }
+  | { type: "cycle-theme" };
+```
+
+## Step 4: Create the Reducer
+
+Open `src/helpers/state.ts` and implement the state logic:
+
+```ts src/helpers/state.ts
+import type { AppState, AppAction } from "../types.js";
+
+export function createInitialState(): AppState {
+  return {
+    count: 0,
+    themeName: "dark",
+  };
+}
+
+const THEMES = ["dark", "light", "nord", "dracula", "dimmed", "high-contrast"] as const;
+
+export function reduceAppState(state: AppState, action: AppAction): AppState {
+  switch (action.type) {
+    case "increment":
+      return { ...state, count: state.count + 1 };
     
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
+    case "decrement":
+      return { ...state, count: state.count - 1 };
     
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
+    case "reset":
+      return { ...state, count: 0 };
     
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+    case "cycle-theme": {
+      const currentIndex = THEMES.indexOf(state.themeName);
+      const nextIndex = (currentIndex + 1) % THEMES.length;
+      return { ...state, themeName: THEMES[nextIndex] };
+    }
+    
+    default:
+      return state;
+  }
+}
+```
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+## Step 5: Create the View
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+Open `src/screens/main-screen.ts` and build your UI:
 
-### Step 3: Go live
+```ts src/screens/main-screen.ts
+import { ui } from "@rezi-ui/core";
+import type { AppState } from "../types.js";
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+type Actions = {
+  onIncrement: () => void;
+  onDecrement: () => void;
+  onReset: () => void;
+  onCycleTheme: () => void;
+};
 
-## Next steps
+export function renderMainScreen(state: AppState, actions: Actions) {
+  return ui.page({
+    p: 1,
+    gap: 1,
+    header: ui.header({
+      title: "Counter App",
+      subtitle: "Built with Rezi",
+    }),
+    body: ui.column({ gap: 2 }, [
+      // Counter display
+      ui.panel("Count", [
+        ui.row({ gap: 1, items: "center" }, [
+          ui.text(String(state.count), { variant: "heading" }),
+          ui.spacer({ flex: 1 }),
+          ui.badge(state.count > 0 ? "positive" : "neutral", String(state.count)),
+        ]),
+      ]),
+      
+      // Controls
+      ui.panel("Controls", [
+        ui.actions([
+          ui.button({
+            id: "dec",
+            label: "Decrement (-)",
+            intent: "secondary",
+            onPress: actions.onDecrement,
+          }),
+          ui.button({
+            id: "reset",
+            label: "Reset (R)",
+            onPress: actions.onReset,
+          }),
+          ui.button({
+            id: "inc",
+            label: "Increment (+)",
+            intent: "primary",
+            onPress: actions.onIncrement,
+          }),
+        ]),
+      ]),
+      
+      // Info
+      ui.callout("info", [
+        ui.text("Press + to increment, - to decrement, R to reset."),
+        ui.text("Press T to cycle themes. Press Q to quit."),
+      ]),
+    ]),
+  });
+}
+```
 
-Now that you have your docs running, explore these key features:
+## Step 6: Wire Up the App
+
+Open `src/main.ts` and connect everything:
+
+```ts src/main.ts
+import { createNodeApp } from "@rezi-ui/node";
+import { exit } from "node:process";
+import { createInitialState, reduceAppState } from "./helpers/state.js";
+import { renderMainScreen } from "./screens/main-screen.js";
+import { themeSpec } from "./theme.js";
+import type { AppState, AppAction } from "./types.js";
+
+const initialState = createInitialState();
+
+const app = createNodeApp({
+  initialState,
+  config: { fpsCap: 30 },
+  theme: themeSpec(initialState.themeName).theme,
+});
+
+function dispatch(action: AppAction): void {
+  let themeChanged = false;
+  let nextThemeName = initialState.themeName;
+
+  app.update((previous) => {
+    const next = reduceAppState(previous, action);
+    if (next.themeName !== previous.themeName) {
+      nextThemeName = next.themeName;
+      themeChanged = true;
+    }
+    return next;
+  });
+
+  if (themeChanged) {
+    app.setTheme(themeSpec(nextThemeName).theme);
+  }
+}
+
+app.view((state: AppState) =>
+  renderMainScreen(state, {
+    onIncrement: () => dispatch({ type: "increment" }),
+    onDecrement: () => dispatch({ type: "decrement" }),
+    onReset: () => dispatch({ type: "reset" }),
+    onCycleTheme: () => dispatch({ type: "cycle-theme" }),
+  }),
+);
+
+app.keys({
+  q: () => app.stop(),
+  "+": () => dispatch({ type: "increment" }),
+  "shift+=": () => dispatch({ type: "increment" }),
+  "-": () => dispatch({ type: "decrement" }),
+  r: () => dispatch({ type: "reset" }),
+  t: () => dispatch({ type: "cycle-theme" }),
+});
+
+process.once("SIGINT", () => app.stop());
+process.once("SIGTERM", () => app.stop());
+
+await app.start();
+exit(0);
+```
+
+## Step 7: Run Your App
+
+<CodeGroup>
+
+```bash npm
+npm start
+```
+
+```bash bun
+bun start
+```
+
+</CodeGroup>
+
+You should see a counter interface with:
+- A count display with a badge
+- Three buttons for increment, decrement, and reset
+- Help text with keyboard shortcuts
+- Theme cycling support
+
+**Keyboard shortcuts:**
+- `+` — Increment
+- `-` — Decrement
+- `R` — Reset
+- `T` — Cycle themes
+- `Q` — Quit
+
+## Understanding the Code
+
+### State Management
+
+Rezi uses a simple reducer pattern:
+
+1. **State type** — `AppState` defines what data your app holds
+2. **Actions** — `AppAction` union defines all possible state changes
+3. **Reducer** — `reduceAppState()` applies actions to produce new state
+4. **Update** — `app.update()` triggers a state transition and re-render
+
+### Widget Composition
+
+Widgets are composed using factory functions from `ui.*`:
+
+- **`ui.page()`** — Root container with padding and layout
+- **`ui.header()`** — Title bar with subtitle
+- **`ui.panel()`** — Labeled content section
+- **`ui.button()`** — Interactive button with intent styling
+- **`ui.callout()`** — Info/warning/error message box
+
+All widgets accept style props (`p`, `gap`, `flex`, etc.) and semantic props (`variant`, `intent`, etc.).
+
+### Event Handling
+
+Events are handled via callbacks:
+
+- **Widget callbacks** — `onPress`, `onInput`, `onChange`, etc.
+- **Global keybindings** — `app.keys()` for keyboard shortcuts
+- **Lifecycle hooks** — `app.start()`, `app.stop()`, `app.dispose()`
+
+## Using JSX (Optional)
+
+You can also build the same counter with JSX:
+
+```tsx src/screens/main-screen.tsx
+import { Page, Header, Column, Panel, Row, Text, Spacer, Badge, Button, Actions, Callout } from "@rezi-ui/jsx";
+import type { AppState } from "../types.js";
+
+type ActionsType = {
+  onIncrement: () => void;
+  onDecrement: () => void;
+  onReset: () => void;
+  onCycleTheme: () => void;
+};
+
+export function renderMainScreen(state: AppState, actions: ActionsType) {
+  return (
+    <Page
+      p={1}
+      gap={1}
+      header={<Header title="Counter App" subtitle="Built with Rezi" />}
+      body={
+        <Column gap={2}>
+          <Panel title="Count">
+            <Row gap={1} items="center">
+              <Text variant="heading">{String(state.count)}</Text>
+              <Spacer flex={1} />
+              <Badge variant={state.count > 0 ? "positive" : "neutral"}>
+                {String(state.count)}
+              </Badge>
+            </Row>
+          </Panel>
+
+          <Panel title="Controls">
+            <Actions>
+              <Button id="dec" label="Decrement (-)" intent="secondary" onPress={actions.onDecrement} />
+              <Button id="reset" label="Reset (R)" onPress={actions.onReset} />
+              <Button id="inc" label="Increment (+)" intent="primary" onPress={actions.onIncrement} />
+            </Actions>
+          </Panel>
+
+          <Callout variant="info">
+            <Text>Press + to increment, - to decrement, R to reset.</Text>
+            <Text>Press T to cycle themes. Press Q to quit.</Text>
+          </Callout>
+        </Column>
+      }
+    />
+  );
+}
+```
+
+See [JSX Documentation](/jsx) for setup instructions.
+
+## Next Steps
 
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Explore Widgets" icon="grid" href="/widgets/text">
+    Browse the complete widget catalog
+  </Card>
+  
+  <Card title="Learn Concepts" icon="book-open" href="/concepts/overview">
+    Understand Rezi's architecture and patterns
+  </Card>
+  
+  <Card title="Styling Guide" icon="paintbrush" href="/guides/styling">
+    Master layout, theming, and design tokens
+  </Card>
+  
+  <Card title="Example Templates" icon="code" href="/examples">
+    Explore advanced templates and patterns
+  </Card>
 </CardGroup>
-
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>

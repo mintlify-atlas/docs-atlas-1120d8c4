@@ -1,0 +1,295 @@
+---
+title: 'Layout System'
+description: 'Master flexbox-like stacks, grid layout, and intrinsic sizing in Rezi'
+---
+
+Rezi provides a powerful layout engine with flexbox-like stacks, CSS grid-inspired grids, and automatic intrinsic sizing for all widgets.
+
+## Stack Layout (Flexbox)
+
+Stacks are the primary layout primitive. Use `ui.row()` for horizontal layout and `ui.column()` for vertical layout.
+
+### Basic Stack
+
+<CodeGroup>
+```typescript Row
+ui.row({ gap: 2, p: 1 }, [
+  ui.text("Left"),
+  ui.text("Center"),
+  ui.text("Right"),
+])
+```
+
+```typescript Column
+ui.column({ gap: 1, p: 1 }, [
+  ui.text("Top"),
+  ui.text("Middle"),
+  ui.text("Bottom"),
+])
+```
+</CodeGroup>
+
+### Flex Properties
+
+Control how children grow and shrink:
+
+```typescript
+ui.row({ gap: 2 }, [
+  ui.box({ flex: 1, border: "single" }, [ui.text("Grows")]),
+  ui.box({ flexBasis: 20, border: "single" }, [ui.text("Fixed 20")]),
+  ui.box({ flex: 2, border: "single" }, [ui.text("Grows 2x")]),
+])
+```
+
+**Key props:**
+- `flex` — Grow factor (e.g., `flex: 1`)
+- `flexShrink` — Shrink factor when space is constrained
+- `flexBasis` — Initial size before growing/shrinking
+
+### Alignment
+
+<Tabs>
+  <Tab title="Main Axis (justify)">
+    ```typescript
+    ui.row({ justify: "between", p: 1 }, [
+      ui.text("Start"),
+      ui.text("End"),
+    ])
+    ```
+    
+    **Options:** `"start"`, `"end"`, `"center"`, `"between"`, `"around"`, `"evenly"`
+  </Tab>
+  
+  <Tab title="Cross Axis (align)">
+    ```typescript
+    ui.row({ align: "center", h: 5, p: 1 }, [
+      ui.text("Centered vertically"),
+    ])
+    ```
+    
+    **Options:** `"start"`, `"end"`, `"center"`, `"stretch"`
+  </Tab>
+  
+  <Tab title="Per-Child (alignSelf)">
+    ```typescript
+    ui.row({ h: 5 }, [
+      ui.box({ alignSelf: "start" }, [ui.text("Top")]),
+      ui.box({ alignSelf: "center" }, [ui.text("Middle")]),
+      ui.box({ alignSelf: "end" }, [ui.text("Bottom")]),
+    ])
+    ```
+  </Tab>
+</Tabs>
+
+### Wrapping
+
+Enable line wrapping for responsive layouts:
+
+```typescript
+ui.row({ wrap: true, gap: 1, w: 30 }, [
+  ui.badge({ label: "tag1" }),
+  ui.badge({ label: "tag2" }),
+  ui.badge({ label: "tag3" }),
+  ui.badge({ label: "tag4" }),
+  ui.badge({ label: "very-long-tag" }),
+])
+```
+
+When content exceeds available width, children wrap to the next line.
+
+## Grid Layout
+
+Grid provides explicit two-dimensional layout with automatic or manual placement.
+
+### Basic Grid
+
+```typescript
+ui.grid({ columns: 3, gap: 1 }, [
+  ui.box({ border: "single" }, [ui.text("A")]),
+  ui.box({ border: "single" }, [ui.text("B")]),
+  ui.box({ border: "single" }, [ui.text("C")]),
+  ui.box({ border: "single" }, [ui.text("D")]),
+  ui.box({ border: "single" }, [ui.text("E")]),
+])
+```
+
+Creates a 3-column grid with auto-placement.
+
+### Explicit Placement
+
+Place children at specific grid positions:
+
+```typescript
+ui.grid({ columns: 3, rows: 3, gap: 1 }, [
+  ui.box({ gridColumn: 1, gridRow: 1 }, [ui.text("Top-left")]),
+  ui.box({ gridColumn: 3, gridRow: 1 }, [ui.text("Top-right")]),
+  ui.box({ gridColumn: 2, gridRow: 2 }, [ui.text("Center")]),
+])
+```
+
+### Spanning Cells
+
+```typescript
+ui.grid({ columns: 3, gap: 1 }, [
+  ui.box({ colSpan: 2, border: "single" }, [ui.text("Spans 2 columns")]),
+  ui.box({ border: "single" }, [ui.text("1 col")]),
+  ui.box({ colSpan: 3, border: "single" }, [ui.text("Full width")]),
+])
+```
+
+### Track Sizing
+
+Define column/row sizes with fractions:
+
+```typescript
+ui.grid({ 
+  columns: "1fr 2fr 1fr",  // 25%, 50%, 25%
+  rows: 3,
+  gap: 1 
+}, children)
+```
+
+## Intrinsic Sizing
+
+All widgets implement `measureMinContent` and `measureMaxContent` for automatic sizing.
+
+### How It Works
+
+<Steps>
+  <Step title="Min Content">
+    The smallest size a widget can be without overflow. For text, this is the longest word. For containers, it's the minimum size needed for children.
+  </Step>
+  
+  <Step title="Max Content">
+    The ideal size with no constraints. For text, this is the full unwrapped width. For containers, it's the natural size of all children.
+  </Step>
+  
+  <Step title="Layout Engine">
+    The layout engine uses these measurements to resolve `auto` widths and distribute space in flex/grid layouts.
+  </Step>
+</Steps>
+
+### Examples
+
+```typescript Layout constraints
+// Fixed size
+ui.box({ w: 40, h: 10, border: "single" }, [ui.text("Fixed")])
+
+// Min/max constraints
+ui.box({ minW: 20, maxW: 60, border: "single" }, [ui.text(content)])
+
+// Auto-sized to content
+ui.box({ border: "single" }, [ui.text("Auto-sized")])
+```
+
+## Absolute Positioning
+
+Position children absolutely within their parent:
+
+```typescript
+ui.box({ w: 40, h: 10, border: "single" }, [
+  ui.text("Normal flow"),
+  ui.box({ 
+    position: "absolute",
+    top: 1,
+    right: 1,
+  }, [ui.text("[x]")]),
+])
+```
+
+Absolute children are removed from normal flow and positioned relative to their parent's content box.
+
+**Offset props:** `top`, `right`, `bottom`, `left`
+
+## Spacing Scale
+
+Rezi provides a consistent spacing scale:
+
+| Key | Value | Use Case |
+|-----|-------|----------|
+| `0` | 0 | No spacing |
+| `xs` | 0.5 | Tight spacing |
+| `sm` | 1 | Related items |
+| `md` | 2 | Section separation |
+| `lg` | 4 | Major sections |
+| `xl` | 8 | Page-level spacing |
+| `2xl` | 12 | Maximum spacing |
+
+```typescript Using spacing scale
+ui.column({ gap: "md", p: "lg" }, [
+  ui.panel("Section 1", content1),
+  ui.panel("Section 2", content2),
+])
+```
+
+## Padding & Margin
+
+All containers support padding and margin with directional shorthands:
+
+```typescript
+ui.box({
+  p: 2,      // All sides
+  px: 3,     // Horizontal (left + right)
+  py: 1,     // Vertical (top + bottom)
+  pt: 2,     // Top only
+  pr: 1,     // Right only
+  pb: 2,     // Bottom only
+  pl: 1,     // Left only
+}, children)
+```
+
+Same props work for margin: `m`, `mx`, `my`, `mt`, `mr`, `mb`, `ml`.
+
+## Performance
+
+The Rezi layout engine is highly optimized:
+
+- **Binary drawlist** — Layout produces a compact binary representation sent to the native renderer
+- **Incremental layout** — Only dirty subtrees are re-laid out
+- **Two-pass maximum** — Wrapping stacks may require a second pass; all other layouts are single-pass
+- **No DOM** — Direct terminal rendering without browser overhead
+
+From benchmarks (see `BENCHMARKS.md`):
+- Layout stress (grid with many cells): **347 ops/s** (vs Ink: 36 ops/s)
+- Tree construction (100 items): **3.1K ops/s** (vs Ink: 38 ops/s)
+- Virtual list (100K items): **1.0K ops/s** (vs Ink: 44 ops/s)
+
+<Note>
+For maximum performance, prefer `ui.column` over `ui.box` when you don't need borders. The box widget has additional overhead for border rendering and synthetic inner column creation.
+</Note>
+
+## Best Practices
+
+<Tabs>
+  <Tab title="Layout">
+    - Use `ui.column` as your default container
+    - Use `ui.row` for horizontal arrangements
+    - Use `ui.grid` for two-dimensional layouts
+    - Reserve `ui.box` for when you need borders or backgrounds
+  </Tab>
+  
+  <Tab title="Sizing">
+    - Let intrinsic sizing work by default
+    - Use `flex` for proportional growth
+    - Use `minW`/`maxW` for constraints
+    - Use fixed `w`/`h` sparingly
+  </Tab>
+  
+  <Tab title="Spacing">
+    - Use the spacing scale (`"sm"`, `"md"`, `"lg"`) for consistency
+    - Use `gap` between children
+    - Use `p` for container padding
+    - Keep spacing predictable across your app
+  </Tab>
+</Tabs>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Styling" icon="palette" href="/guides/styling">
+    Learn about colors, typography, and style props
+  </Card>
+  <Card title="Theming" icon="paintbrush" href="/guides/theming">
+    Customize your app's visual appearance
+  </Card>
+</CardGroup>

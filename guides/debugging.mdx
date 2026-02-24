@@ -1,0 +1,488 @@
+---
+title: 'Debugging Tools and Techniques'
+description: 'Debug and troubleshoot your Rezi TUI applications effectively'
+---
+
+Rezi provides comprehensive debugging tools including record/replay, inspector overlay, debug panel, and deterministic rendering.
+
+## Debug Panel
+
+Add a live debug panel to your app:
+
+```typescript
+import { debugPanel } from "@rezi-ui/core";
+
+app.view((state) => {
+  return ui.column({ gap: 1 }, [
+    debugPanel({ position: "top-right" }),  // FPS counter + render stats
+    // ... your UI
+  ]);
+});
+```
+
+**Shows:**
+- FPS (frames per second)
+- Frame time (ms)
+- Layout time (ms)
+- Commit time (ms)
+- Total render time (ms)
+- Event count
+
+### Position Options
+
+```typescript
+type DebugPanelPosition = 
+  | "top-left" 
+  | "top-right" 
+  | "bottom-left" 
+  | "bottom-right";
+
+debugPanel({ position: "bottom-left" })
+```
+
+## Inspector Overlay
+
+Visually inspect widget boundaries and metadata:
+
+```typescript
+import { createAppWithInspectorOverlay } from "@rezi-ui/core";
+import { createNodeBackend } from "@rezi-ui/node";
+
+const backend = await createNodeBackend();
+const { app, inspector } = createAppWithInspectorOverlay({
+  backend,
+  initialState: { count: 0 },
+});
+
+// Toggle inspector with F12
+app.keys("f12", () => {
+  inspector.toggle();
+});
+```
+
+**Features:**
+- Widget boundary highlighting
+- Widget tree visualization
+- Layout metadata display
+- Focus state tracking
+- Mouse hover inspection
+
+### Inspector Controls
+
+```typescript
+// Show/hide inspector
+inspector.show();
+inspector.hide();
+inspector.toggle();
+
+// Check state
+if (inspector.isVisible()) {
+  console.log("Inspector is active");
+}
+
+// Configure
+inspector.setOptions({
+  showBoundaries: true,
+  showMetadata: true,
+  highlightFocused: true,
+});
+```
+
+## Record and Replay
+
+Capture app execution for deterministic replay:
+
+```typescript
+import { createNodeApp } from "@rezi-ui/node";
+import { exportReproBundleBytes } from "@rezi-ui/core";
+import { writeFile } from "fs/promises";
+
+const app = createNodeApp({ 
+  initialState: {},
+  config: {
+    enableRepro: true,  // Enable recording
+  },
+});
+
+// After running the app
+const reproBundle = app.exportReproBundle();
+const bytes = exportReproBundleBytes(reproBundle);
+await writeFile("session.repro", bytes);
+```
+
+### Replay Recorded Session
+
+```typescript
+import { parseReproBundleBytes, runReproReplayHarness } from "@rezi-ui/core";
+import { readFile } from "fs/promises";
+
+const bytes = await readFile("session.repro");
+const bundle = parseReproBundleBytes(bytes);
+
+if (!bundle.ok) {
+  console.error("Failed to parse repro bundle:", bundle.error);
+  process.exit(1);
+}
+
+const result = await runReproReplayHarness({
+  bundle: bundle.bundle,
+  view: myViewFunction,
+  onFrame: (frameNumber, snapshot) => {
+    console.log(`Frame ${frameNumber}: ${snapshot.widgets.length} widgets`);
+  },
+});
+
+if (!result.ok) {
+  console.error("Replay failed:", result.fatal || result.mismatch);
+}
+```
+
+**Use cases:**
+- Bug reproduction
+- Performance regression testing
+- Integration test fixtures
+- User session replay
+
+## Debug Logging
+
+Enable detailed logging:
+
+```typescript
+import { createDebugController } from "@rezi-ui/core";
+
+const debugController = createDebugController({
+  categories: ["frame", "event", "perf", "error"],  // What to log
+  onRecord: (record) => {
+    console.log(`[${record.category}] ${JSON.stringify(record.payload)}`);
+  },
+});
+
+const app = createNodeApp({ 
+  initialState: {},
+  config: {
+    debugController,  // Attach debug controller
+  },
+});
+```
+
+### Debug Categories
+
+<Tabs>
+  <Tab title="frame">
+    Frame rendering events:
+    
+    ```typescript
+    { 
+      category: "frame",
+      payload: {
+        frameNumber: 42,
+        widgetCount: 15,
+        renderMs: 2.3,
+        layoutMs: 1.1,
+      }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="event">
+    Input events:
+    
+    ```typescript
+    { 
+      category: "event",
+      payload: {
+        kind: "key",
+        key: "enter",
+        action: "press",
+        id: "save-button",
+      }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="perf">
+    Performance metrics:
+    
+    ```typescript
+    { 
+      category: "perf",
+      payload: {
+        phase: "layout",
+        durationMs: 1.2,
+      }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="error">
+    Runtime errors:
+    
+    ```typescript
+    { 
+      category: "error",
+      payload: {
+        code: "ZRUI_INVALID_PROPS",
+        message: "Button requires id prop",
+        stack: "...",
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Widget Inspection
+
+Debug widget tree structure:
+
+```typescript
+import { inspect, debug } from "@rezi-ui/core";
+
+const view = (state) => {
+  const tree = ui.column({ gap: 1 }, [
+    ui.text("Title"),
+    ui.button({ id: "save", label: "Save" }),
+  ]);
+  
+  // Log widget tree structure
+  console.log(inspect(tree));
+  
+  return tree;
+};
+```
+
+Output:
+```
+Column {
+  gap: 1,
+  children: [
+    Text { content: "Title" },
+    Button { id: "save", label: "Save" },
+  ]
+}
+```
+
+## Error Handling
+
+### Error Boundaries
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.errorBoundary({
+  id: "main-boundary",
+  fallback: (error) => ui.column({ gap: 1, p: 1 }, [
+    ui.text("Something went wrong", { style: { fg: "error", bold: true } }),
+    ui.text(error.message, { style: { fg: "fg.secondary" } }),
+    ui.button({ id: "reload", label: "Reload" }),
+  ]),
+}, [
+  // Protected content
+  riskyWidget(state),
+])
+```
+
+Error boundaries catch errors in child widgets and display fallback UI.
+
+### Global Error Handler
+
+```typescript
+app.onError((error) => {
+  console.error("App error:", error);
+  
+  // Log to file
+  appendFileSync("errors.log", `${new Date().toISOString()} ${error.stack}\n`);
+  
+  // Show error dialog
+  app.update(s => ({
+    showErrorDialog: true,
+    errorMessage: error.message,
+  }));
+});
+```
+
+## Testing Utilities
+
+### Test Renderer
+
+```typescript
+import { createTestRenderer } from "@rezi-ui/core";
+
+const renderer = createTestRenderer({
+  width: 80,
+  height: 24,
+});
+
+const tree = ui.column({ gap: 1 }, [
+  ui.text("Hello"),
+  ui.text("World"),
+]);
+
+const result = renderer.render(tree);
+
+console.log(result.output);  // Rendered text
+console.log(result.widgets);  // Widget tree
+console.log(result.layout);   // Layout metadata
+```
+
+### Snapshot Testing
+
+```typescript
+import { captureSnapshot, serializeSnapshot } from "@rezi-ui/core";
+
+const snapshot = captureSnapshot(tree, { width: 80, height: 24 });
+const serialized = serializeSnapshot(snapshot);
+
+// Compare with golden
+expect(serialized).toMatchSnapshot();
+```
+
+## Deterministic Rendering
+
+Rezi rendering is deterministic by design:
+
+```typescript
+// Same state + same view = same output (always)
+const state = { count: 42 };
+const tree = myViewFunction(state);
+
+const output1 = renderer.render(tree);
+const output2 = renderer.render(tree);
+
+assert(output1.output === output2.output);  // Always true
+```
+
+**Benefits:**
+- Reproducible bugs
+- Reliable snapshots
+- Time-travel debugging
+- Deterministic replay
+
+## Performance Profiling
+
+### Frame Timing
+
+```typescript
+const app = createNodeApp({
+  initialState: {},
+  config: {
+    internal_onRender: (metrics) => {
+      if (metrics.totalMs > 16.67) {  // Dropped frame at 60 FPS
+        console.warn(`Slow frame: ${metrics.totalMs.toFixed(2)}ms`);
+        console.log(`  Layout: ${metrics.layoutMs.toFixed(2)}ms`);
+        console.log(`  Commit: ${metrics.commitMs.toFixed(2)}ms`);
+        console.log(`  Render: ${metrics.renderMs.toFixed(2)}ms`);
+      }
+    },
+  },
+});
+```
+
+### Layout Profiling
+
+```typescript
+const app = createNodeApp({
+  initialState: {},
+  config: {
+    internal_onLayout: (snapshot) => {
+      console.log(`Laid out ${snapshot.totalWidgets} widgets`);
+      console.log(`Dirty widgets: ${snapshot.dirtyWidgets}`);
+      console.log(`Layout passes: ${snapshot.passes}`);
+    },
+  },
+});
+```
+
+## Common Issues
+
+### Missing Widget IDs
+
+```typescript
+// ❌ Error: Button requires id
+ui.button({ label: "Save" })
+
+// ✅ Fixed
+ui.button({ id: "save", label: "Save" })
+```
+
+Interactive widgets require unique `id` props.
+
+### Infinite Update Loop
+
+```typescript
+// ❌ Bad: Creates new object every render
+const view = (state) => {
+  app.update(s => ({ ...s, timestamp: Date.now() }));  // Infinite loop!
+  return ui.text("Hello");
+};
+
+// ✅ Fixed: Update in event handler
+const view = (state) => {
+  return ui.button({ 
+    id: "refresh",
+    label: "Refresh",
+  });
+};
+
+app.on("event", (event, state) => {
+  if (event.action === "press" && event.id === "refresh") {
+    return { timestamp: Date.now() };
+  }
+});
+```
+
+Never call `app.update()` inside view functions.
+
+### Conditional Hook Calls
+
+```typescript
+// ❌ Bad: Conditional hook
+const Widget = defineWidget((props, ctx) => {
+  if (props.enabled) {
+    const value = ctx.useState(0);  // Hook called conditionally!
+  }
+});
+
+// ✅ Fixed: Unconditional hook
+const Widget = defineWidget((props, ctx) => {
+  const value = ctx.useState(0);
+  
+  if (!props.enabled) {
+    return ui.text("Disabled");
+  }
+  
+  // Use value...
+});
+```
+
+Hooks must be called in the same order every render.
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Inspector Overlay" icon="magnifying-glass">
+    Use F12 inspector during development to visualize widget boundaries and debug layout issues.
+  </Card>
+  
+  <Card title="Record Sessions" icon="circle-dot">
+    Enable repro recording for production apps. Recorded sessions are invaluable for debugging reported issues.
+  </Card>
+  
+  <Card title="Error Boundaries" icon="shield-halved">
+    Wrap risky widgets in error boundaries. Prevent one buggy widget from crashing the entire app.
+  </Card>
+  
+  <Card title="Debug Panel" icon="gauge">
+    Keep debug panel visible during development. Watch for frame drops and slow renders.
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Testing" icon="vial" href="/guides/testing">
+    Write automated tests for your TUI components
+  </Card>
+  <Card title="API Reference" icon="book" href="/api/core">
+    Explore the complete API documentation
+  </Card>
+</CardGroup>

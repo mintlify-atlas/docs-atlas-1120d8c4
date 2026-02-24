@@ -1,0 +1,346 @@
+---
+title: "Input"
+description: "Single-line text input widget with controlled value and event handling"
+---
+
+## Overview
+
+The `input` widget creates a focusable, editable text input field. It uses controlled component pattern where the value is managed by your application state.
+
+## Basic Usage
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+// Simple input
+ui.input("name-input", state.name)
+
+// Input with change handler
+ui.input("name-input", state.name, {
+  onInput: (value) => app.update({ name: value })
+})
+
+// Full props object
+ui.input({
+  id: "email-input",
+  value: state.email,
+  placeholder: "Enter your email",
+  onInput: handleEmailChange,
+  onBlur: validateEmail
+})
+```
+
+## Props
+
+<ParamField path="id" type="string" required>
+  Unique identifier for focus routing. Required for all inputs.
+</ParamField>
+
+<ParamField path="value" type="string" required>
+  Current input value. Must be controlled by your application state.
+</ParamField>
+
+<ParamField path="onInput" type="(value: string, cursor: number) => void">
+  Callback invoked when the input value changes. Receives the new value and cursor position.
+</ParamField>
+
+<ParamField path="onBlur" type="() => void">
+  Callback invoked when the input loses focus.
+</ParamField>
+
+<ParamField path="placeholder" type="string">
+  Placeholder text displayed when value is empty.
+</ParamField>
+
+<ParamField path="disabled" type="boolean" default="false">
+  When true, input cannot be focused or edited.
+</ParamField>
+
+<ParamField path="focusable" type="boolean" default="true">
+  When false, opt out of Tab focus order while keeping id-based routing available.
+</ParamField>
+
+<ParamField path="accessibleLabel" type="string">
+  Optional semantic label for accessibility and debug announcements.
+</ParamField>
+
+### Styling Props
+
+<ParamField path="style" type="TextStyle">
+  Optional style applied to the input value (merged with focus/disabled state).
+</ParamField>
+
+<ParamField path="dsSize" type="WidgetSize" default="md">
+  Design system size preset: `"xs"`, `"sm"`, `"md"`, `"lg"`, `"xl"`.
+  
+  Affects input height and padding when recipe styling is active.
+</ParamField>
+
+<ParamField path="focusConfig" type="FocusConfig">
+  Optional focus appearance configuration for custom focus indicators.
+</ParamField>
+
+### Internal Props
+
+<ParamField path="multiline" type="boolean" default="false">
+  Internal prop used by `ui.textarea()`. Do not set directly.
+</ParamField>
+
+<ParamField path="rows" type="number" default="3">
+  Visible line count when multiline mode is enabled. Used by `ui.textarea()`.
+</ParamField>
+
+<ParamField path="wordWrap" type="boolean" default="true">
+  Wrap long lines in multiline mode. Used by `ui.textarea()`.
+</ParamField>
+
+## Event Handling
+
+### Input Changes
+
+The `onInput` callback receives both the new value and cursor position:
+
+```typescript
+ui.input({
+  id: "username",
+  value: state.username,
+  onInput: (value, cursor) => {
+    // Update state with new value
+    app.update({ username: value });
+    
+    // Cursor position is available if needed
+    console.log(`Cursor at position ${cursor}`);
+  }
+})
+```
+
+### Blur Events
+
+Use `onBlur` to trigger validation when the input loses focus:
+
+```typescript
+ui.input({
+  id: "email",
+  value: state.email,
+  onInput: (value) => app.update({ email: value }),
+  onBlur: () => {
+    // Validate when user leaves the field
+    const error = validateEmail(state.email);
+    app.update({ emailError: error });
+  }
+})
+```
+
+## Design System Integration
+
+When the active theme provides semantic color tokens, inputs automatically use design system recipes with:
+- Border styling
+- Elevated background
+- Focus state colors
+- Size-based padding
+
+**Note**: A framed border requires at least 3 rows of height. At 1 row, recipe text/background styling is still applied but without a box border.
+
+```typescript
+// Standard input (uses recipe if theme supports it)
+ui.input("name", state.name)
+
+// Large input
+ui.input("title", state.title, { dsSize: "lg" })
+
+// Small input
+ui.input("code", state.code, { dsSize: "sm" })
+```
+
+If the active theme does not provide semantic tokens, inputs fall back to non-recipe rendering.
+
+## Form Integration
+
+Inputs are typically wrapped with `ui.field()` for labels and error messages:
+
+```typescript
+ui.field({
+  label: "Email Address",
+  required: true,
+  error: state.errors.email,
+  hint: "We'll never share your email",
+  children: ui.input({
+    id: "email",
+    value: state.email,
+    placeholder: "you@example.com",
+    onInput: (value) => app.update({ email: value }),
+    onBlur: () => validateField("email")
+  })
+})
+```
+
+## Validation States
+
+### Error State
+
+Show validation errors using the `ui.field()` wrapper:
+
+```typescript
+ui.field({
+  label: "Username",
+  error: state.touched.username ? state.errors.username : undefined,
+  children: ui.input({
+    id: "username",
+    value: state.username,
+    onInput: (value) => {
+      app.update({ username: value });
+    },
+    onBlur: () => {
+      app.update({ touched: { ...state.touched, username: true } });
+    }
+  })
+})
+```
+
+### Disabled State
+
+```typescript
+ui.input({
+  id: "readonly-field",
+  value: state.computedValue,
+  disabled: true
+})
+```
+
+## Controlled Pattern
+
+Inputs use a controlled component pattern. You must manage the value in your application state:
+
+```typescript
+// Define state
+type State = {
+  username: string;
+};
+
+const initialState: State = {
+  username: ""
+};
+
+// In your view function
+function view(state: State) {
+  return ui.input({
+    id: "username",
+    value: state.username,  // Value from state
+    onInput: (value) => {
+      app.update({ username: value });  // Update state on change
+    }
+  });
+}
+```
+
+## Examples
+
+### Login Form
+
+```typescript
+ui.form([
+  ui.field({
+    label: "Email",
+    error: state.errors.email,
+    children: ui.input({
+      id: "email",
+      value: state.email,
+      placeholder: "you@example.com",
+      onInput: (value) => app.update({ email: value }),
+      onBlur: () => validateEmail()
+    })
+  }),
+  ui.field({
+    label: "Password",
+    error: state.errors.password,
+    children: ui.input({
+      id: "password",
+      value: state.password,
+      placeholder: "Enter password",
+      onInput: (value) => app.update({ password: value })
+    })
+  }),
+  ui.actions([
+    ui.button("login", "Log In", {
+      intent: "primary",
+      disabled: !state.isValid
+    })
+  ])
+])
+```
+
+### Search Input
+
+```typescript
+ui.row({ gap: 1, items: "center" }, [
+  ui.icon("ui.search"),
+  ui.input({
+    id: "search",
+    value: state.query,
+    placeholder: "Search...",
+    onInput: (value) => {
+      app.update({ query: value });
+      // Debounce and trigger search
+      scheduleSearch(value);
+    }
+  })
+])
+```
+
+### Inline Edit
+
+```typescript
+state.editing
+  ? ui.input({
+      id: "title",
+      value: state.title,
+      onInput: (value) => app.update({ title: value }),
+      onBlur: () => {
+        saveTitle(state.title);
+        app.update({ editing: false });
+      }
+    })
+  : ui.text(state.title)
+```
+
+### Number Input (String-Based)
+
+```typescript
+ui.input({
+  id: "age",
+  value: String(state.age),
+  onInput: (value) => {
+    const num = Number.parseInt(value, 10);
+    if (!Number.isNaN(num) && num >= 0) {
+      app.update({ age: num });
+    }
+  }
+})
+```
+
+## Keyboard Shortcuts
+
+When focused, inputs support:
+- **Arrow Left/Right** - Move cursor
+- **Home/End** - Jump to start/end
+- **Backspace/Delete** - Delete characters
+- **Ctrl+A** (or Cmd+A) - Select all
+- **Ctrl+C/V/X** (or Cmd+C/V/X) - Copy/paste/cut
+- **Enter** - Submit (if parent form handles it)
+- **Escape** - Clear selection or blur
+
+## Accessibility
+
+- Inputs require a unique `id` for focus routing
+- Use `accessibleLabel` for descriptive announcements
+- Wrap with `ui.field()` to associate labels with inputs
+- Disabled inputs are not focusable or editable
+- Focus indicators are shown when navigating with keyboard
+
+## Related Widgets
+
+- [Textarea](/widgets/textarea) - For multi-line text input
+- [Field](/widgets/field) - For wrapping inputs with labels and errors
+- [Button](/widgets/button) - For form submission
+- [Select](/widgets/select) - For dropdown selection
+- [Checkbox](/widgets/checkbox) - For boolean inputs

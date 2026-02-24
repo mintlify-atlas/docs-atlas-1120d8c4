@@ -1,0 +1,490 @@
+---
+title: "Diff Viewer"
+description: "Side-by-side and unified diff display with hunk navigation"
+---
+
+# Diff Viewer Widget
+
+The diff viewer widget displays file diffs in unified or side-by-side mode with syntax highlighting, hunk navigation, and intra-line change highlighting.
+
+## Basic Usage
+
+```typescript
+import { ui } from "@rezi-ui/core";
+import { defineWidget } from "@rezi-ui/core";
+import type { DiffData } from "@rezi-ui/core";
+
+const DiffViewer = defineWidget((ctx) => {
+  const [scrollTop, setScrollTop] = ctx.useState(0);
+
+  const diff: DiffData = {
+    oldPath: "src/utils.ts",
+    newPath: "src/utils.ts",
+    status: "modified",
+    hunks: [
+      {
+        oldStart: 1,
+        oldCount: 3,
+        newStart: 1,
+        newCount: 4,
+        header: "function hello()",
+        lines: [
+          { type: "context", content: "function hello() {" },
+          { type: "delete", content: '  console.log("Hello");' },
+          { type: "add", content: '  console.log("Hello, world!");' },
+          { type: "add", content: '  console.log("Welcome");' },
+          { type: "context", content: "}" },
+        ],
+      },
+    ],
+  };
+
+  return ui.diffViewer({
+    id: "my-diff",
+    diff,
+    mode: "unified",
+    scrollTop,
+    onScroll: setScrollTop,
+  });
+});
+```
+
+## View Modes
+
+### Unified Mode
+
+Traditional diff format with added/deleted lines interleaved:
+
+```typescript
+ui.diffViewer({
+  id: "unified-diff",
+  diff,
+  mode: "unified",
+  scrollTop,
+  onScroll: setScrollTop,
+});
+```
+
+Output:
+```
+@@ -1,3 +1,4 @@ function hello()
+  function hello() {
+-   console.log("Hello");
++   console.log("Hello, world!");
++   console.log("Welcome");
+  }
+```
+
+### Side-by-Side Mode
+
+Two-column layout showing old and new versions:
+
+```typescript
+ui.diffViewer({
+  id: "sidebyside-diff",
+  diff,
+  mode: "sideBySide",
+  scrollTop,
+  onScroll: setScrollTop,
+});
+```
+
+## Parsing Unified Diff
+
+Parse standard unified diff output:
+
+```typescript
+import { parseUnifiedDiff } from "@rezi-ui/core";
+
+const diffText = `
+--- a/src/utils.ts
++++ b/src/utils.ts
+@@ -1,3 +1,4 @@
+ function hello() {
+-  console.log("Hello");
++  console.log("Hello, world!");
++  console.log("Welcome");
+ }
+`;
+
+const diff = parseUnifiedDiff(diffText);
+// Returns: DiffData with oldPath, newPath, hunks, status
+```
+
+## Intra-Line Highlighting
+
+Highlight specific character ranges that changed within a line:
+
+```typescript
+import { computeIntraLineHighlights } from "@rezi-ui/core";
+
+const deletedLine = '  console.log("Hello");';
+const addedLine = '  console.log("Hello, world!");';
+
+const highlights = computeIntraLineHighlights(deletedLine, addedLine);
+// Returns:
+// {
+//   deleted: [[18, 23]],  // "Hello" range
+//   added: [[18, 31]],    // "Hello, world!" range
+// }
+
+const diff: DiffData = {
+  oldPath: "file.ts",
+  newPath: "file.ts",
+  status: "modified",
+  hunks: [
+    {
+      oldStart: 1,
+      oldCount: 1,
+      newStart: 1,
+      newCount: 1,
+      lines: [
+        {
+          type: "delete",
+          content: deletedLine,
+          highlights: highlights.deleted,
+        },
+        {
+          type: "add",
+          content: addedLine,
+          highlights: highlights.added,
+        },
+      ],
+    },
+  ],
+};
+```
+
+## Hunk Navigation
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+import { navigateHunk, getHunkScrollPosition } from "@rezi-ui/core";
+
+const DiffWithNav = defineWidget((ctx) => {
+  const [focusedHunk, setFocusedHunk] = ctx.useState(0);
+  const [scrollTop, setScrollTop] = ctx.useState(0);
+
+  const goToNextHunk = () => {
+    const nextHunk = navigateHunk(focusedHunk, "next", diff.hunks.length);
+    setFocusedHunk(nextHunk);
+    setScrollTop(getHunkScrollPosition(nextHunk, diff.hunks));
+  };
+
+  const goToPrevHunk = () => {
+    const prevHunk = navigateHunk(focusedHunk, "prev", diff.hunks.length);
+    setFocusedHunk(prevHunk);
+    setScrollTop(getHunkScrollPosition(prevHunk, diff.hunks));
+  };
+
+  return ui.column({ gap: 1 }, [
+    ui.row({ gap: 1 }, [
+      ui.button({
+        id: "prev-hunk",
+        label: "← Previous Hunk",
+        onPress: goToPrevHunk,
+      }),
+      ui.button({
+        id: "next-hunk",
+        label: "Next Hunk →",
+        onPress: goToNextHunk,
+      }),
+      ui.text(`Hunk ${focusedHunk + 1} of ${diff.hunks.length}`),
+    ]),
+    ui.diffViewer({
+      id: "nav-diff",
+      diff,
+      mode: "unified",
+      scrollTop,
+      focusedHunk,
+      onScroll: setScrollTop,
+    }),
+  ]);
+});
+```
+
+## Hunk Actions
+
+### Stage/Unstage Hunks
+
+```typescript
+ui.diffViewer({
+  id: "git-diff",
+  diff,
+  mode: "unified",
+  scrollTop,
+  onScroll: setScrollTop,
+  onStageHunk: (hunkIndex) => {
+    console.log(`Stage hunk ${hunkIndex}`);
+    // Call git add -p logic
+  },
+  onUnstageHunk: (hunkIndex) => {
+    console.log(`Unstage hunk ${hunkIndex}`);
+    // Call git reset -p logic
+  },
+});
+```
+
+### Apply/Revert Hunks
+
+```typescript
+ui.diffViewer({
+  id: "patch-diff",
+  diff,
+  mode: "unified",
+  scrollTop,
+  onScroll: setScrollTop,
+  onApplyHunk: (hunkIndex) => {
+    console.log(`Apply hunk ${hunkIndex}`);
+    // Apply this hunk to working copy
+  },
+  onRevertHunk: (hunkIndex) => {
+    console.log(`Revert hunk ${hunkIndex}`);
+    // Revert this hunk from working copy
+  },
+});
+```
+
+## Expand/Collapse Hunks
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+const CollapsibleDiff = defineWidget((ctx) => {
+  const [expandedHunks, setExpandedHunks] = ctx.useState<readonly number[]>([]);
+
+  return ui.diffViewer({
+    id: "collapsible-diff",
+    diff,
+    mode: "unified",
+    scrollTop: 0,
+    expandedHunks,
+    onScroll: () => {},
+    onHunkToggle: (hunkIndex, expanded) => {
+      if (expanded) {
+        setExpandedHunks([...expandedHunks, hunkIndex]);
+      } else {
+        setExpandedHunks(expandedHunks.filter((i) => i !== hunkIndex));
+      }
+    },
+  });
+});
+```
+
+## File Status
+
+The `status` field indicates the type of change:
+
+```typescript
+const addedFile: DiffData = {
+  oldPath: "/dev/null",
+  newPath: "src/new-file.ts",
+  status: "added",
+  hunks: [...],
+};
+
+const deletedFile: DiffData = {
+  oldPath: "src/old-file.ts",
+  newPath: "/dev/null",
+  status: "deleted",
+  hunks: [...],
+};
+
+const renamedFile: DiffData = {
+  oldPath: "src/old-name.ts",
+  newPath: "src/new-name.ts",
+  status: "renamed",
+  hunks: [...],
+};
+
+const modifiedFile: DiffData = {
+  oldPath: "src/file.ts",
+  newPath: "src/file.ts",
+  status: "modified",
+  hunks: [...],
+};
+```
+
+## Context Lines
+
+Control how many context lines to show around changes:
+
+```typescript
+ui.diffViewer({
+  id: "context-diff",
+  diff,
+  mode: "unified",
+  scrollTop,
+  onScroll: setScrollTop,
+  contextLines: 5, // Default: 3
+});
+```
+
+## Line Numbers
+
+```typescript
+ui.diffViewer({
+  id: "numbered-diff",
+  diff,
+  mode: "unified",
+  scrollTop,
+  onScroll: setScrollTop,
+  lineNumbers: true, // Default: true
+});
+```
+
+## Git Workflow Example
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+import { parseUnifiedDiff } from "@rezi-ui/core";
+
+const GitDiffViewer = defineWidget((ctx) => {
+  const [diffText, setDiffText] = ctx.useState("");
+  const [scrollTop, setScrollTop] = ctx.useState(0);
+
+  // Load diff from git
+  ctx.useEffect(() => {
+    const loadDiff = async () => {
+      // Example: git diff HEAD~1 HEAD
+      const result = await runGitCommand("git", ["diff", "HEAD~1", "HEAD"]);
+      setDiffText(result.stdout);
+    };
+    loadDiff();
+  }, []);
+
+  const diff = parseUnifiedDiff(diffText);
+
+  return ui.column({ gap: 1 }, [
+    ui.row({ gap: 1 }, [
+      ui.text(`${diff.oldPath} → ${diff.newPath}`, { variant: "heading" }),
+      ui.spacer({ flex: 1 }),
+      ui.badge({
+        text: diff.status,
+        variant:
+          diff.status === "added"
+            ? "success"
+            : diff.status === "deleted"
+              ? "error"
+              : "default",
+      }),
+    ]),
+    ui.diffViewer({
+      id: "git-diff",
+      diff,
+      mode: "unified",
+      scrollTop,
+      onScroll: setScrollTop,
+      onStageHunk: async (hunkIndex) => {
+        // Stage this hunk
+        await runGitCommand("git", ["add", "-p", diff.newPath]);
+      },
+    }),
+  ]);
+});
+```
+
+## Diff Colors
+
+Default color scheme (customizable via theme):
+
+```typescript
+import { DIFF_COLORS } from "@rezi-ui/core";
+
+// Default colors:
+// {
+//   addBg: { r: 35, g: 65, b: 35 },      // Added line background
+//   deleteBg: { r: 65, g: 35, b: 35 },   // Deleted line background
+//   addFg: { r: 150, g: 255, b: 150 },   // Added text
+//   deleteFg: { r: 255, g: 150, b: 150 }, // Deleted text
+//   hunkHeader: { r: 100, g: 149, b: 237 }, // Hunk header
+//   lineNumber: { r: 100, g: 100, b: 100 }, // Line numbers
+//   border: { r: 80, g: 80, b: 80 },     // Borders
+// }
+```
+
+## Flatten Hunks for Rendering
+
+```typescript
+import { flattenHunks } from "@rezi-ui/core";
+import type { FlattenedDiffLine } from "@rezi-ui/core";
+
+const flattened: readonly FlattenedDiffLine[] = flattenHunks(diff.hunks);
+// Returns array of:
+// {
+//   hunkIndex: number,
+//   lineIndex: number,
+//   line: DiffLine,
+//   oldLineNum: number | null,
+//   newLineNum: number | null,
+// }
+```
+
+## Props Reference
+
+### DiffViewerProps
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `id` | `string` | **Required** | Widget identifier |
+| `diff` | `DiffData` | **Required** | Diff data to display |
+| `mode` | `"unified" \| "sideBySide"` | **Required** | View mode |
+| `scrollTop` | `number` | **Required** | Vertical scroll position |
+| `onScroll` | `(scrollTop: number) => void` | **Required** | Scroll callback |
+| `expandedHunks` | `readonly number[]` | — | Expanded hunk indices |
+| `focusedHunk` | `number` | — | Currently focused hunk |
+| `lineNumbers` | `boolean` | `true` | Show line numbers |
+| `contextLines` | `number` | `3` | Context lines around changes |
+| `focusedHunkStyle` | `TextStyle` | — | Focused hunk header style |
+| `onHunkToggle` | `(hunkIndex: number, expanded: boolean) => void` | — | Hunk expand callback |
+| `onStageHunk` | `(hunkIndex: number) => void` | — | Stage hunk callback |
+| `onUnstageHunk` | `(hunkIndex: number) => void` | — | Unstage hunk callback |
+| `onApplyHunk` | `(hunkIndex: number) => void` | — | Apply hunk callback |
+| `onRevertHunk` | `(hunkIndex: number) => void` | — | Revert hunk callback |
+| `focusable` | `boolean` | `true` | Include in tab order |
+| `accessibleLabel` | `string` | — | Accessibility label |
+| `focusConfig` | `FocusConfig` | — | Focus appearance |
+| `scrollbarVariant` | `"minimal" \| "classic" \| "modern" \| "dots" \| "thin"` | `"minimal"` | Scrollbar style |
+| `scrollbarStyle` | `TextStyle` | — | Scrollbar color |
+
+### DiffData
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `oldPath` | `string` | Original file path |
+| `newPath` | `string` | New file path |
+| `hunks` | `readonly DiffHunk[]` | Diff hunks |
+| `isBinary` | `boolean` | Binary file flag |
+| `status` | `"added" \| "deleted" \| "modified" \| "renamed" \| "copied"` | File change status |
+
+### DiffHunk
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `oldStart` | `number` | Original line range start |
+| `oldCount` | `number` | Original line count |
+| `newStart` | `number` | New line range start |
+| `newCount` | `number` | New line count |
+| `header` | `string` | Optional header text |
+| `lines` | `readonly DiffLine[]` | Hunk lines |
+
+### DiffLine
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `type` | `"context" \| "add" \| "delete"` | Line type |
+| `content` | `string` | Line content |
+| `oldLineNumber` | `number` | Original line number |
+| `newLineNumber` | `number` | New line number |
+| `highlights` | `readonly [number, number][]` | Intra-line change ranges |
+
+## Related Widgets
+
+- [Code Editor](/widgets/code-editor) - Multi-line code editing
+- [Logs Console](/widgets/logs-console) - Streaming output display
+
+## Location in Source
+
+- Implementation: `packages/core/src/widgets/diffViewer.ts`
+- Types: `packages/core/src/widgets/types.ts:2014-2103`
+- Factory: `packages/core/src/widgets/ui.ts:diffViewer()`

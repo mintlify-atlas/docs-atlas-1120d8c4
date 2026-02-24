@@ -1,0 +1,351 @@
+---
+title: "Progress"
+description: "Visual progress bar for displaying completion status of operations"
+---
+
+## Overview
+
+The Progress widget displays a visual progress bar indicating the completion percentage of an operation. It supports multiple visual variants, customizable styling, and optional labels.
+
+## Usage
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+// Basic progress bar (50% complete)
+ui.progress(0.5)
+
+// With percentage label
+ui.progress(0.75, { showPercent: true })
+
+// With custom label and width
+ui.progress(0.3, {
+  label: "Downloading:",
+  width: 30,
+  showPercent: true,
+})
+```
+
+## Props
+
+<ParamField path="value" type="number" required>
+  Progress value from 0 to 1 (0% to 100%)
+</ParamField>
+
+<ParamField path="width" type="number">
+  Display width in terminal cells. If not specified, fills available space.
+</ParamField>
+
+<ParamField path="variant" type="string" default="bar">
+  Visual variant:
+  - `"bar"` - Traditional solid progress bar
+  - `"blocks"` - Block-style segmented bar
+  - `"minimal"` - Minimalist thin bar
+</ParamField>
+
+<ParamField path="showPercent" type="boolean" default="false">
+  Whether to display the percentage value as text
+</ParamField>
+
+<ParamField path="label" type="string">
+  Optional label text displayed before the progress bar
+</ParamField>
+
+<ParamField path="style" type="TextStyle">
+  Style for the filled portion of the bar
+</ParamField>
+
+<ParamField path="trackStyle" type="TextStyle">
+  Style for the unfilled/track portion of the bar
+</ParamField>
+
+<ParamField path="dsTone" type="WidgetTone">
+  Design system color tone (`"default"`, `"primary"`, `"success"`, `"warning"`, `"danger"`)
+</ParamField>
+
+<ParamField path="key" type="string">
+  Optional reconciliation key
+</ParamField>
+
+## Examples
+
+### Basic Progress Bar
+
+```typescript
+function DownloadProgress(state: { progress: number }) {
+  return ui.column({ gap: 1, p: 1 }, [
+    ui.text("Downloading file..."),
+    ui.progress(state.progress, { showPercent: true, width: 40 }),
+  ]);
+}
+```
+
+### Multiple Progress Indicators
+
+```typescript
+type Task = { name: string; progress: number };
+
+function TaskList(tasks: readonly Task[]) {
+  return ui.column({ gap: 1 }, [
+    ui.text("Active Tasks", { variant: "heading" }),
+    ...tasks.map((task, i) =>
+      ui.column({ gap: 0, key: String(i) }, [
+        ui.text(task.name),
+        ui.progress(task.progress, { showPercent: true }),
+      ])
+    ),
+  ]);
+}
+```
+
+### Visual Variants
+
+```typescript
+function ProgressVariants() {
+  const progress = 0.65;
+  
+  return ui.column({ gap: 1, p: 1 }, [
+    ui.text("Progress Variants", { variant: "heading" }),
+    
+    ui.text("Bar Variant"),
+    ui.progress(progress, { variant: "bar", width: 30 }),
+    
+    ui.text("Blocks Variant"),
+    ui.progress(progress, { variant: "blocks", width: 30 }),
+    
+    ui.text("Minimal Variant"),
+    ui.progress(progress, { variant: "minimal", width: 30 }),
+  ]);
+}
+```
+
+### Colored Progress with Design System
+
+```typescript
+function ColoredProgress(state: { progress: number }) {
+  // Determine tone based on progress
+  const tone = 
+    state.progress < 0.3 ? "danger" :
+    state.progress < 0.7 ? "warning" :
+    "success";
+  
+  return ui.progress(state.progress, {
+    label: "Completion:",
+    showPercent: true,
+    dsTone: tone,
+  });
+}
+```
+
+### Custom Styled Progress
+
+```typescript
+import { rgb } from "@rezi-ui/core";
+
+function CustomStyledProgress() {
+  return ui.progress(0.6, {
+    width: 40,
+    showPercent: true,
+    style: {
+      fg: rgb(100, 255, 100),
+      bg: rgb(0, 80, 0),
+    },
+    trackStyle: {
+      bg: rgb(40, 40, 40),
+    },
+  });
+}
+```
+
+## Progress Patterns
+
+### Upload Progress with Status
+
+```typescript
+type UploadState = {
+  progress: number;
+  bytesUploaded: number;
+  totalBytes: number;
+  speed: number;
+};
+
+function UploadProgress(state: UploadState) {
+  const percent = Math.round(state.progress * 100);
+  const mbUploaded = (state.bytesUploaded / 1024 / 1024).toFixed(1);
+  const mbTotal = (state.totalBytes / 1024 / 1024).toFixed(1);
+  const speedMbps = (state.speed / 1024 / 1024).toFixed(1);
+  
+  return ui.panel("Upload Status", [
+    ui.progress(state.progress, { variant: "bar" }),
+    ui.row({ gap: 2, justify: "between" }, [
+      ui.text(`${percent}% complete`),
+      ui.text(`${mbUploaded} / ${mbTotal} MB`),
+      ui.text(`${speedMbps} MB/s`, { style: { dim: true } }),
+    ]),
+  ]);
+}
+```
+
+### Multi-Stage Progress
+
+```typescript
+type Stage = { name: string; completed: boolean };
+
+function MultiStageProgress(state: {
+  stages: readonly Stage[];
+  currentStage: number;
+  stageProgress: number;
+}) {
+  const totalProgress = 
+    (state.currentStage + state.stageProgress) / state.stages.length;
+  
+  return ui.column({ gap: 1, p: 1 }, [
+    ui.progress(totalProgress, { showPercent: true }),
+    ui.divider(),
+    ...state.stages.map((stage, i) => {
+      const isCurrent = i === state.currentStage;
+      const isCompleted = stage.completed;
+      
+      return ui.row({ gap: 1, key: String(i) }, [
+        ui.icon(
+          isCompleted ? "status.check" : 
+          isCurrent ? "arrow.right" : "ui.circle"
+        ),
+        ui.text(stage.name, {
+          style: {
+            bold: isCurrent,
+            dim: !isCurrent && !isCompleted,
+          },
+        }),
+      ]);
+    }),
+  ]);
+}
+```
+
+### Indeterminate Progress Simulation
+
+```typescript
+function IndeterminateProgress(state: { step: number }) {
+  // Simulate indeterminate by oscillating between 0.3 and 0.7
+  const progress = 0.5 + 0.2 * Math.sin(state.step * 0.1);
+  
+  return ui.progress(progress, {
+    label: "Processing...",
+    variant: "minimal",
+  });
+}
+```
+
+### Batch Progress Summary
+
+```typescript
+type BatchItem = { id: string; progress: number };
+
+function BatchProgress(items: readonly BatchItem[]) {
+  const totalProgress = 
+    items.reduce((sum, item) => sum + item.progress, 0) / items.length;
+  const completed = items.filter(item => item.progress >= 1).length;
+  
+  return ui.column({ gap: 1 }, [
+    ui.text(`Processing ${items.length} items`, { variant: "heading" }),
+    ui.progress(totalProgress, { variant: "bar" }),
+    ui.text(
+      `${completed} of ${items.length} complete (${Math.round(totalProgress * 100)}%)`,
+      { style: { dim: true } }
+    ),
+  ]);
+}
+```
+
+## Animation with Transitions
+
+Animate progress changes smoothly using container transitions:
+
+```typescript
+import { defineWidget, useAnimatedValue } from "@rezi-ui/core";
+
+const AnimatedProgress = defineWidget<{ target: number }>(
+  "AnimatedProgress",
+  (props) => {
+    const progress = useAnimatedValue(0);
+    
+    // Animate to target over 300ms
+    progress.animateTo(props.target, { duration: 300 });
+    
+    return ui.progress(progress.value, { showPercent: true });
+  }
+);
+```
+
+## Design System Integration
+
+Progress bars use design system tones when available:
+
+```typescript
+// Default theme accent color
+ui.progress(0.5)
+
+// Success tone (green)
+ui.progress(0.8, { dsTone: "success" })
+
+// Warning tone (yellow)
+ui.progress(0.4, { dsTone: "warning" })
+
+// Danger tone (red)
+ui.progress(0.2, { dsTone: "danger" })
+```
+
+## Accessibility
+
+<Tip>
+  Always provide context when displaying progress:
+  1. Include a descriptive label
+  2. Show percentage for precise feedback
+  3. Display time estimates when available
+  4. Announce completion states clearly
+</Tip>
+
+```typescript
+function AccessibleProgress(state: {
+  progress: number;
+  eta: number; // seconds remaining
+}) {
+  const percent = Math.round(state.progress * 100);
+  const etaText = 
+    state.eta > 60 
+      ? `${Math.round(state.eta / 60)} min remaining`
+      : `${state.eta} sec remaining`;
+  
+  return ui.column({ gap: 1 }, [
+    ui.progress(state.progress, { label: "Installation progress:", showPercent: true }),
+    ui.text(etaText, { style: { dim: true } }),
+  ]);
+}
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Show percentage" icon="percent">
+    Enable `showPercent` for operations where precise completion is important.
+  </Card>
+  
+  <Card title="Use appropriate width" icon="ruler-horizontal">
+    Set explicit width for consistent alignment in layouts with multiple progress bars.
+  </Card>
+  
+  <Card title="Update frequently" icon="arrows-rotate">
+    Update progress at regular intervals (not on every byte) to avoid excessive re-renders.
+  </Card>
+  
+  <Card title="Color code status" icon="palette">
+    Use `dsTone` to indicate different states: success (green), warning (yellow), danger (red).
+  </Card>
+</CardGroup>
+
+## Related Widgets
+
+- [Spinner](/widgets/spinner) - For indeterminate loading states
+- [Gauge](/widgets/gauge) - For compact metric visualization
+- [Sparkline](/widgets/sparkline) - For historical progress trends

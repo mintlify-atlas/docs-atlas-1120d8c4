@@ -1,0 +1,526 @@
+---
+title: 'Canvas, Images, and Graphics'
+description: 'Draw custom graphics, display images, and create charts in your TUI'
+---
+
+Rezi provides powerful graphics capabilities with canvas drawing, image display with multiple protocols, and built-in chart widgets.
+
+## Canvas Widget
+
+Draw custom graphics with sub-cell precision using the canvas widget.
+
+### Basic Canvas
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.canvas({
+  id: "mycanvas",
+  w: 40,
+  h: 20,
+  blitter: "braille",  // Sub-cell rendering
+  draw: (ctx) => {
+    // Draw a rectangle
+    ctx.fillStyle = "#ff0000";
+    ctx.fillRect(10, 10, 20, 10);
+    
+    // Draw a circle
+    ctx.fillStyle = "#00ff00";
+    ctx.beginPath();
+    ctx.arc(50, 30, 15, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Draw a line
+    ctx.strokeStyle = "#0000ff";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(80, 80);
+    ctx.stroke();
+  },
+})
+```
+
+### Canvas Blitters
+
+Different blitters provide different resolutions:
+
+<Tabs>
+  <Tab title="Braille (2x4)">
+    ```typescript
+    ui.canvas({ blitter: "braille", w: 40, h: 20 })
+    ```
+    
+    **Resolution:** 2x4 pixels per cell (80x80 pixels for 40x20 canvas)
+    
+    Best for smooth curves and detailed graphics.
+  </Tab>
+  
+  <Tab title="Sextant (2x3)">
+    ```typescript
+    ui.canvas({ blitter: "sextant", w: 40, h: 20 })
+    ```
+    
+    **Resolution:** 2x3 pixels per cell (80x60 pixels)
+    
+    Good balance of detail and compatibility.
+  </Tab>
+  
+  <Tab title="Quadrant (2x2)">
+    ```typescript
+    ui.canvas({ blitter: "quadrant", w: 40, h: 20 })
+    ```
+    
+    **Resolution:** 2x2 pixels per cell (80x40 pixels)
+    
+    Block-based rendering, widely supported.
+  </Tab>
+  
+  <Tab title="Halfblock (1x2)">
+    ```typescript
+    ui.canvas({ blitter: "halfblock", w: 40, h: 20 })
+    ```
+    
+    **Resolution:** 1x2 pixels per cell (40x40 pixels)
+    
+    Vertical half-blocks, good for bar charts.
+  </Tab>
+  
+  <Tab title="ASCII (1x1)">
+    ```typescript
+    ui.canvas({ blitter: "ascii", w: 40, h: 20 })
+    ```
+    
+    **Resolution:** 1x1 pixels per cell (40x20 pixels)
+    
+    Fallback for terminals without Unicode support.
+  </Tab>
+  
+  <Tab title="Auto">
+    ```typescript
+    ui.canvas({ blitter: "auto", w: 40, h: 20 })
+    ```
+    
+    Automatically selects best blitter based on terminal capabilities.
+  </Tab>
+</Tabs>
+
+### Drawing API
+
+The canvas context provides a subset of HTML5 Canvas API:
+
+```typescript
+type CanvasContext = {
+  // Styling
+  fillStyle: string;      // Fill color (hex or theme path)
+  strokeStyle: string;    // Stroke color
+  lineWidth: number;      // Line width in pixels
+  
+  // Shapes
+  fillRect(x: number, y: number, w: number, h: number): void;
+  strokeRect(x: number, y: number, w: number, h: number): void;
+  clearRect(x: number, y: number, w: number, h: number): void;
+  
+  // Paths
+  beginPath(): void;
+  closePath(): void;
+  moveTo(x: number, y: number): void;
+  lineTo(x: number, y: number): void;
+  arc(x: number, y: number, radius: number, startAngle: number, endAngle: number): void;
+  fill(): void;
+  stroke(): void;
+  
+  // Text overlay
+  fillText(text: string, x: number, y: number, color?: string): void;
+};
+```
+
+### Interactive Canvas
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+const InteractiveCanvas = defineWidget((props, ctx) => {
+  const [points, setPoints] = ctx.useState<Array<{ x: number; y: number }>>([]);
+  
+  return ui.canvas({
+    id: ctx.id("canvas"),
+    w: 40,
+    h: 20,
+    blitter: "braille",
+    draw: (canvasCtx) => {
+      // Draw all points
+      canvasCtx.fillStyle = "#ff0000";
+      for (const point of points) {
+        canvasCtx.fillRect(point.x, point.y, 2, 2);
+      }
+    },
+    onClick: (x, y) => {
+      setPoints([...points, { x, y }]);
+    },
+  });
+});
+```
+
+## Image Widget
+
+Display images using terminal graphics protocols.
+
+### Supported Protocols
+
+<Tabs>
+  <Tab title="Kitty">
+    ```typescript
+    ui.image({
+      id: "photo",
+      src: imageBytes,  // PNG or RGBA bytes
+      protocol: "kitty",
+      w: 40,
+      h: 20,
+      fit: "contain",
+    })
+    ```
+    
+    **Support:** Kitty terminal
+    
+    High-quality image rendering with true color.
+  </Tab>
+  
+  <Tab title="Sixel">
+    ```typescript
+    ui.image({
+      id: "photo",
+      src: imageBytes,
+      protocol: "sixel",
+      w: 40,
+      h: 20,
+    })
+    ```
+    
+    **Support:** XTerm, MLTerm, and many others
+    
+    Widely supported bitmap graphics protocol.
+  </Tab>
+  
+  <Tab title="iTerm2">
+    ```typescript
+    ui.image({
+      id: "photo",
+      src: imageBytes,
+      protocol: "iterm2",
+      w: 40,
+      h: 20,
+    })
+    ```
+    
+    **Support:** iTerm2 on macOS
+    
+    Base64-encoded inline images.
+  </Tab>
+  
+  <Tab title="Auto">
+    ```typescript
+    ui.image({
+      id: "photo",
+      src: imageBytes,
+      protocol: "auto",  // Auto-detect best protocol
+      w: 40,
+      h: 20,
+    })
+    ```
+    
+    Automatically selects the best protocol based on terminal capabilities.
+  </Tab>
+</Tabs>
+
+### Image Formats
+
+```typescript
+// PNG images
+const pngBytes = await readFile("image.png");
+ui.image({ id: "img", src: pngBytes, protocol: "auto" })
+
+// RGBA pixel data
+const rgba = new Uint8Array(width * height * 4);
+// Fill rgba with pixel data (R, G, B, A for each pixel)
+ui.image({ id: "img", src: rgba, protocol: "auto" })
+```
+
+### Image Fit Modes
+
+```typescript
+type ImageFit = "contain" | "cover" | "fill" | "none";
+
+// Contain: Scale to fit within bounds, preserve aspect ratio
+ui.image({ fit: "contain", src: bytes, protocol: "auto" })
+
+// Cover: Scale to cover bounds, crop excess
+ui.image({ fit: "cover", src: bytes, protocol: "auto" })
+
+// Fill: Stretch to fill bounds, ignore aspect ratio
+ui.image({ fit: "fill", src: bytes, protocol: "auto" })
+
+// None: No scaling, display at original size
+ui.image({ fit: "none", src: bytes, protocol: "auto" })
+```
+
+## Chart Widgets
+
+Rezi includes built-in chart widgets for common visualizations.
+
+### Line Chart
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.lineChart({
+  id: "metrics",
+  series: [
+    {
+      label: "CPU",
+      data: [20, 35, 45, 40, 55, 60],
+      color: { r: 255, g: 180, b: 84 },
+    },
+    {
+      label: "Memory",
+      data: [30, 40, 38, 45, 50, 48],
+      color: { r: 89, g: 194, b: 255 },
+    },
+  ],
+  w: 60,
+  h: 15,
+  xAxis: { label: "Time" },
+  yAxis: { label: "Usage %", min: 0, max: 100 },
+})
+```
+
+### Bar Chart
+
+```typescript
+ui.barChart({
+  id: "sales",
+  items: [
+    { label: "Q1", value: 125, color: { r: 170, g: 217, b: 76 } },
+    { label: "Q2", value: 180, color: { r: 255, g: 180, b: 84 } },
+    { label: "Q3", value: 220, color: { r: 89, g: 194, b: 255 } },
+    { label: "Q4", value: 195, color: { r: 240, g: 113, b: 120 } },
+  ],
+  w: 40,
+  h: 10,
+  orientation: "vertical",  // or "horizontal"
+})
+```
+
+### Scatter Plot
+
+```typescript
+ui.scatter({
+  id: "distribution",
+  points: [
+    { x: 10, y: 20, label: "A", color: { r: 255, g: 0, b: 0 } },
+    { x: 25, y: 35, label: "B", color: { r: 0, g: 255, b: 0 } },
+    { x: 40, y: 15, label: "C", color: { r: 0, g: 0, b: 255 } },
+  ],
+  w: 50,
+  h: 20,
+  xAxis: { min: 0, max: 50, label: "X" },
+  yAxis: { min: 0, max: 50, label: "Y" },
+})
+```
+
+### Heatmap
+
+```typescript
+ui.heatmap({
+  id: "activity",
+  data: [
+    [0, 1, 2, 3, 4],
+    [5, 6, 7, 8, 9],
+    [10, 11, 12, 13, 14],
+  ],
+  w: 25,
+  h: 6,
+  colorScale: "viridis",  // "viridis" | "plasma" | "inferno" | "magma" | "grayscale"
+  min: 0,
+  max: 14,
+})
+```
+
+### Sparkline
+
+```typescript
+ui.sparkline({
+  data: [10, 15, 13, 17, 20, 18, 22, 25],
+  w: 20,
+  h: 3,
+  style: { fg: "accent.primary" },
+})
+```
+
+### Gauge
+
+```typescript
+ui.gauge({
+  id: "cpu-usage",
+  value: 65,
+  min: 0,
+  max: 100,
+  w: 20,
+  h: 10,
+  label: "CPU",
+  color: { r: 255, g: 180, b: 84 },
+})
+```
+
+## Terminal Graphics Detection
+
+Rezi auto-detects terminal capabilities:
+
+```typescript
+const caps = app.getCaps();
+
+if (caps.images) {
+  console.log(`Image protocol: ${caps.imageProtocol}`);
+  // "kitty" | "sixel" | "iterm2" | "none"
+}
+
+if (caps.subcell) {
+  console.log("Terminal supports Unicode box drawing");
+  // Can use braille, sextant, quadrant blitters
+}
+```
+
+### Graceful Degradation
+
+```typescript
+import { resolveCanvasBlitter } from "@rezi-ui/core";
+
+const caps = app.getCaps();
+const blitter = resolveCanvasBlitter("auto", caps.subcell);
+// Returns best available blitter based on terminal support
+
+ui.canvas({
+  id: "chart",
+  blitter,
+  w: 40,
+  h: 20,
+  draw: (ctx) => {
+    // Draw chart...
+  },
+})
+```
+
+## Real-World Examples
+
+### CPU Usage Chart
+
+```typescript
+import { defineWidget, useInterval } from "@rezi-ui/core";
+
+const CpuChart = defineWidget((props, ctx) => {
+  const [data, setData] = ctx.useState<number[]>([]);
+  
+  useInterval(ctx, () => {
+    const newValue = Math.random() * 100;
+    setData(prev => [...prev.slice(-29), newValue]);  // Keep last 30 values
+  }, 1000);
+  
+  return ui.lineChart({
+    id: ctx.id("chart"),
+    series: [{
+      label: "CPU %",
+      data,
+      color: { r: 255, g: 180, b: 84 },
+    }],
+    w: 60,
+    h: 12,
+    xAxis: { label: "Time (s)" },
+    yAxis: { label: "Usage %", min: 0, max: 100 },
+  });
+});
+```
+
+### Image Viewer
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+import { readFile } from "fs/promises";
+
+const ImageViewer = defineWidget<{ path: string }>((props, ctx) => {
+  const [imageBytes, setImageBytes] = ctx.useState<Uint8Array | null>(null);
+  
+  ctx.useEffect(() => {
+    readFile(props.path).then(setImageBytes);
+  }, [props.path]);
+  
+  if (!imageBytes) {
+    return ui.text("Loading...");
+  }
+  
+  return ui.image({
+    id: ctx.id("img"),
+    src: imageBytes,
+    protocol: "auto",
+    fit: "contain",
+    w: 80,
+    h: 40,
+  });
+});
+```
+
+### Custom Data Visualization
+
+```typescript
+const CustomViz = defineWidget<{ data: number[] }>((props, ctx) => {
+  return ui.canvas({
+    id: ctx.id("viz"),
+    w: 60,
+    h: 20,
+    blitter: "braille",
+    draw: (canvasCtx) => {
+      const max = Math.max(...props.data);
+      const barWidth = (60 * 2) / props.data.length;  // 2 pixels per cell
+      
+      props.data.forEach((value, index) => {
+        const height = (value / max) * (20 * 4);  // 4 pixels per cell
+        const x = index * barWidth;
+        const y = (20 * 4) - height;
+        
+        canvasCtx.fillStyle = "#59c2ff";
+        canvasCtx.fillRect(x, y, barWidth - 2, height);
+      });
+    },
+  });
+});
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Auto Blitter" icon="wand-magic-sparkles">
+    Use `blitter: "auto"` for canvas widgets. Rezi will select the best available blitter based on terminal capabilities.
+  </Card>
+  
+  <Card title="Auto Protocol" icon="image">
+    Use `protocol: "auto"` for images. Rezi will detect and use the best graphics protocol supported by the terminal.
+  </Card>
+  
+  <Card title="Built-in Charts" icon="chart-line">
+    Prefer built-in chart widgets over custom canvas drawing for common visualizations. They're optimized and handle edge cases.
+  </Card>
+  
+  <Card title="Graceful Degradation" icon="shield-check">
+    Always provide fallbacks for terminals without graphics support. Consider rendering text-based alternatives.
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Performance" icon="gauge-high" href="/guides/performance">
+    Optimize your app for maximum performance
+  </Card>
+  <Card title="Debugging" icon="bug" href="/guides/debugging">
+    Debug and troubleshoot your TUI apps
+  </Card>
+</CardGroup>

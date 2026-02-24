@@ -1,0 +1,443 @@
+---
+title: "Dropdown"
+description: "Contextual menu positioned relative to anchor with keyboard navigation and auto-flip"
+icon: "caret-down"
+---
+
+## Overview
+
+The `dropdown` widget creates a contextual menu positioned relative to an anchor element. Supports keyboard navigation, automatic edge detection with flip, and configurable positioning.
+
+## Basic Usage
+
+```typescript
+import { ui } from "@rezi-ui/core";
+import { defineWidget } from "@rezi-ui/core";
+
+const DropdownExample = defineWidget((ctx) => {
+  const [menuOpen, setMenuOpen] = ctx.useState(false);
+
+  return ui.layers([
+    ui.column({ gap: 1, p: 1 }, [
+      ui.button({
+        id: "menu-button",
+        label: "Open Menu",
+        onPress: () => setMenuOpen(true),
+      }),
+    ]),
+    menuOpen &&
+      ui.dropdown({
+        id: "main-menu",
+        anchorId: "menu-button",
+        position: "below-start",
+        items: [
+          { id: "new", label: "New File", shortcut: "Ctrl+N" },
+          { id: "open", label: "Open...", shortcut: "Ctrl+O" },
+          { id: "save", label: "Save", shortcut: "Ctrl+S" },
+          { id: "divider1", label: "", divider: true },
+          { id: "exit", label: "Exit" },
+        ],
+        onSelect: (item) => {
+          handleMenuAction(item.id);
+          setMenuOpen(false);
+        },
+        onClose: () => setMenuOpen(false),
+      }),
+  ]);
+});
+```
+
+## Props
+
+<ParamField path="id" type="string" required>
+  Unique identifier for focus routing.
+</ParamField>
+
+<ParamField path="anchorId" type="string" required>
+  ID of the anchor element to position relative to.
+</ParamField>
+
+<ParamField path="items" type="readonly DropdownItem[]" required>
+  Menu items to render. Each item has:
+  - `id` (string) - Unique item ID
+  - `label` (string) - Display text
+  - `shortcut` (string, optional) - Keyboard shortcut hint
+  - `disabled` (boolean, optional) - Disable selection
+  - `divider` (boolean, optional) - Render as divider
+</ParamField>
+
+<ParamField path="position" type="DropdownPosition" default="'below-start'">
+  Position relative to anchor:
+  - `"below-start"` - Below, left-aligned
+  - `"below-center"` - Below, center-aligned
+  - `"below-end"` - Below, right-aligned
+  - `"above-start"` - Above, left-aligned
+  - `"above-center"` - Above, center-aligned
+  - `"above-end"` - Above, right-aligned
+</ParamField>
+
+<ParamField path="onSelect" type="(item: DropdownItem) => void">
+  Callback when an item is selected.
+</ParamField>
+
+<ParamField path="onClose" type="() => void">
+  Callback when dropdown should close (ESC key or outside click).
+</ParamField>
+
+### Styling
+
+<ParamField path="frameStyle" type="OverlayFrameStyle">
+  Frame/surface colors for dropdown background, text, and border.
+</ParamField>
+
+<ParamField path="dsVariant" type="WidgetVariant">
+  Design system visual variant.
+</ParamField>
+
+<ParamField path="dsTone" type="WidgetTone">
+  Design system color tone.
+</ParamField>
+
+<ParamField path="dsSize" type="WidgetSize">
+  Design system size preset.
+</ParamField>
+
+## Keyboard Navigation
+
+| Key | Action |
+|-----|--------|
+| `Up` | Select previous item |
+| `Down` | Select next item |
+| `Home` | Jump to first item |
+| `End` | Jump to last item |
+| `Enter` | Activate selected item |
+| `ESC` | Close dropdown |
+
+## Position Variants
+
+### Below Anchor
+
+```typescript
+// Left-aligned
+ui.dropdown({
+  id: "dropdown",
+  anchorId: "button",
+  position: "below-start",
+  items,
+  onSelect: handleSelect,
+  onClose: closeDropdown,
+});
+
+// Center-aligned
+ui.dropdown({
+  id: "dropdown",
+  anchorId: "button",
+  position: "below-center",
+  items,
+  onSelect: handleSelect,
+  onClose: closeDropdown,
+});
+
+// Right-aligned
+ui.dropdown({
+  id: "dropdown",
+  anchorId: "button",
+  position: "below-end",
+  items,
+  onSelect: handleSelect,
+  onClose: closeDropdown,
+});
+```
+
+### Above Anchor
+
+```typescript
+ui.dropdown({
+  id: "dropdown",
+  anchorId: "button",
+  position: "above-start",
+  items,
+  onSelect: handleSelect,
+  onClose: closeDropdown,
+});
+```
+
+## Context Menu
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+const ContextMenuExample = defineWidget((ctx) => {
+  const [contextMenu, setContextMenu] = ctx.useState<{
+    anchorId: string;
+    open: boolean;
+  }>({ anchorId: "", open: false });
+
+  const openContextMenu = (anchorId: string) => {
+    setContextMenu({ anchorId, open: true });
+  };
+
+  return ui.layers([
+    ui.column({ gap: 1, p: 1 }, [
+      ui.row({ gap: 1 }, [
+        ui.button({
+          id: "item1",
+          label: "Item 1",
+          onPress: () => openContextMenu("item1"),
+        }),
+        ui.button({
+          id: "item2",
+          label: "Item 2",
+          onPress: () => openContextMenu("item2"),
+        }),
+      ]),
+    ]),
+    contextMenu.open &&
+      ui.dropdown({
+        id: "context-menu",
+        anchorId: contextMenu.anchorId,
+        position: "below-start",
+        items: [
+          { id: "edit", label: "Edit" },
+          { id: "duplicate", label: "Duplicate" },
+          { id: "divider", label: "", divider: true },
+          { id: "delete", label: "Delete" },
+        ],
+        onSelect: (item) => {
+          handleContextAction(contextMenu.anchorId, item.id);
+          setContextMenu({ anchorId: "", open: false });
+        },
+        onClose: () => setContextMenu({ anchorId: "", open: false }),
+      }),
+  ]);
+});
+```
+
+## File Menu
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+const FileMenu = defineWidget((ctx) => {
+  const [menuOpen, setMenuOpen] = ctx.useState(false);
+
+  return ui.layers([
+    ui.row({ gap: 1, p: 1 }, [
+      ui.button({
+        id: "file-button",
+        label: "File",
+        onPress: () => setMenuOpen(true),
+        dsVariant: "ghost",
+      }),
+    ]),
+    menuOpen &&
+      ui.dropdown({
+        id: "file-menu",
+        anchorId: "file-button",
+        position: "below-start",
+        items: [
+          { id: "new", label: "New", shortcut: "Ctrl+N" },
+          { id: "open", label: "Open...", shortcut: "Ctrl+O" },
+          { id: "recent", label: "Open Recent" },
+          { id: "div1", label: "", divider: true },
+          { id: "save", label: "Save", shortcut: "Ctrl+S" },
+          { id: "save-as", label: "Save As...", shortcut: "Ctrl+Shift+S" },
+          { id: "div2", label: "", divider: true },
+          { id: "close", label: "Close", shortcut: "Ctrl+W" },
+          { id: "exit", label: "Exit", shortcut: "Ctrl+Q" },
+        ],
+        onSelect: (item) => {
+          executeFileAction(item.id);
+          setMenuOpen(false);
+        },
+        onClose: () => setMenuOpen(false),
+      }),
+  ]);
+});
+```
+
+## Action Menu
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+const ActionMenu = defineWidget((ctx, props: { itemId: string }) => {
+  const [menuOpen, setMenuOpen] = ctx.useState(false);
+
+  return ui.layers([
+    ui.button({
+      id: `action-button-${props.itemId}`,
+      label: "⋮", // Vertical ellipsis
+      onPress: () => setMenuOpen(true),
+      dsVariant: "ghost",
+    }),
+    menuOpen &&
+      ui.dropdown({
+        id: `action-menu-${props.itemId}`,
+        anchorId: `action-button-${props.itemId}`,
+        position: "below-end",
+        items: [
+          { id: "view", label: "View Details" },
+          { id: "edit", label: "Edit" },
+          { id: "duplicate", label: "Duplicate" },
+          { id: "divider", label: "", divider: true },
+          { id: "archive", label: "Archive" },
+          { id: "delete", label: "Delete", disabled: !canDelete(props.itemId) },
+        ],
+        onSelect: (item) => {
+          handleAction(props.itemId, item.id);
+          setMenuOpen(false);
+        },
+        onClose: () => setMenuOpen(false),
+      }),
+  ]);
+});
+```
+
+## Submenu (Nested Dropdown)
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+const MenuWithSubmenu = defineWidget((ctx) => {
+  const [mainMenuOpen, setMainMenuOpen] = ctx.useState(false);
+  const [submenuOpen, setSubmenuOpen] = ctx.useState(false);
+
+  return ui.layers([
+    ui.button({
+      id: "main-button",
+      label: "Menu",
+      onPress: () => setMainMenuOpen(true),
+    }),
+    mainMenuOpen &&
+      ui.dropdown({
+        id: "main-menu",
+        anchorId: "main-button",
+        position: "below-start",
+        items: [
+          { id: "action1", label: "Action 1" },
+          { id: "action2", label: "Action 2" },
+          { id: "submenu-trigger", label: "More Options ›" },
+        ],
+        onSelect: (item) => {
+          if (item.id === "submenu-trigger") {
+            setSubmenuOpen(true);
+          } else {
+            handleAction(item.id);
+            setMainMenuOpen(false);
+          }
+        },
+        onClose: () => {
+          setMainMenuOpen(false);
+          setSubmenuOpen(false);
+        },
+      }),
+    submenuOpen &&
+      ui.dropdown({
+        id: "submenu",
+        anchorId: "submenu-trigger",
+        position: "below-end",
+        items: [
+          { id: "option1", label: "Option 1" },
+          { id: "option2", label: "Option 2" },
+          { id: "option3", label: "Option 3" },
+        ],
+        onSelect: (item) => {
+          handleAction(item.id);
+          setMainMenuOpen(false);
+          setSubmenuOpen(false);
+        },
+        onClose: () => setSubmenuOpen(false),
+      }),
+  ]);
+});
+```
+
+## Edge Detection
+
+Dropdown automatically flips position when near screen edges:
+
+```typescript
+// If positioned below-start but too close to bottom edge,
+// dropdown will flip to above-start automatically
+ui.dropdown({
+  id: "auto-flip-dropdown",
+  anchorId: "bottom-button",
+  position: "below-start",
+  items,
+  onSelect: handleSelect,
+  onClose: closeDropdown,
+});
+```
+
+## Disabled Items
+
+```typescript
+ui.dropdown({
+  id: "dropdown",
+  anchorId: "button",
+  items: [
+    { id: "enabled", label: "Enabled Action" },
+    { id: "disabled", label: "Disabled Action", disabled: true },
+  ],
+  onSelect: handleSelect,
+  onClose: closeDropdown,
+});
+```
+
+## Custom Styling
+
+```typescript
+ui.dropdown({
+  id: "styled-dropdown",
+  anchorId: "button",
+  items,
+  frameStyle: {
+    background: { r: 30, g: 30, b: 40 },
+    foreground: { r: 220, g: 220, b: 230 },
+    border: { r: 100, g: 120, b: 150 },
+  },
+  onSelect: handleSelect,
+  onClose: closeDropdown,
+});
+```
+
+## Best Practices
+
+1. **Keep menus short** - 5-10 items max; use submenus for more
+2. **Use dividers** - Separate related groups with divider items
+3. **Show shortcuts** - Display keyboard shortcuts for common actions
+4. **Disable unavailable actions** - Use `disabled` prop instead of hiding
+5. **Close on selection** - Always close menu after action unless opening submenu
+6. **Position appropriately** - Use `below-start` for most cases, adjust for context
+
+## Z-Index Management
+
+Dropdowns are automatically managed by the layer system:
+
+```typescript
+ui.layers([
+  MainContent(),
+  state.dropdown1 && Dropdown1(),
+  state.dropdown2 && Dropdown2(), // Renders above dropdown1
+]);
+```
+
+## Accessibility
+
+- Arrow keys navigate menu items
+- Enter activates selected item
+- ESC closes dropdown
+- Disabled items are not selectable
+- Focus automatically moves to dropdown when opened
+
+## Related Widgets
+
+- [Modal](/widgets/modal) - For centered dialogs
+- [Command Palette](/widgets/command-palette) - For searchable command lists
+- [Select](/widgets/select) - For form dropdown selection
+
+## Location in Source
+
+- Types: `packages/core/src/widgets/types.ts:1202-1234`
+- Factory: `packages/core/src/widgets/ui.ts:1274`

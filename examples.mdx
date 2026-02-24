@@ -1,0 +1,435 @@
+---
+title: Examples & Templates
+description: Explore Rezi starter templates, example applications, and code patterns.
+---
+
+Rezi includes 6 production-ready starter templates via `create-rezi`, each demonstrating different architectural patterns and widget capabilities.
+
+## Quick Start
+
+Scaffold any template with:
+
+<CodeGroup>
+
+```bash npm
+npm create rezi my-app
+cd my-app
+npm start
+```
+
+```bash bun
+bun create rezi my-app
+cd my-app
+bun start
+```
+
+</CodeGroup>
+
+You'll be prompted to select a template. Pass `--template <name>` to skip the prompt:
+
+```bash
+npm create rezi my-app --template dashboard
+```
+
+## Template Catalog
+
+### Dashboard (Default)
+
+**EdgeOps operations console** — Product-grade dashboard with live telemetry.
+
+```bash
+npm create rezi my-app --template dashboard
+```
+
+**Highlights:**
+- Fleet control plane with stable live telemetry updates
+- Incident feed with inspector and escalation runbook
+- Multi-panel layout with navigation tabs
+- Real-time charts and status indicators
+- Deterministic update model for production stability
+
+**Safety:** Safe for everyday development — balanced runtime profile
+
+**Demonstrates:**
+- State management patterns for real-time data
+- Layout composition with nested panels
+- Live chart updates without flickering
+- Navigation and routing
+- Theme switching
+- Keyboard shortcuts and focus management
+
+<Card title="View Dashboard Template" icon="github" href="https://github.com/RtlZeroMemory/Rezi/tree/main/packages/create-rezi/templates/dashboard">
+  Browse the complete dashboard template source code
+</Card>
+
+---
+
+### Minimal
+
+**Single-screen utility TUI** — Lean starter for focused tools.
+
+```bash
+npm create rezi my-app --template minimal
+```
+
+**Highlights:**
+- Single-screen state flow with keybindings
+- Theme cycling and inline error handling
+- Lean multi-file structure
+- Reducer, render, and keybinding test examples
+- Hot state-preserving reload support
+
+**Safety:** Safe — small footprint for quick utility workflows
+
+**Demonstrates:**
+- Minimal app bootstrap pattern
+- Reducer-based state management
+- Pure view functions
+- Unit testing patterns
+- Global keybinding setup
+
+<Card title="View Minimal Template" icon="github" href="https://github.com/RtlZeroMemory/Rezi/tree/main/packages/create-rezi/templates/minimal">
+  Browse the complete minimal template source code
+</Card>
+
+---
+
+### CLI Tool
+
+**Multi-screen CLI with routing** — Task-oriented TUI with first-party page routing.
+
+```bash
+npm create rezi my-app --template cli-tool
+```
+
+**Highlights:**
+- Home, logs, settings, and detail screens
+- Router history and focus restoration
+- Global route keybindings
+- Breadcrumb and tabs helpers wired to router state
+- Shell screen for command execution
+
+**Safety:** Safe — lightweight template focused on product workflows
+
+**Demonstrates:**
+- Router setup and navigation
+- Multi-screen architecture
+- Screen-level state isolation
+- Breadcrumb navigation
+- Command palette integration
+- Focus preservation across routes
+
+<Card title="View CLI Tool Template" icon="github" href="https://github.com/RtlZeroMemory/Rezi/tree/main/packages/create-rezi/templates/cli-tool">
+  Browse the complete cli-tool template source code
+</Card>
+
+---
+
+### Animation Lab
+
+**Declarative animation playground** — Responsive animation showcase.
+
+```bash
+npm create rezi my-app --template animation-lab
+```
+
+**Highlights:**
+- Reactor command deck with canvas visuals, charts, and gauges
+- Staggered module rails with coordinated animations
+- Keyboard-driven autoplay and vector nudging
+- Burst impulses with resize-aware layout adaptation
+- `useTransition`, `useSpring`, `useSequence`, `useStagger` hooks
+
+**Safety:** Safe — moderate CPU usage with deterministic animation targets
+
+**Demonstrates:**
+- Animation hook patterns
+- Canvas drawing integration
+- Coordinated multi-element motion
+- Responsive layout adaptation
+- Spring physics and easing curves
+- Staggered entrance animations
+
+<Card title="View Animation Lab Template" icon="github" href="https://github.com/RtlZeroMemory/Rezi/tree/main/packages/create-rezi/templates/animation-lab">
+  Browse the complete animation-lab template source code
+</Card>
+
+---
+
+### Starship
+
+**Starship command console** — Full-featured showcase with all 56 widgets.
+
+```bash
+npm create rezi my-app --template starship
+```
+
+**Highlights:**
+- Six-screen bridge: Bridge, Engineering, Crew, Cargo, Comms, Settings
+- Routing with animated gauges and live telemetry charts
+- Command palette, modal dialogs, toast notifications
+- Crew management forms with validation
+- Split panes, canvas visuals, and theme cycling
+- Comprehensive keybinding modes
+
+**Safety:** Safe — moderate CPU usage from animation hooks and live telemetry
+
+**Demonstrates:**
+- Complete widget catalog usage
+- Advanced routing patterns
+- Form handling and validation
+- Modal and overlay management
+- Toast notification system
+- Command palette integration
+- Multi-theme support
+- Complex layout composition
+- Real-time data visualization
+
+<Card title="View Starship Template" icon="github" href="https://github.com/RtlZeroMemory/Rezi/tree/main/packages/create-rezi/templates/starship">
+  Browse the complete starship template source code
+</Card>
+
+---
+
+### Stress Test
+
+**Visual benchmark matrix** — Performance testing harness.
+
+```bash
+npm create rezi my-app --template stress-test
+```
+
+<Warning>
+**High CPU/IO usage** — This template intentionally generates heavy system pressure. Turbo and write-flood modes increase CPU, disk I/O, and memory usage. Use for benchmarking only.
+</Warning>
+
+**Highlights:**
+- Three-lane visual benchmark (geometry + text/file activity + matrix rain)
+- Phase-based intensity ramp
+- Deterministic sim scorecard
+- Measured CPU, RSS, lag, timing, and sink throughput
+- Real runtime diagnostics
+
+**Safety:** **High CPU/IO** — Intended for benchmarking only
+
+**Demonstrates:**
+- High-frequency rendering patterns
+- Canvas stress testing
+- Virtual list performance
+- Memory profiling techniques
+- Frame timing measurement
+- Deterministic load simulation
+
+<Card title="View Stress Test Template" icon="github" href="https://github.com/RtlZeroMemory/Rezi/tree/main/packages/create-rezi/templates/stress-test">
+  Browse the complete stress-test template source code
+</Card>
+
+---
+
+## Template Comparison
+
+| Template | Complexity | Widgets | Routing | Animation | Best For |
+|----------|------------|---------|---------|-----------|----------|
+| **minimal** | ⭐ | 5-10 | ❌ | ❌ | Quick utilities, learning Rezi |
+| **dashboard** | ⭐⭐ | 15-20 | Basic | ❌ | Real-time dashboards, monitoring |
+| **cli-tool** | ⭐⭐ | 10-15 | ✓ | ❌ | Multi-screen CLI tools |
+| **animation-lab** | ⭐⭐⭐ | 20-25 | ❌ | ✓ | Visual apps, animation patterns |
+| **starship** | ⭐⭐⭐⭐ | 40+ | ✓ | ✓ | Feature showcase, learning all widgets |
+| **stress-test** | ⭐⭐⭐ | 30+ | ❌ | ❌ | Performance testing, benchmarking |
+
+## Template Selection Guide
+
+### Choose **minimal** if you want:
+- A single-screen utility
+- Minimal boilerplate
+- Fast iteration on a small tool
+- To learn Rezi basics
+
+### Choose **dashboard** if you want:
+- A production-ready starting point
+- Real-time data display
+- Multi-panel layout patterns
+- Live telemetry and monitoring
+
+### Choose **cli-tool** if you want:
+- Multiple screens with navigation
+- Routing and history management
+- Task-oriented workflows
+- Command execution interface
+
+### Choose **animation-lab** if you want:
+- To learn animation hooks
+- Canvas and visual effects
+- Coordinated motion patterns
+- Responsive layout adaptation
+
+### Choose **starship** if you want:
+- To see all 56 widgets in action
+- Complete feature reference
+- Advanced patterns and composition
+- A kitchen-sink showcase
+
+### Choose **stress-test** if you want:
+- To benchmark your terminal
+- Performance profiling tools
+- High-load testing patterns
+- Runtime diagnostics
+
+## Example Projects
+
+Beyond templates, Rezi includes standalone example projects in the repository:
+
+### Hello Counter
+
+**Location:** `examples/hello-counter/`
+
+Minimal counter example from the README — perfect for understanding the basics.
+
+```ts
+import { ui } from "@rezi-ui/core";
+import { createNodeApp } from "@rezi-ui/node";
+
+const app = createNodeApp<{ count: number }>({
+  initialState: { count: 0 },
+});
+
+app.view((state) =>
+  ui.page({
+    p: 1,
+    gap: 1,
+    header: ui.header({
+      title: "Hello Counter",
+      subtitle: "Beautiful defaults",
+    }),
+    body: ui.panel("Counter", [
+      ui.row({ gap: 1, items: "center" }, [
+        ui.text(`Count: ${state.count}`, { variant: "heading" }),
+        ui.spacer({ flex: 1 }),
+        ui.button({
+          id: "dec",
+          label: "-1",
+          intent: "secondary",
+          onPress: () => app.update((s) => ({ ...s, count: s.count - 1 })),
+        }),
+        ui.button({
+          id: "inc",
+          label: "+1",
+          intent: "primary",
+          onPress: () => app.update((s) => ({ ...s, count: s.count + 1 })),
+        }),
+      ]),
+    ]),
+  }),
+);
+
+await app.run();
+```
+
+### Widget Gallery
+
+**Location:** `examples/gallery/`
+
+Interactive widget catalog browser — showcases all 56 widgets with live configuration.
+
+## Common Patterns Across Templates
+
+### Project Structure
+
+All templates follow this structure:
+
+```
+project/
+├── src/
+│   ├── main.ts              # App entry point
+│   ├── types.ts             # State and action types
+│   ├── theme.ts             # Theme configuration
+│   ├── screens/             # View functions
+│   │   └── *.ts
+│   ├── helpers/             # State logic and utilities
+│   │   ├── state.ts         # Reducer
+│   │   └── keybindings.ts   # Command resolver
+│   └── __tests__/           # Test files
+│       ├── render.test.ts
+│       ├── reducer.test.ts
+│       └── keybindings.test.ts
+├── package.json
+└── tsconfig.json
+```
+
+### State Management Pattern
+
+1. **Define types** in `types.ts`
+2. **Create reducer** in `helpers/state.ts`
+3. **Pure view functions** in `screens/`
+4. **Wire in `main.ts`** with `app.view()` and `app.keys()`
+
+### Keybinding Pattern
+
+All templates use this keybinding structure:
+
+- **`q`** — Quit application
+- **`t`** — Cycle themes
+- **`h` or `shift+/`** — Toggle help
+- **`escape`** — Close modals/overlays
+- **Screen-specific keys** — Documented in help overlay
+
+### Theme Support
+
+All templates support runtime theme switching via `app.setTheme()`:
+
+- `dark` (default)
+- `light`
+- `nord`
+- `dracula`
+- `dimmed`
+- `high-contrast`
+
+## Running Examples from Source
+
+Clone the Rezi repository to run examples directly:
+
+```bash
+git clone https://github.com/RtlZeroMemory/Rezi.git
+cd Rezi
+git submodule update --init --recursive
+npm ci
+npm run build
+
+# Run hello counter
+cd examples/hello-counter
+npm start
+
+# Run widget gallery
+cd examples/gallery
+npm start
+```
+
+## Template Customization
+
+After scaffolding, customize these files:
+
+1. **`package.json`** — Update name, version, description
+2. **`src/types.ts`** — Define your app state and actions
+3. **`src/helpers/state.ts`** — Implement reducer logic
+4. **`src/screens/`** — Build your views
+5. **`src/main.ts`** — Wire keybindings and lifecycle
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart Tutorial" icon="rocket" href="/quickstart">
+    Build your first Rezi app step-by-step
+  </Card>
+  
+  <Card title="Widget Catalog" icon="grid" href="/widgets/text">
+    Browse all 56 built-in widgets
+  </Card>
+  
+  <Card title="Styling Guide" icon="paintbrush" href="/guides/styling">
+    Learn layout, theming, and design tokens
+  </Card>
+  
+  <Card title="Testing Guide" icon="flask" href="/guides/testing">
+    Write tests for your Rezi applications
+  </Card>
+</CardGroup>

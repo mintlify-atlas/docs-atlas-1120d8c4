@@ -1,0 +1,242 @@
+---
+title: 'Framework Overview'
+description: 'High-level overview of Rezi architecture and mental model'
+icon: 'rocket'
+---
+
+Rezi is a high-performance TypeScript framework for building terminal user interfaces. It follows a **declarative, state-driven model** similar to modern web frameworks like React, but optimized for terminal rendering.
+
+## Core Mental Model
+
+Rezi applications follow a simple unidirectional data flow:
+
+```
+State → View Function → VNode Tree → Render Pipeline → Terminal
+  ↑                                                          |
+  ←─────────────────── Events ←─────────────────────────────┘
+```
+
+### Declarative UI with VNodes
+
+You describe **what** the UI should look like, not **how** to draw it:
+
+```typescript
+import { ui } from '@rezi-ui/core';
+
+app.view(state => 
+  ui.column({ gap: 1 }, [
+    ui.text(`Count: ${state.count}`),
+    ui.button({ id: 'increment', label: '+1' }),
+  ])
+);
+```
+
+Each `ui.*` function returns a **VNode** (virtual node) — a lightweight plain object describing a widget. The framework automatically:
+- Reconciles changes between renders
+- Computes optimal layout
+- Generates minimal terminal output
+- Routes user input to the correct widgets
+
+### State-Driven Rendering
+
+Your application state is the **single source of truth**:
+
+```typescript
+const app = createNodeApp({ 
+  initialState: { count: 0 } 
+});
+
+// State updates trigger automatic re-renders
+app.update(prev => ({ count: prev.count + 1 }));
+```
+
+The view function **must be pure** — given the same state, it always returns the same VNode tree. Side effects belong in event handlers, keybinding callbacks, or `useEffect` hooks.
+
+## Why Rezi?
+
+### Compared to Ink (React for CLIs)
+
+- **No React runtime overhead** — Rezi's reconciliation is purpose-built for TUIs
+- **Native rendering engine** — C-based Zireael engine handles terminal I/O
+- **Deterministic rendering** — Same input always produces same output
+- **Type-safe by default** — Full TypeScript support without React's type complexity
+
+### Compared to Bubble Tea (Go)
+
+- **TypeScript ecosystem** — Leverage npm packages and Node.js tooling
+- **Declarative widgets** — No manual layout calculations or cursor positioning
+- **Built-in components** — Rich widget library (tables, modals, forms, charts)
+- **Hot module reload** — Instant feedback during development
+
+### Compared to Textual (Python)
+
+- **Performance** — Binary protocol and native engine for 60 FPS rendering
+- **Smaller footprint** — No Python runtime or CSS engine overhead
+- **Functional composition** — Compose UIs from pure functions and hooks
+
+## Key Features
+
+### Rich Widget Library
+
+60+ built-in widgets covering common UI patterns:
+
+- **Layout**: `box`, `row`, `column`, `grid`, `splitPane`
+- **Input**: `button`, `input`, `select`, `checkbox`, `slider`
+- **Data**: `table`, `virtualList`, `tree`, `fileTreeExplorer`
+- **Feedback**: `modal`, `toast`, `progress`, `spinner`
+- **Charts**: `barChart`, `lineChart`, `sparkline`, `gauge`
+
+### Flexible Composition
+
+Build reusable components with local state:
+
+```typescript
+import { defineWidget, ui } from '@rezi-ui/core';
+
+const Counter = defineWidget((props, ctx) => {
+  const [count, setCount] = ctx.useState(props.initial);
+  
+  return ui.row({ gap: 1 }, [
+    ui.text(`Count: ${count}`),
+    ui.button({
+      id: ctx.id('inc'),
+      label: '+',
+      onPress: () => setCount(c => c + 1)
+    }),
+  ]);
+});
+
+// Use anywhere in your view
+app.view(() => ui.column([
+  Counter({ initial: 0 }),
+  Counter({ initial: 10, key: 'second' }),
+]));
+```
+
+### Powerful Keybindings
+
+Global shortcuts, modal modes, and chord sequences:
+
+```typescript
+app.keys({
+  'ctrl+s': () => save(),
+  'ctrl+q': () => app.stop(),
+  'g g': () => scrollToTop(),  // Vim-style chord
+});
+
+// Modal keybinding modes
+app.modes({
+  normal: {
+    'i': () => app.setMode('insert'),
+    'j': () => moveCursorDown(),
+  },
+  insert: {
+    'escape': () => app.setMode('normal'),
+  },
+});
+```
+
+### Advanced Focus Management
+
+- Automatic Tab/Shift+Tab navigation
+- Focus zones for grouped widgets
+- Focus traps for modal dialogs
+- Mouse click focus support
+
+### Binary Protocol Architecture
+
+Rezi uses **versioned binary protocols** for communication between TypeScript and the native engine:
+
+- **ZRDL** (drawlists): Rendering commands flowing down to the engine
+- **ZREV** (event batches): Input events flowing up from the engine
+
+This architecture ensures:
+- **Deterministic rendering**: Same state produces same output
+- **Cross-platform consistency**: No terminal quirks leak into app logic
+- **Future-proof**: Protocol versioning enables backward compatibility
+
+## Runtime Stack
+
+Rezi is organized into layers:
+
+```
+┌─────────────────────────────────────┐
+│      Your Application               │
+├─────────────────────────────────────┤
+│      @rezi-ui/core                  │  TypeScript
+│  (Widgets, Layout, Themes)          │  
+├─────────────────────────────────────┤
+│      @rezi-ui/node                  │  Node.js/Bun
+│  (Worker threads, Event loop)       │
+├─────────────────────────────────────┤
+│      @rezi-ui/native                │  N-API
+│  (Zireael C engine binding)         │
+├─────────────────────────────────────┤
+│      Zireael (C Engine)             │  Native
+│  (Terminal I/O, Diff rendering)     │
+└─────────────────────────────────────┘
+```
+
+- **@rezi-ui/core**: Runtime-agnostic UI logic (no Node.js APIs)
+- **@rezi-ui/node**: Node.js/Bun backend integration
+- **@rezi-ui/native**: N-API addon exposing the Zireael engine
+- **Zireael**: High-performance C engine for terminal rendering
+
+See [Architecture](/concepts/architecture) for detailed layer responsibilities.
+
+## Quick Example
+
+Here's a complete counter app:
+
+```typescript
+import { createNodeApp } from '@rezi-ui/node';
+import { ui } from '@rezi-ui/core';
+
+type State = { count: number };
+
+const app = createNodeApp<State>({
+  initialState: { count: 0 },
+  config: { fpsCap: 30 },
+});
+
+app.view(state => 
+  ui.page({ p: 1 }, [
+    ui.panel('Counter', [
+      ui.text(`Current count: ${state.count}`),
+      ui.actions([
+        ui.button({
+          id: 'increment',
+          label: 'Increment',
+          intent: 'primary',
+          onPress: () => app.update(s => ({ count: s.count + 1 }))
+        }),
+      ]),
+    ]),
+  ])
+);
+
+app.keys({
+  'q': () => app.stop(),
+  '+': () => app.update(s => ({ count: s.count + 1 })),
+  '-': () => app.update(s => ({ count: s.count - 1 })),
+});
+
+await app.start();
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Architecture" icon="layer-group" href="/concepts/architecture">
+    Learn about the full stack from TypeScript to the C engine
+  </Card>
+  <Card title="Widgets" icon="cube" href="/concepts/widgets">
+    Explore the VNode system and built-in widgets
+  </Card>
+  <Card title="Composition" icon="puzzle-piece" href="/concepts/composition">
+    Build reusable components with defineWidget
+  </Card>
+  <Card title="Lifecycle" icon="rotate" href="/concepts/lifecycle">
+    Master app lifecycle and state updates
+  </Card>
+</CardGroup>

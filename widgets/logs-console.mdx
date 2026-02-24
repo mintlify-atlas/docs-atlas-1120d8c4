@@ -1,0 +1,547 @@
+---
+title: "Logs Console"
+description: "High-volume log streaming with filtering, search, and auto-scroll"
+---
+
+# Logs Console Widget
+
+The logs console widget displays streaming log entries with real-time filtering, search, auto-scroll, and performance optimized for high-volume output.
+
+## Basic Usage
+
+```typescript
+import { ui } from "@rezi-ui/core";
+import { defineWidget } from "@rezi-ui/core";
+import type { LogEntry, LogLevel } from "@rezi-ui/core";
+
+const LogsViewer = defineWidget((ctx) => {
+  const [entries, setEntries] = ctx.useState<LogEntry[]>([]);
+  const [scrollTop, setScrollTop] = ctx.useState(0);
+
+  return ui.logsConsole({
+    id: "logs-console",
+    entries,
+    scrollTop,
+    onScroll: setScrollTop,
+  });
+});
+```
+
+## Log Entry Structure
+
+```typescript
+import type { LogEntry } from "@rezi-ui/core";
+
+const entry: LogEntry = {
+  id: "log-1",
+  timestamp: Date.now(),
+  level: "info",
+  source: "api-server",
+  message: "Request completed",
+  details: "Full stack trace or additional context",
+  tokens: {
+    input: 1500,
+    output: 300,
+    total: 1800,
+  },
+  durationMs: 450,
+  costCents: 2.5,
+};
+```
+
+## Log Levels
+
+Supported log levels:
+
+```typescript
+type LogLevel = "trace" | "debug" | "info" | "warn" | "error";
+```
+
+Default color coding:
+- `trace` - Dark gray (100, 100, 100)
+- `debug` - Light gray (150, 150, 150)
+- `info` - White (255, 255, 255)
+- `warn` - Yellow (255, 200, 50)
+- `error` - Red (255, 80, 80)
+
+## Adding Log Entries
+
+```typescript
+import { addEntry, MAX_LOG_ENTRIES } from "@rezi-ui/core";
+import { defineWidget } from "@rezi-ui/core";
+
+const LogsViewer = defineWidget((ctx) => {
+  const [entries, setEntries] = ctx.useState<LogEntry[]>([]);
+
+  const addLog = (level: LogLevel, source: string, message: string) => {
+    const entry: LogEntry = {
+      id: `log-${Date.now()}-${Math.random()}`,
+      timestamp: Date.now(),
+      level,
+      source,
+      message,
+    };
+    
+    // Automatically maintains max entries limit (default: 10,000)
+    setEntries((prev) => addEntry(prev, entry));
+  };
+
+  return ui.column({ gap: 1 }, [
+    ui.row({ gap: 1 }, [
+      ui.button({
+        id: "add-info",
+        label: "Add Info",
+        onPress: () => addLog("info", "app", "Info message"),
+      }),
+      ui.button({
+        id: "add-error",
+        label: "Add Error",
+        onPress: () => addLog("error", "app", "Error occurred"),
+      }),
+    ]),
+    ui.logsConsole({
+      id: "logs",
+      entries,
+      scrollTop: 0,
+      onScroll: () => {},
+    }),
+  ]);
+});
+```
+
+## Filtering
+
+### By Level
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+import { applyFilters } from "@rezi-ui/core";
+
+const FilteredLogs = defineWidget((ctx) => {
+  const [entries] = ctx.useState<LogEntry[]>(allEntries);
+  const [levelFilter, setLevelFilter] = ctx.useState<readonly LogLevel[]>(["warn", "error"]);
+
+  const filtered = applyFilters(entries, levelFilter);
+
+  return ui.column({ gap: 1 }, [
+    ui.row({ gap: 1 }, [
+      ui.text("Show:"),
+      ui.button({
+        id: "filter-all",
+        label: "All",
+        onPress: () => setLevelFilter([]),
+      }),
+      ui.button({
+        id: "filter-errors",
+        label: "Errors Only",
+        onPress: () => setLevelFilter(["error"]),
+      }),
+      ui.button({
+        id: "filter-important",
+        label: "Warn + Error",
+        onPress: () => setLevelFilter(["warn", "error"]),
+      }),
+    ]),
+    ui.logsConsole({
+      id: "filtered-logs",
+      entries: filtered,
+      scrollTop: 0,
+      onScroll: () => {},
+    }),
+  ]);
+});
+```
+
+### By Source
+
+```typescript
+import { filterBySource } from "@rezi-ui/core";
+
+const [sourceFilter, setSourceFilter] = ctx.useState<readonly string[]>(["api-server"]);
+const filtered = filterBySource(entries, sourceFilter);
+```
+
+### By Search Query
+
+```typescript
+import { searchEntries } from "@rezi-ui/core";
+import { defineWidget } from "@rezi-ui/core";
+
+const SearchableLogs = defineWidget((ctx) => {
+  const [entries] = ctx.useState<LogEntry[]>(allEntries);
+  const [query, setQuery] = ctx.useState("");
+  const [scrollTop, setScrollTop] = ctx.useState(0);
+
+  const filtered = searchEntries(entries, query);
+
+  return ui.column({ gap: 1 }, [
+    ui.input({
+      id: "search-input",
+      value: query,
+      placeholder: "Search logs...",
+      onInput: setQuery,
+    }),
+    ui.text(`${filtered.length} of ${entries.length} entries`),
+    ui.logsConsole({
+      id: "searchable-logs",
+      entries: filtered,
+      scrollTop,
+      searchQuery: query,
+      onScroll: setScrollTop,
+    }),
+  ]);
+});
+```
+
+### Combined Filters
+
+```typescript
+import { applyFilters } from "@rezi-ui/core";
+
+const filtered = applyFilters(
+  entries,
+  levelFilter,      // ["warn", "error"]
+  sourceFilter,     // ["api-server", "worker"]
+  searchQuery,      // "timeout"
+);
+```
+
+## Auto-Scroll
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+import { computeAutoScrollPosition } from "@rezi-ui/core";
+
+const AutoScrollLogs = defineWidget((ctx) => {
+  const [entries, setEntries] = ctx.useState<LogEntry[]>([]);
+  const [scrollTop, setScrollTop] = ctx.useState(0);
+  const [autoScroll, setAutoScroll] = ctx.useState(true);
+
+  // Auto-scroll when new entries arrive
+  ctx.useEffect(() => {
+    if (autoScroll) {
+      const newScrollTop = computeAutoScrollPosition(
+        scrollTop,
+        entries.length,
+        20, // viewport height
+        autoScroll,
+      );
+      setScrollTop(newScrollTop);
+    }
+  }, [entries.length]);
+
+  return ui.column({ gap: 1 }, [
+    ui.row({ gap: 1 }, [
+      ui.text("Auto-scroll:"),
+      ui.button({
+        id: "toggle-autoscroll",
+        label: autoScroll ? "ON" : "OFF",
+        onPress: () => setAutoScroll(!autoScroll),
+      }),
+    ]),
+    ui.logsConsole({
+      id: "autoscroll-logs",
+      entries,
+      autoScroll,
+      scrollTop,
+      onScroll: setScrollTop,
+    }),
+  ]);
+});
+```
+
+## Expandable Details
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+const ExpandableLogs = defineWidget((ctx) => {
+  const [entries] = ctx.useState<LogEntry[]>(entriesWithDetails);
+  const [expanded, setExpanded] = ctx.useState<readonly string[]>([]);
+
+  return ui.logsConsole({
+    id: "expandable-logs",
+    entries,
+    scrollTop: 0,
+    expandedEntries: expanded,
+    onScroll: () => {},
+    onEntryToggle: (entryId, isExpanded) => {
+      if (isExpanded) {
+        setExpanded([...expanded, entryId]);
+      } else {
+        setExpanded(expanded.filter((id) => id !== entryId));
+      }
+    },
+  });
+});
+```
+
+## Clear Logs
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+const ClearableLogs = defineWidget((ctx) => {
+  const [entries, setEntries] = ctx.useState<LogEntry[]>(initialEntries);
+
+  return ui.logsConsole({
+    id: "clearable-logs",
+    entries,
+    scrollTop: 0,
+    onScroll: () => {},
+    onClear: () => setEntries([]),
+  });
+});
+```
+
+## Timestamps
+
+```typescript
+import { formatTimestamp } from "@rezi-ui/core";
+
+// Format timestamp for display (HH:MM:SS)
+const formattedTime = formatTimestamp(Date.now());
+// Returns: "14:23:45"
+
+ui.logsConsole({
+  id: "logs",
+  entries,
+  scrollTop: 0,
+  showTimestamps: true, // Default: true
+  onScroll: () => {},
+});
+```
+
+## Token Counts (LLM Logs)
+
+Display token usage for LLM API calls:
+
+```typescript
+import { formatTokenCount, formatCost } from "@rezi-ui/core";
+
+const llmEntry: LogEntry = {
+  id: "llm-1",
+  timestamp: Date.now(),
+  level: "info",
+  source: "openai",
+  message: "Completion generated",
+  tokens: {
+    input: 1500,
+    output: 300,
+    total: 1800,
+  },
+  durationMs: 2500,
+  costCents: 4.5,
+};
+
+// Format helpers
+formatTokenCount(1800); // "1,800"
+formatCost(4.5);        // "$0.05"
+```
+
+## Duration Display
+
+```typescript
+import { formatDuration } from "@rezi-ui/core";
+
+// Format duration for display
+formatDuration(450);      // "450ms"
+formatDuration(2500);     // "2.5s"
+formatDuration(125000);   // "2m5s"
+```
+
+## High-Volume Performance
+
+The logs console is optimized for streaming high-volume output:
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+const StreamingLogs = defineWidget((ctx) => {
+  const [entries, setEntries] = ctx.useState<LogEntry[]>([]);
+
+  // Simulate streaming logs (100 entries/second)
+  ctx.useEffect(() => {
+    const interval = setInterval(() => {
+      const newEntry: LogEntry = {
+        id: `log-${Date.now()}-${Math.random()}`,
+        timestamp: Date.now(),
+        level: ["info", "debug", "warn", "error"][Math.floor(Math.random() * 4)] as LogLevel,
+        source: "worker",
+        message: `Processing task ${Math.floor(Math.random() * 1000)}`,
+      };
+      
+      setEntries((prev) => addEntry(prev, newEntry));
+    }, 10); // 100 entries/second
+
+    return () => clearInterval(interval);
+  }, []);
+
+  return ui.logsConsole({
+    id: "streaming-logs",
+    entries,
+    autoScroll: true,
+    scrollTop: 0,
+    onScroll: () => {},
+  });
+});
+```
+
+**Performance characteristics**:
+- Virtualized rendering (only visible entries are rendered)
+- Circular buffer with configurable max entries (default: 10,000)
+- Efficient filtering with Set-based lookups
+- Auto-scroll with minimal re-computation
+
+## Real-World Example: API Monitor
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+import { applyFilters, addEntry } from "@rezi-ui/core";
+import type { LogEntry, LogLevel } from "@rezi-ui/core";
+
+const ApiMonitor = defineWidget((ctx) => {
+  const [entries, setEntries] = ctx.useState<LogEntry[]>([]);
+  const [levelFilter, setLevelFilter] = ctx.useState<readonly LogLevel[]>([]);
+  const [sourceFilter, setSourceFilter] = ctx.useState<readonly string[]>([]);
+  const [searchQuery, setSearchQuery] = ctx.useState("");
+  const [scrollTop, setScrollTop] = ctx.useState(0);
+
+  // Simulate API calls
+  ctx.useEffect(() => {
+    const simulateApiCall = () => {
+      const sources = ["auth", "users", "posts", "comments"];
+      const source = sources[Math.floor(Math.random() * sources.length)];
+      const success = Math.random() > 0.1;
+      
+      const entry: LogEntry = {
+        id: `api-${Date.now()}-${Math.random()}`,
+        timestamp: Date.now(),
+        level: success ? "info" : "error",
+        source: source ?? "unknown",
+        message: success
+          ? `${source} request completed`
+          : `${source} request failed`,
+        durationMs: Math.floor(Math.random() * 1000),
+        details: success ? undefined : "Error: Connection timeout",
+      };
+      
+      setEntries((prev) => addEntry(prev, entry));
+    };
+
+    const interval = setInterval(simulateApiCall, 500);
+    return () => clearInterval(interval);
+  }, []);
+
+  const filtered = applyFilters(entries, levelFilter, sourceFilter, searchQuery);
+
+  return ui.column({ gap: 1 }, [
+    ui.row({ gap: 1 }, [
+      ui.text("API Monitor", { variant: "heading" }),
+      ui.spacer({ flex: 1 }),
+      ui.text(`${entries.length} total`),
+    ]),
+    ui.row({ gap: 1 }, [
+      ui.input({
+        id: "search",
+        value: searchQuery,
+        placeholder: "Search...",
+        onInput: setSearchQuery,
+      }),
+      ui.button({
+        id: "errors-only",
+        label: "Errors",
+        onPress: () => setLevelFilter(["error"]),
+      }),
+      ui.button({
+        id: "clear-filters",
+        label: "Clear",
+        onPress: () => {
+          setLevelFilter([]);
+          setSourceFilter([]);
+          setSearchQuery("");
+        },
+      }),
+    ]),
+    ui.logsConsole({
+      id: "api-logs",
+      entries: filtered,
+      autoScroll: true,
+      scrollTop,
+      showTimestamps: true,
+      showSource: true,
+      onScroll: setScrollTop,
+      onClear: () => setEntries([]),
+    }),
+  ]);
+});
+```
+
+## Props Reference
+
+### LogsConsoleProps
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `id` | `string` | **Required** | Widget identifier |
+| `entries` | `readonly LogEntry[]` | **Required** | Log entries to display |
+| `scrollTop` | `number` | **Required** | Vertical scroll position |
+| `onScroll` | `(scrollTop: number) => void` | **Required** | Scroll callback |
+| `autoScroll` | `boolean` | `true` | Auto-scroll to bottom |
+| `levelFilter` | `readonly LogLevel[]` | — | Filter by log levels |
+| `sourceFilter` | `readonly string[]` | — | Filter by sources |
+| `searchQuery` | `string` | — | Search query |
+| `showTimestamps` | `boolean` | `true` | Show timestamps |
+| `showSource` | `boolean` | `true` | Show source labels |
+| `expandedEntries` | `readonly string[]` | — | Expanded entry IDs |
+| `focusedStyle` | `TextStyle` | — | Focused console style |
+| `onEntryToggle` | `(entryId: string, expanded: boolean) => void` | — | Entry expand callback |
+| `onClear` | `() => void` | — | Clear logs callback |
+| `focusable` | `boolean` | `true` | Include in tab order |
+| `accessibleLabel` | `string` | — | Accessibility label |
+| `focusConfig` | `FocusConfig` | — | Focus appearance |
+| `scrollbarVariant` | `"minimal" \| "classic" \| "modern" \| "dots" \| "thin"` | `"minimal"` | Scrollbar style |
+| `scrollbarStyle` | `TextStyle` | — | Scrollbar color |
+
+### LogEntry
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | `string` | Unique entry ID |
+| `timestamp` | `number` | Unix timestamp (ms) |
+| `level` | `LogLevel` | Log level |
+| `source` | `string` | Source/category |
+| `message` | `string` | Log message |
+| `details` | `string` | Optional expandable details |
+| `tokens` | `TokenCount` | Optional token usage |
+| `durationMs` | `number` | Optional duration |
+| `costCents` | `number` | Optional cost in cents |
+
+### LogLevel
+
+```typescript
+type LogLevel = "trace" | "debug" | "info" | "warn" | "error";
+```
+
+## Constants
+
+```typescript
+import { MAX_LOG_ENTRIES, LEVEL_COLORS, LEVEL_PRIORITY } from "@rezi-ui/core";
+
+MAX_LOG_ENTRIES; // 10,000
+
+LEVEL_COLORS; // { trace, debug, info, warn, error }
+LEVEL_PRIORITY; // { trace: 0, debug: 1, info: 2, warn: 3, error: 4 }
+```
+
+## Related Widgets
+
+- [Virtual List](/widgets/virtual-list) - General-purpose virtualized lists
+- [Code Editor](/widgets/code-editor) - Multi-line text editing
+- [Diff Viewer](/widgets/diff-viewer) - Diff display
+
+## Location in Source
+
+- Implementation: `packages/core/src/widgets/logsConsole.ts`
+- Types: `packages/core/src/widgets/types.ts:2168-2244`
+- Factory: `packages/core/src/widgets/ui.ts:logsConsole()`

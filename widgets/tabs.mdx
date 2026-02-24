@@ -1,0 +1,345 @@
+---
+title: "Tabs"
+description: "Tabbed navigation widget with Left/Right keyboard switching and scoped content focus"
+icon: "folder-tabs"
+---
+
+## Overview
+
+The `tabs` widget creates a tabbed interface for organizing content into separate views. Each tab has a label and associated content panel. Tabs support keyboard navigation with Left/Right arrow keys and automatic focus management for content.
+
+## Basic Usage
+
+```typescript
+import { ui } from "@rezi-ui/core";
+import { defineWidget } from "@rezi-ui/core";
+
+const MyTabs = defineWidget((ctx) => {
+  const [activeTab, setActiveTab] = ctx.useState("overview");
+
+  return ui.tabs({
+    id: "main-tabs",
+    activeTab,
+    onChange: setActiveTab,
+    tabs: [
+      {
+        key: "overview",
+        label: "Overview",
+        content: ui.text("Overview content"),
+      },
+      {
+        key: "details",
+        label: "Details",
+        content: ui.text("Details content"),
+      },
+      {
+        key: "settings",
+        label: "Settings",
+        content: ui.text("Settings content"),
+      },
+    ],
+  });
+});
+```
+
+## Props
+
+<ParamField path="id" type="string" required>
+  Unique identifier for focus routing.
+</ParamField>
+
+<ParamField path="tabs" type="readonly TabsItem[]" required>
+  Array of tab items with `key`, `label`, and `content`.
+</ParamField>
+
+<ParamField path="activeTab" type="string" required>
+  Currently active tab key.
+</ParamField>
+
+<ParamField path="onChange" type="(key: string) => void" required>
+  Callback when active tab changes.
+</ParamField>
+
+<ParamField path="variant" type="TabsVariant" default="line">
+  Visual style variant:
+  - `"line"` - Underlined active tab indicator
+  - `"enclosed"` - Boxed tabs with active emphasis
+  - `"pills"` - Rounded pill-shaped tabs
+</ParamField>
+
+<ParamField path="position" type="TabsPosition" default="top">
+  Tab bar position relative to content:
+  - `"top"` - Tabs above content panel
+  - `"bottom"` - Tabs below content panel
+</ParamField>
+
+### Design System Props
+
+<ParamField path="dsVariant" type="WidgetVariant" default="soft">
+  Design system visual variant: `"solid"`, `"soft"`, `"outline"`, `"ghost"`.
+</ParamField>
+
+<ParamField path="dsTone" type="WidgetTone" default="default">
+  Design system color tone: `"default"`, `"primary"`, `"success"`, `"warning"`, `"danger"`.
+</ParamField>
+
+<ParamField path="dsSize" type="WidgetSize" default="md">
+  Design system size preset: `"xs"`, `"sm"`, `"md"`, `"lg"`, `"xl"`.
+</ParamField>
+
+## Keyboard Navigation
+
+Tabs support full keyboard control:
+
+| Key | Action |
+|-----|--------|
+| `Left` | Switch to previous tab |
+| `Right` | Switch to next tab |
+| `Home` | Jump to first tab |
+| `End` | Jump to last tab |
+| `Tab` | Move focus into active content panel |
+
+```typescript
+// Keyboard navigation is automatic
+ui.tabs({
+  id: "nav-tabs",
+  activeTab: state.tab,
+  onChange: (key) => app.update({ tab: key }),
+  tabs: [
+    { key: "files", label: "Files", content: FileExplorer() },
+    { key: "search", label: "Search", content: SearchPanel() },
+    { key: "git", label: "Git", content: GitPanel() },
+  ],
+});
+```
+
+## Visual Variants
+
+### Line Tabs (Default)
+
+Underlined indicator for active tab:
+
+```typescript
+ui.tabs({
+  id: "line-tabs",
+  variant: "line",
+  activeTab: state.tab,
+  onChange: setTab,
+  tabs: [
+    { key: "home", label: "Home", content: HomeView() },
+    { key: "profile", label: "Profile", content: ProfileView() },
+  ],
+});
+```
+
+### Enclosed Tabs
+
+Boxed tabs with active emphasis:
+
+```typescript
+ui.tabs({
+  id: "enclosed-tabs",
+  variant: "enclosed",
+  activeTab: state.tab,
+  onChange: setTab,
+  tabs: [
+    { key: "code", label: "Code", content: CodeEditor() },
+    { key: "preview", label: "Preview", content: PreviewPanel() },
+  ],
+});
+```
+
+### Pill Tabs
+
+Rounded pill-shaped tabs:
+
+```typescript
+ui.tabs({
+  id: "pill-tabs",
+  variant: "pills",
+  activeTab: state.tab,
+  onChange: setTab,
+  tabs: [
+    { key: "inbox", label: "Inbox", content: InboxView() },
+    { key: "sent", label: "Sent", content: SentView() },
+    { key: "drafts", label: "Drafts", content: DraftsView() },
+  ],
+});
+```
+
+## Tab Position
+
+### Bottom Tabs
+
+```typescript
+ui.tabs({
+  id: "bottom-tabs",
+  position: "bottom",
+  activeTab: state.tab,
+  onChange: setTab,
+  tabs: [
+    { key: "terminal", label: "Terminal", content: TerminalPanel() },
+    { key: "output", label: "Output", content: OutputPanel() },
+    { key: "problems", label: "Problems", content: ProblemsPanel() },
+  ],
+});
+```
+
+## Dynamic Tabs
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+const DynamicTabs = defineWidget((ctx) => {
+  const [activeTab, setActiveTab] = ctx.useState("tab-1");
+  const [tabs, setTabs] = ctx.useState([
+    { key: "tab-1", label: "Tab 1", content: ui.text("Content 1") },
+  ]);
+
+  const addTab = () => {
+    const newKey = `tab-${tabs.length + 1}`;
+    setTabs([
+      ...tabs,
+      {
+        key: newKey,
+        label: `Tab ${tabs.length + 1}`,
+        content: ui.text(`Content ${tabs.length + 1}`),
+      },
+    ]);
+    setActiveTab(newKey);
+  };
+
+  return ui.column({ gap: 1 }, [
+    ui.button({
+      id: "add-tab-btn",
+      label: "Add Tab",
+      onPress: addTab,
+      intent: "secondary",
+    }),
+    ui.tabs({
+      id: "dynamic-tabs",
+      activeTab,
+      onChange: setActiveTab,
+      tabs,
+    }),
+  ]);
+});
+```
+
+## Router Integration
+
+Use `ui.routerTabs()` for route-based tab navigation:
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+function view(state: AppState) {
+  return ui.routerTabs(
+    app.router,
+    [
+      { path: "/home", label: "Home", view: HomeView },
+      { path: "/profile", label: "Profile", view: ProfileView },
+      { path: "/settings", label: "Settings", view: SettingsView },
+    ],
+    {
+      id: "router-tabs",
+      variant: "line",
+    }
+  );
+}
+```
+
+## Design System Integration
+
+```typescript
+// Primary tabs with solid variant
+ui.tabs({
+  id: "primary-tabs",
+  activeTab: state.tab,
+  onChange: setTab,
+  dsVariant: "solid",
+  dsTone: "primary",
+  tabs: [
+    { key: "dashboard", label: "Dashboard", content: DashboardView() },
+    { key: "analytics", label: "Analytics", content: AnalyticsView() },
+  ],
+});
+
+// Large tabs
+ui.tabs({
+  id: "large-tabs",
+  activeTab: state.tab,
+  onChange: setTab,
+  dsSize: "lg",
+  tabs: [
+    { key: "data", label: "Data", content: DataView() },
+    { key: "charts", label: "Charts", content: ChartsView() },
+  ],
+});
+```
+
+## Best Practices
+
+1. **Keep tab labels short** - Long labels wrap poorly in terminal UI
+2. **Use 3-7 tabs** - Too many tabs become hard to navigate
+3. **Preserve state** - Store tab state in parent component to persist across renders
+4. **Provide keyboard shortcuts** - Document tab navigation in help text
+5. **Focus management** - Tab content automatically receives focus when switched
+
+## Examples
+
+### Multi-Panel IDE Layout
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+const IDELayout = defineWidget((ctx) => {
+  const [mainTab, setMainTab] = ctx.useState("editor");
+  const [bottomTab, setBottomTab] = ctx.useState("terminal");
+
+  return ui.column({ gap: 1, height: "100%" }, [
+    ui.tabs({
+      id: "main-tabs",
+      activeTab: mainTab,
+      onChange: setMainTab,
+      tabs: [
+        { key: "editor", label: "Editor", content: CodeEditor() },
+        { key: "preview", label: "Preview", content: PreviewPanel() },
+      ],
+    }),
+    ui.tabs({
+      id: "bottom-tabs",
+      position: "bottom",
+      activeTab: bottomTab,
+      onChange: setBottomTab,
+      variant: "enclosed",
+      dsSize: "sm",
+      tabs: [
+        { key: "terminal", label: "Terminal", content: Terminal() },
+        { key: "output", label: "Output", content: OutputLog() },
+        { key: "problems", label: "Problems", content: ProblemsList() },
+      ],
+    }),
+  ]);
+});
+```
+
+## Accessibility
+
+- Tab list has `role="tablist"`
+- Individual tabs have `role="tab"`
+- Content panels have `role="tabpanel"`
+- Active tab is marked with `aria-selected="true"`
+- Focus automatically moves to content when tab switches
+
+## Related Widgets
+
+- [Accordion](/widgets/accordion) - Collapsible content sections
+- [Breadcrumb](/widgets/breadcrumb) - Navigation path display
+- [Pagination](/widgets/pagination) - Page-based navigation
+
+## Location in Source
+
+- Implementation: `packages/core/src/widgets/tabs.ts`
+- Types: `packages/core/src/widgets/types.ts:1514-1542`
+- Factory: `packages/core/src/widgets/ui.ts:1471`

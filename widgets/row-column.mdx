@@ -1,0 +1,416 @@
+---
+title: "Row & Column"
+description: "Flexible stack layouts for horizontal and vertical arrangement"
+---
+
+## Overview
+
+Row and Column are flex-based stack layout widgets that arrange children horizontally or vertically. They support gap, alignment, justification, and wrapping.
+
+## Basic Usage
+
+<CodeGroup>
+```typescript ui.row() / ui.column() API
+import { ui } from '@rezi-ui/core';
+
+// Horizontal row
+ui.row({ gap: 1 }, [
+  ui.text('Item 1'),
+  ui.text('Item 2'),
+  ui.text('Item 3')
+])
+
+// Vertical column
+ui.column({ gap: 1 }, [
+  ui.text('Line 1'),
+  ui.text('Line 2'),
+  ui.text('Line 3')
+])
+
+// Centered row
+ui.row({ gap: 1, items: 'center', justify: 'center' }, [
+  ui.button('ok', 'OK'),
+  ui.button('cancel', 'Cancel')
+])
+```
+
+```tsx JSX
+import { Row, Column, Text, Button } from '@rezi-ui/jsx';
+
+// Horizontal row
+<Row gap={1}>
+  <Text>Item 1</Text>
+  <Text>Item 2</Text>
+  <Text>Item 3</Text>
+</Row>
+
+// Vertical column
+<Column gap={1}>
+  <Text>Line 1</Text>
+  <Text>Line 2</Text>
+  <Text>Line 3</Text>
+</Column>
+
+// Centered row
+<Row gap={1} items="center" justify="center">
+  <Button id="ok" label="OK" />
+  <Button id="cancel" label="Cancel" />
+</Row>
+```
+</CodeGroup>
+
+## Row Props
+
+Row arranges children horizontally (left to right by default).
+
+<ParamField path="gap" type="SpacingValue" default="0">
+  Gap between children. Accepts number (cells) or spacing key (`"xs"`, `"sm"`, `"md"`, `"lg"`, `"xl"`, `"2xl"`).
+</ParamField>
+
+<ParamField path="items" type="AlignItems" default="'start'">
+  Cross-axis (vertical) alignment of children.
+  
+  - `"start"` - Align to top
+  - `"end"` - Align to bottom
+  - `"center"` - Center vertically
+  - `"stretch"` - Stretch to fill height
+</ParamField>
+
+<ParamField path="justify" type="JustifyContent" default="'start'">
+  Main-axis (horizontal) justification of children.
+  
+  - `"start"` - Pack to left
+  - `"end"` - Pack to right
+  - `"center"` - Center horizontally
+  - `"between"` - Space between items
+  - `"around"` - Space around items
+  - `"evenly"` - Equal space distribution
+</ParamField>
+
+<ParamField path="wrap" type="boolean" default="false">
+  Enable line wrapping when children exceed available width.
+</ParamField>
+
+<ParamField path="reverse" type="boolean" default="false">
+  Render children in reverse order (right to left).
+</ParamField>
+
+<ParamField path="p" type="SpacingValue">
+  Padding on all sides.
+</ParamField>
+
+<ParamField path="px" type="SpacingValue">
+  Horizontal padding.
+</ParamField>
+
+<ParamField path="py" type="SpacingValue">
+  Vertical padding.
+</ParamField>
+
+<ParamField path="pt" type="SpacingValue">
+  Top padding.
+</ParamField>
+
+<ParamField path="pr" type="SpacingValue">
+  Right padding.
+</ParamField>
+
+<ParamField path="pb" type="SpacingValue">
+  Bottom padding.
+</ParamField>
+
+<ParamField path="pl" type="SpacingValue">
+  Left padding.
+</ParamField>
+
+<ParamField path="style" type="TextStyle">
+  Style applied to the row surface. When `bg` is provided, the renderer fills the row rect.
+</ParamField>
+
+<ParamField path="inheritStyle" type="TextStyle">
+  Style inherited by descendants when they do not override their own style.
+</ParamField>
+
+<ParamField path="overflow" type="'visible' | 'hidden' | 'scroll'" default="'visible'">
+  Child overflow behavior.
+</ParamField>
+
+<ParamField path="scrollX" type="number">
+  Horizontal scroll offset in cells.
+</ParamField>
+
+<ParamField path="scrollY" type="number">
+  Vertical scroll offset in cells.
+</ParamField>
+
+<ParamField path="theme" type="ScopedThemeOverride">
+  Optional scoped theme override for this container subtree.
+</ParamField>
+
+<ParamField path="transition" type="TransitionSpec">
+  Optional declarative transition settings.
+</ParamField>
+
+<ParamField path="exitTransition" type="TransitionSpec">
+  Optional declarative exit transition.
+</ParamField>
+
+<ParamField path="id" type="string">
+  Optional unique identifier.
+</ParamField>
+
+<ParamField path="key" type="string">
+  Optional reconciliation key.
+</ParamField>
+
+### Layout Constraints
+
+Row also accepts layout constraint props like `width`, `height`, `flex`, `minWidth`, `maxWidth`, etc.
+
+## Column Props
+
+Column arranges children vertically (top to bottom by default). It accepts the same props as Row, with cross-axis and main-axis swapped:
+
+- `items` controls horizontal (cross-axis) alignment
+- `justify` controls vertical (main-axis) justification
+- `wrap` enables wrapping to new columns when height is exceeded
+
+## Stack Helpers
+
+Rezi provides convenience functions for common stack patterns:
+
+```typescript
+// Vertical stack with default gap
+ui.vstack([ui.text('A'), ui.text('B'), ui.text('C')])
+// Equivalent to: ui.column({ gap: 1 }, [...])
+
+// Horizontal stack with default gap
+ui.hstack([ui.text('A'), ui.text('B'), ui.text('C')])
+// Equivalent to: ui.row({ gap: 1 }, [...])
+
+// Vertical stack with custom gap
+ui.vstack(2, [ui.text('A'), ui.text('B'), ui.text('C')])
+
+// Horizontal stack with custom gap
+ui.hstack(2, [ui.text('A'), ui.text('B'), ui.text('C')])
+```
+
+## Alignment Examples
+
+### Horizontal Alignment (Row)
+
+```typescript
+// Left-aligned (default)
+ui.row({ gap: 1, justify: 'start' }, [
+  ui.button('a', 'A'),
+  ui.button('b', 'B')
+])
+
+// Right-aligned
+ui.row({ gap: 1, justify: 'end' }, [
+  ui.button('a', 'A'),
+  ui.button('b', 'B')
+])
+
+// Centered
+ui.row({ gap: 1, justify: 'center' }, [
+  ui.button('a', 'A'),
+  ui.button('b', 'B')
+])
+
+// Space between
+ui.row({ gap: 0, justify: 'between', width: '100%' }, [
+  ui.text('Left'),
+  ui.text('Right')
+])
+```
+
+### Vertical Alignment (Row)
+
+```typescript
+// Top-aligned (default)
+ui.row({ gap: 1, items: 'start' }, [
+  ui.text('Short'),
+  ui.box({ height: 5 }, [ui.text('Tall')])
+])
+
+// Bottom-aligned
+ui.row({ gap: 1, items: 'end' }, [
+  ui.text('Short'),
+  ui.box({ height: 5 }, [ui.text('Tall')])
+])
+
+// Center-aligned
+ui.row({ gap: 1, items: 'center' }, [
+  ui.text('Short'),
+  ui.box({ height: 5 }, [ui.text('Tall')])
+])
+
+// Stretched to equal height
+ui.row({ gap: 1, items: 'stretch' }, [
+  ui.box({ flex: 1 }, [ui.text('A')]),
+  ui.box({ flex: 1 }, [ui.text('B')])
+])
+```
+
+### Column Alignment
+
+```typescript
+// Horizontally centered
+ui.column({ gap: 1, items: 'center' }, [
+  ui.text('Short'),
+  ui.text('Longer text line')
+])
+
+// Vertically centered
+ui.column({ gap: 1, height: 20, justify: 'center' }, [
+  ui.text('Centered'),
+  ui.text('Content')
+])
+
+// Stretched to equal width
+ui.column({ gap: 1, items: 'stretch' }, [
+  ui.box({ border: 'single' }, [ui.text('A')]),
+  ui.box({ border: 'single' }, [ui.text('B')])
+])
+```
+
+## Wrapping
+
+Enable wrapping for responsive layouts:
+
+```typescript
+// Wrap to new lines
+ui.row({ gap: 1, wrap: true }, [
+  ui.button('btn1', 'Button 1'),
+  ui.button('btn2', 'Button 2'),
+  ui.button('btn3', 'Button 3'),
+  ui.button('btn4', 'Button 4'),
+  ui.button('btn5', 'Button 5')
+])
+
+// Wrap to new columns
+ui.column({ gap: 1, wrap: true, maxHeight: 10 }, [
+  ui.text('Item 1'),
+  ui.text('Item 2'),
+  ui.text('Item 3'),
+  ui.text('Item 4')
+])
+```
+
+## Flex Layout
+
+Use flex properties for flexible sizing:
+
+```typescript
+// Flexible children
+ui.row({ gap: 1, width: '100%' }, [
+  ui.box({ flex: 1, border: 'single' }, [ui.text('Flex 1')]),
+  ui.box({ flex: 2, border: 'single' }, [ui.text('Flex 2')]),
+  ui.box({ flex: 1, border: 'single' }, [ui.text('Flex 1')])
+])
+// Second box takes twice as much space
+
+// Mixed fixed and flexible
+ui.row({ gap: 1, width: '100%' }, [
+  ui.box({ width: 20, border: 'single' }, [ui.text('Fixed 20')]),
+  ui.box({ flex: 1, border: 'single' }, [ui.text('Flexible')]),
+  ui.box({ width: 15, border: 'single' }, [ui.text('Fixed 15')])
+])
+```
+
+## Reverse Order
+
+```typescript
+// Right-to-left row
+ui.row({ gap: 1, reverse: true }, [
+  ui.text('First'),
+  ui.text('Second'),
+  ui.text('Third')
+])
+// Renders: "Third Second First"
+
+// Bottom-to-top column
+ui.column({ gap: 1, reverse: true }, [
+  ui.text('Top'),
+  ui.text('Middle'),
+  ui.text('Bottom')
+])
+// Renders: "Bottom Middle Top"
+```
+
+## Common Patterns
+
+### Button Group
+
+```typescript
+ui.row({ gap: 1, justify: 'end' }, [
+  ui.button('cancel', 'Cancel'),
+  ui.button('save', 'Save', { intent: 'primary' })
+])
+```
+
+### Form Layout
+
+```typescript
+ui.column({ gap: 1 }, [
+  ui.row({ gap: 1, items: 'center' }, [
+    ui.text('Name:', { width: 15 }),
+    ui.input('name', state.name)
+  ]),
+  ui.row({ gap: 1, items: 'center' }, [
+    ui.text('Email:', { width: 15 }),
+    ui.input('email', state.email)
+  ])
+])
+```
+
+### Header with Actions
+
+```typescript
+ui.row({ gap: 1, items: 'center', justify: 'between', width: '100%' }, [
+  ui.text('Page Title', { variant: 'heading' }),
+  ui.row({ gap: 1 }, [
+    ui.button('refresh', 'Refresh'),
+    ui.button('settings', 'Settings')
+  ])
+])
+```
+
+### Sidebar Layout
+
+```typescript
+ui.row({ gap: 1, items: 'stretch', height: '100%' }, [
+  ui.box({ width: 30, border: 'rounded' }, [ui.text('Sidebar')]),
+  ui.box({ flex: 1, border: 'rounded' }, [ui.text('Main Content')])
+])
+```
+
+### Evenly Spaced Items
+
+```typescript
+ui.row({ gap: 0, justify: 'evenly', width: '100%' }, [
+  ui.text('⬅️'),
+  ui.text('Page 1 of 10'),
+  ui.text('➡️')
+])
+```
+
+### Status Bar
+
+```typescript
+ui.row({ gap: 1, items: 'center', width: '100%', p: 1 }, [
+  ui.text('Ready'),
+  ui.spacer({ flex: 1 }),
+  ui.text('Line 42:12'),
+  ui.text('UTF-8'),
+  ui.text('TypeScript')
+])
+```
+
+## Related Widgets
+
+- [Box](/widgets/box) - Container with borders and padding
+- [Spacer](/widgets/spacer) - Flexible spacing element
+- [Grid](/widgets/grid) - Two-dimensional grid layout
+- [Split Pane](/widgets/split-pane) - Resizable split layouts

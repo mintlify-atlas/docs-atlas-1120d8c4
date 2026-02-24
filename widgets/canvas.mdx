@@ -1,0 +1,398 @@
+---
+title: Canvas
+description: Custom 2D graphics with sub-cell precision
+---
+
+The Canvas widget provides a drawing surface for custom 2D graphics with multiple sub-cell rendering modes (blitters). Use it for data visualization, custom charts, diagrams, or any pixel-precise graphics.
+
+## Basic Usage
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.canvas({
+  id: "my-canvas",
+  width: 40,
+  height: 20,
+  draw: (ctx) => {
+    ctx.clear("#000");
+    ctx.line(0, 0, ctx.width, ctx.height, "#fff");
+  },
+});
+```
+
+## Props
+
+<ParamField path="id" type="string">
+  Widget identifier for debugging.
+</ParamField>
+
+<ParamField path="width" type="number" required>
+  Canvas width in terminal columns.
+</ParamField>
+
+<ParamField path="height" type="number" required>
+  Canvas height in terminal rows.
+</ParamField>
+
+<ParamField path="draw" type="(ctx: CanvasContext) => void" required>
+  Drawing callback invoked every frame with a fresh canvas context.
+</ParamField>
+
+<ParamField path="blitter" type="GraphicsBlitter" default="auto">
+  Rendering mode. One of:
+  - `"auto"` - Auto-detect best available mode (braille or ascii)
+  - `"braille"` - 2×4 sub-cell dots (highest resolution)
+  - `"sextant"` - 2×3 sub-cell blocks
+  - `"quadrant"` - 2×2 sub-cell blocks
+  - `"halfblock"` - 1×2 sub-cell blocks
+  - `"ascii"` - 1×1 cell fallback
+</ParamField>
+
+## Canvas Context API
+
+The `draw` callback receives a `CanvasContext` with the following methods:
+
+### Drawing Primitives
+
+#### `line(x0, y0, x1, y1, color)`
+Draw a line from (x0, y0) to (x1, y1).
+
+```typescript
+ctx.line(0, 0, 100, 50, "#3b82f6");
+```
+
+#### `polyline(points, color)`
+Draw connected line segments through multiple points.
+
+```typescript
+ctx.polyline([
+  { x: 10, y: 10 },
+  { x: 30, y: 50 },
+  { x: 60, y: 20 },
+], "#10b981");
+```
+
+#### `fillRect(x, y, w, h, color)`
+Draw a filled rectangle.
+
+```typescript
+ctx.fillRect(20, 10, 40, 20, "#ef4444");
+```
+
+#### `strokeRect(x, y, w, h, color)`
+Draw a rectangle outline.
+
+```typescript
+ctx.strokeRect(20, 10, 40, 20, "#8b5cf6");
+```
+
+#### `roundedRect(x, y, w, h, radius, color)`
+Draw a rounded rectangle outline.
+
+```typescript
+ctx.roundedRect(20, 10, 60, 30, 4, "#f59e0b");
+```
+
+#### `circle(cx, cy, radius, color)`
+Draw a circle outline.
+
+```typescript
+ctx.circle(50, 25, 20, "#06b6d4");
+```
+
+#### `fillCircle(cx, cy, radius, color)`
+Draw a filled circle.
+
+```typescript
+ctx.fillCircle(50, 25, 20, "#ec4899");
+```
+
+#### `arc(cx, cy, radius, startAngle, endAngle, color)`
+Draw an arc outline. Angles in radians.
+
+```typescript
+ctx.arc(50, 25, 20, 0, Math.PI, "#14b8a6");
+```
+
+#### `fillTriangle(x0, y0, x1, y1, x2, y2, color)`
+Draw a filled triangle.
+
+```typescript
+ctx.fillTriangle(50, 10, 30, 40, 70, 40, "#f97316");
+```
+
+#### `setPixel(x, y, color)`
+Set a single pixel.
+
+```typescript
+ctx.setPixel(25, 15, "#fbbf24");
+```
+
+#### `text(x, y, str, color?)`
+Draw text overlay at canvas coordinates. Text renders in terminal cells above the canvas.
+
+```typescript
+ctx.text(10, 5, "Hello", "#fff");
+```
+
+#### `clear(color?)`
+Clear the canvas. If color is omitted, clears to transparent.
+
+```typescript
+ctx.clear("#000"); // Clear to black
+ctx.clear(); // Clear to transparent
+```
+
+## Color Format
+
+Colors can be:
+- Hex strings: `"#3b82f6"`, `"#f00"`
+- Theme color names (resolved via context): `"accent.primary"`, `"fg.primary"`
+
+## Blitter Modes
+
+### Braille (2×4)
+
+Highest resolution mode using Unicode braille characters. Each terminal cell represents an 8-dot grid.
+
+```typescript
+ui.canvas({
+  width: 40,
+  height: 20,
+  blitter: "braille",
+  draw: (ctx) => {
+    // Smooth curves and fine details
+    ctx.circle(ctx.width / 2, ctx.height / 2, 30, "#3b82f6");
+  },
+});
+```
+
+**Resolution:** 2 pixels wide × 4 pixels tall per cell  
+**Best for:** Line charts, scatter plots, smooth curves
+
+### Sextant (2×3)
+
+Block characters with 6 sub-cell regions.
+
+```typescript
+ui.canvas({
+  blitter: "sextant",
+  draw: (ctx) => {
+    ctx.fillRect(0, 0, ctx.width, ctx.height, "#10b981");
+  },
+});
+```
+
+**Resolution:** 2 pixels wide × 3 pixels tall per cell  
+**Best for:** Bar charts, heatmaps, filled regions
+
+### Quadrant (2×2)
+
+Block characters with 4 sub-cell quadrants.
+
+```typescript
+ui.canvas({
+  blitter: "quadrant",
+  draw: (ctx) => {
+    // Pixelated but high compatibility
+    ctx.fillCircle(40, 30, 15, "#ef4444");
+  },
+});
+```
+
+**Resolution:** 2 pixels wide × 2 pixels tall per cell  
+**Best for:** Pixel art, simple graphics
+
+### Halfblock (1×2)
+
+Upper/lower half-block characters.
+
+```typescript
+ui.canvas({
+  blitter: "halfblock",
+  draw: (ctx) => {
+    ctx.fillRect(0, 0, ctx.width, ctx.height / 2, "#8b5cf6");
+  },
+});
+```
+
+**Resolution:** 1 pixel wide × 2 pixels tall per cell  
+**Best for:** Horizontal bar charts, timelines
+
+### ASCII (1×1)
+
+Fallback mode using solid block character `█`. No sub-cell resolution.
+
+```typescript
+ui.canvas({
+  blitter: "ascii",
+  draw: (ctx) => {
+    // Basic compatibility mode
+    ctx.strokeRect(5, 5, 30, 10, "#06b6d4");
+  },
+});
+```
+
+**Resolution:** 1 pixel = 1 cell  
+**Best for:** Maximum compatibility, simple diagrams
+
+## Examples
+
+### Line Graph
+
+```typescript
+function renderLineGraph(): VNode {
+  const data = [10, 25, 15, 40, 30, 45, 35];
+  
+  return ui.canvas({
+    id: "line-graph",
+    width: 50,
+    height: 20,
+    blitter: "braille",
+    draw: (ctx) => {
+      ctx.clear("#000");
+      
+      // Scale data to canvas
+      const maxVal = Math.max(...data);
+      const points = data.map((val, i) => ({
+        x: (i / (data.length - 1)) * (ctx.width - 1),
+        y: ((maxVal - val) / maxVal) * (ctx.height - 1),
+      }));
+      
+      // Draw line
+      ctx.polyline(points, "#3b82f6");
+      
+      // Draw data points
+      for (const pt of points) {
+        ctx.fillCircle(pt.x, pt.y, 2, "#fbbf24");
+      }
+    },
+  });
+}
+```
+
+### Animated Spinner
+
+```typescript
+function renderSpinner(state: { tick: number }): VNode {
+  return ui.canvas({
+    id: "spinner",
+    width: 10,
+    height: 10,
+    blitter: "braille",
+    draw: (ctx) => {
+      ctx.clear();
+      const cx = ctx.width / 2;
+      const cy = ctx.height / 2;
+      const angle = (state.tick * Math.PI) / 30;
+      
+      // Spinning arc
+      ctx.arc(
+        cx,
+        cy,
+        15,
+        angle,
+        angle + Math.PI * 1.5,
+        "#3b82f6"
+      );
+    },
+  });
+}
+```
+
+### Heatmap Grid
+
+```typescript
+function renderHeatmap(data: number[][]): VNode {
+  return ui.canvas({
+    id: "heatmap",
+    width: 40,
+    height: 20,
+    blitter: "sextant",
+    draw: (ctx) => {
+      const cellWidth = ctx.width / data[0].length;
+      const cellHeight = ctx.height / data.length;
+      
+      for (let row = 0; row < data.length; row++) {
+        for (let col = 0; col < data[row].length; col++) {
+          const value = data[row][col];
+          // Map value to color
+          const intensity = Math.floor((value / 100) * 255);
+          const color = `rgb(${intensity}, 0, ${255 - intensity})`;
+          
+          ctx.fillRect(
+            col * cellWidth,
+            row * cellHeight,
+            cellWidth,
+            cellHeight,
+            color
+          );
+        }
+      }
+    },
+  });
+}
+```
+
+### Shape Showcase
+
+```typescript
+function renderShapes(): VNode {
+  return ui.canvas({
+    id: "shapes",
+    width: 60,
+    height: 30,
+    blitter: "braille",
+    draw: (ctx) => {
+      ctx.clear("#000");
+      
+      // Circle
+      ctx.circle(20, 15, 10, "#3b82f6");
+      
+      // Filled triangle
+      ctx.fillTriangle(35, 5, 45, 5, 40, 15, "#10b981");
+      
+      // Rounded rectangle
+      ctx.roundedRect(50, 10, 20, 15, 3, "#f59e0b");
+      
+      // Arc
+      ctx.arc(20, 40, 8, 0, Math.PI, "#ec4899");
+      
+      // Labels
+      ctx.text(15, 28, "Circle", "#fff");
+      ctx.text(33, 18, "Triangle", "#fff");
+      ctx.text(52, 27, "Rounded", "#fff");
+    },
+  });
+}
+```
+
+## Performance
+
+The canvas re-renders every frame. For static graphics, consider:
+- Caching computed paths in state
+- Using conditional rendering to skip frames
+- Preferring built-in chart widgets when possible
+
+## Terminal Compatibility
+
+All blitter modes work in all terminals, but visual quality varies:
+
+| Terminal | Braille | Sextant | Quadrant | Halfblock | ASCII |
+|----------|---------|---------|----------|-----------|-------|
+| Kitty | ✓ | ✓ | ✓ | ✓ | ✓ |
+| WezTerm | ✓ | ✓ | ✓ | ✓ | ✓ |
+| iTerm2 | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Windows Terminal | ✓ | ✓ | ✓ | ✓ | ✓ |
+| xterm | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Basic TTY | - | - | - | - | ✓ |
+
+Use `blitter: "auto"` to automatically select the best available mode.
+
+## See Also
+
+- [Line Chart](/widgets/line-chart) - Built-in line chart widget
+- [Scatter Plot](/widgets/scatter) - Built-in scatter plot widget
+- [Heatmap](/widgets/heatmap) - Built-in heatmap widget
+- [Image](/widgets/image) - Display images using graphics protocols

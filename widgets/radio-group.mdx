@@ -1,0 +1,399 @@
+---
+title: "Radio Group"
+description: "Mutually exclusive option selection widget with keyboard navigation"
+---
+
+## Overview
+
+The `radioGroup` widget creates a group of mutually exclusive radio buttons. Only one option can be selected at a time. Radio buttons are displayed as `( )` when unselected and `(*)` when selected.
+
+## Basic Usage
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.radioGroup({
+  id: "payment-method",
+  value: state.paymentMethod,
+  options: [
+    { value: "card", label: "Credit Card" },
+    { value: "paypal", label: "PayPal" },
+    { value: "bank", label: "Bank Transfer" }
+  ],
+  onChange: (value) => app.update({ paymentMethod: value })
+})
+```
+
+## Props
+
+<ParamField path="id" type="string" required>
+  Unique identifier for focus routing. Required for all radio groups.
+</ParamField>
+
+<ParamField path="value" type="string" required>
+  Currently selected option value. Must be controlled by your application state.
+</ParamField>
+
+<ParamField path="options" type="readonly SelectOption[]" required>
+  Available options. Each option has:
+  - `value: string` - Option value used in form state
+  - `label: string` - Display label for the option
+  - `disabled?: boolean` - Whether this option is disabled
+</ParamField>
+
+<ParamField path="onChange" type="(value: string) => void">
+  Callback invoked when selection changes.
+</ParamField>
+
+<ParamField path="direction" type="'horizontal' | 'vertical'" default="vertical">
+  Layout direction for radio options.
+</ParamField>
+
+<ParamField path="disabled" type="boolean" default="false">
+  When true, entire radio group cannot be focused or changed.
+</ParamField>
+
+<ParamField path="focusable" type="boolean" default="true">
+  When false, opt out of Tab focus order while keeping id-based routing available.
+</ParamField>
+
+<ParamField path="accessibleLabel" type="string">
+  Optional semantic label for accessibility and debug announcements.
+</ParamField>
+
+### Styling Props
+
+<ParamField path="dsTone" type="WidgetTone" default="default">
+  Design system color tone for selected/focus rendering: `"default"`, `"primary"`, `"success"`, `"warning"`, `"danger"`.
+</ParamField>
+
+<ParamField path="dsSize" type="WidgetSize" default="md">
+  Design system size preset: `"xs"`, `"sm"`, `"md"`, `"lg"`, `"xl"`.
+</ParamField>
+
+<ParamField path="focusConfig" type="FocusConfig">
+  Optional focus appearance configuration for custom focus indicators.
+</ParamField>
+
+## Event Handling
+
+Radio groups use a controlled pattern. You must manage the selected value in state:
+
+```typescript
+ui.radioGroup({
+  id: "plan",
+  value: state.selectedPlan,
+  options: [
+    { value: "free", label: "Free Plan" },
+    { value: "pro", label: "Pro Plan" },
+    { value: "enterprise", label: "Enterprise Plan" }
+  ],
+  onChange: (value) => {
+    app.update({ selectedPlan: value });
+    
+    // Optionally trigger side effects
+    fetchPlanDetails(value);
+  }
+})
+```
+
+## Layout Direction
+
+### Vertical (Default)
+
+```typescript
+ui.radioGroup({
+  id: "size",
+  value: state.size,
+  direction: "vertical",
+  options: [
+    { value: "small", label: "Small" },
+    { value: "medium", label: "Medium" },
+    { value: "large", label: "Large" }
+  ]
+})
+```
+
+### Horizontal
+
+```typescript
+ui.radioGroup({
+  id: "size",
+  value: state.size,
+  direction: "horizontal",
+  options: [
+    { value: "s", label: "S" },
+    { value: "m", label: "M" },
+    { value: "l", label: "L" },
+    { value: "xl", label: "XL" }
+  ]
+})
+```
+
+## Design System Integration
+
+Radio groups automatically use design system recipes when the active theme provides semantic color tokens:
+
+```typescript
+// Primary tone
+ui.radioGroup({
+  id: "priority",
+  value: state.priority,
+  dsTone: "primary",
+  options: [
+    { value: "low", label: "Low" },
+    { value: "medium", label: "Medium" },
+    { value: "high", label: "High" }
+  ]
+})
+
+// Success tone
+ui.radioGroup({
+  id: "status",
+  value: state.status,
+  dsTone: "success",
+  options: [
+    { value: "active", label: "Active" },
+    { value: "inactive", label: "Inactive" }
+  ]
+})
+```
+
+## Form Integration
+
+Radio groups are typically wrapped with `ui.field()` for labels:
+
+```typescript
+ui.form([
+  ui.field({
+    label: "Subscription Plan",
+    required: true,
+    children: ui.radioGroup({
+      id: "plan",
+      value: state.plan,
+      options: [
+        { value: "free", label: "Free - $0/month" },
+        { value: "pro", label: "Pro - $10/month" },
+        { value: "enterprise", label: "Enterprise - $50/month" }
+      ],
+      onChange: (value) => app.update({ plan: value })
+    })
+  }),
+  ui.actions([
+    ui.button("continue", "Continue", { intent: "primary" })
+  ])
+])
+```
+
+## Disabled Options
+
+### Specific Options Disabled
+
+```typescript
+ui.radioGroup({
+  id: "tier",
+  value: state.tier,
+  options: [
+    { value: "basic", label: "Basic" },
+    { value: "standard", label: "Standard" },
+    { value: "premium", label: "Premium (Coming Soon)", disabled: true }
+  ]
+})
+```
+
+### Entire Group Disabled
+
+```typescript
+ui.radioGroup({
+  id: "readonly-option",
+  value: state.value,
+  disabled: true,
+  options: [
+    { value: "a", label: "Option A" },
+    { value: "b", label: "Option B" }
+  ]
+})
+```
+
+## Examples
+
+### Payment Method Selector
+
+```typescript
+ui.panel("Payment Method", [
+  ui.radioGroup({
+    id: "payment",
+    value: state.paymentMethod,
+    options: [
+      { value: "card", label: "💳 Credit Card" },
+      { value: "paypal", label: "💰 PayPal" },
+      { value: "bank", label: "🏦 Bank Transfer" },
+      { value: "crypto", label: "₿ Cryptocurrency", disabled: true }
+    ],
+    onChange: (value) => app.update({ paymentMethod: value })
+  }),
+  state.paymentMethod === "card" && ui.column({ gap: 1 }, [
+    ui.field({
+      label: "Card Number",
+      children: ui.input({
+        id: "card-number",
+        value: state.cardNumber,
+        placeholder: "1234 5678 9012 3456"
+      })
+    })
+  ])
+])
+```
+
+### Survey Question
+
+```typescript
+ui.column({ gap: 1 }, [
+  ui.text("How satisfied are you with our product?", { variant: "heading" }),
+  ui.radioGroup({
+    id: "satisfaction",
+    value: state.satisfaction,
+    options: [
+      { value: "very-satisfied", label: "😄 Very Satisfied" },
+      { value: "satisfied", label: "🙂 Satisfied" },
+      { value: "neutral", label: "😐 Neutral" },
+      { value: "dissatisfied", label: "😞 Dissatisfied" },
+      { value: "very-dissatisfied", label: "😡 Very Dissatisfied" }
+    ],
+    onChange: (value) => app.update({ satisfaction: value })
+  })
+])
+```
+
+### Settings Toggle
+
+```typescript
+ui.field({
+  label: "Theme",
+  children: ui.radioGroup({
+    id: "theme",
+    value: state.theme,
+    direction: "horizontal",
+    options: [
+      { value: "light", label: "Light" },
+      { value: "dark", label: "Dark" },
+      { value: "auto", label: "Auto" }
+    ],
+    onChange: (value) => {
+      app.update({ theme: value });
+      applyTheme(value);
+    }
+  })
+})
+```
+
+### Shipping Options
+
+```typescript
+ui.form([
+  ui.field({
+    label: "Shipping Method",
+    children: ui.radioGroup({
+      id: "shipping",
+      value: state.shippingMethod,
+      options: [
+        { value: "standard", label: "Standard (5-7 days) - Free" },
+        { value: "express", label: "Express (2-3 days) - $10" },
+        { value: "overnight", label: "Overnight - $25" }
+      ],
+      onChange: (value) => {
+        const costs = { standard: 0, express: 10, overnight: 25 };
+        app.update({
+          shippingMethod: value,
+          shippingCost: costs[value as keyof typeof costs]
+        });
+      }
+    })
+  }),
+  ui.divider(),
+  ui.row({ justify: "between" }, [
+    ui.text("Shipping:"),
+    ui.text(`$${state.shippingCost.toFixed(2)}`)
+  ]),
+  ui.row({ justify: "between" }, [
+    ui.text("Total:", { variant: "heading" }),
+    ui.text(`$${(state.subtotal + state.shippingCost).toFixed(2)}`, { variant: "heading" })
+  ])
+])
+```
+
+### Filter Controls
+
+```typescript
+ui.row({ gap: 2, items: "start" }, [
+  ui.column({ gap: 1 }, [
+    ui.text("Sort By", { variant: "caption" }),
+    ui.radioGroup({
+      id: "sort",
+      value: state.sortBy,
+      options: [
+        { value: "newest", label: "Newest First" },
+        { value: "oldest", label: "Oldest First" },
+        { value: "popular", label: "Most Popular" }
+      ],
+      onChange: (value) => {
+        app.update({ sortBy: value });
+        refreshResults();
+      }
+    })
+  ]),
+  ui.column({ gap: 1 }, [
+    ui.text("Status", { variant: "caption" }),
+    ui.radioGroup({
+      id: "status-filter",
+      value: state.statusFilter,
+      options: [
+        { value: "all", label: "All" },
+        { value: "active", label: "Active" },
+        { value: "completed", label: "Completed" }
+      ],
+      onChange: (value) => {
+        app.update({ statusFilter: value });
+        refreshResults();
+      }
+    })
+  ])
+])
+```
+
+## Keyboard Navigation
+
+When focused, radio groups support:
+- **Arrow Up/Down** - Navigate between options (vertical layout)
+- **Arrow Left/Right** - Navigate between options (horizontal layout)
+- **Space** - Select focused option
+- **Enter** - Select focused option
+- **Tab** - Move to next focusable element
+- **Shift+Tab** - Move to previous focusable element
+
+Navigation automatically skips disabled options.
+
+## Visual States
+
+| State | Indicator | Description |
+|-------|-----------|-------------|
+| Unselected | `( )` | Not selected |
+| Selected | `(*)` | Currently selected option |
+| Disabled unselected | `(-)` | Cannot be selected |
+| Disabled selected | `(*)` | Selected but cannot be changed |
+
+## Accessibility
+
+- Radio groups require a unique `id` for focus routing
+- Use `accessibleLabel` for descriptive announcements
+- Always wrap with `ui.field()` to provide a group label
+- Provide clear option labels
+- Disabled options are skipped during keyboard navigation
+- Focus indicators are shown when navigating with keyboard
+
+## Related Widgets
+
+- [Checkbox](/widgets/checkbox) - For independent boolean options
+- [Select](/widgets/select) - For dropdown selection
+- [Field](/widgets/field) - For wrapping inputs with labels
+- [Button](/widgets/button) - For action buttons

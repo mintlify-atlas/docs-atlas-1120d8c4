@@ -1,0 +1,439 @@
+---
+title: "@rezi-ui/testkit"
+description: "Test utilities and fixtures for Rezi framework"
+---
+
+## Installation
+
+```bash
+npm install --save-dev @rezi-ui/testkit
+```
+
+## Overview
+
+`@rezi-ui/testkit` provides testing utilities for Rezi applications:
+
+- **Snapshot testing**: Capture and compare rendered output
+- **Golden file testing**: Binary comparison with hexdump
+- **Random number generation**: Deterministic RNG for reproducible tests
+- **Fixture loading**: Read test fixtures from disk
+- **Node.js test harness**: Minimal test runner utilities
+
+## API Reference
+
+### Snapshot Testing
+
+<ParamField path="matchesSnapshot" type="function">
+  Compare rendered output against stored snapshot.
+</ParamField>
+
+```typescript
+import { matchesSnapshot } from "@rezi-ui/testkit";
+import { createTestRenderer, ui } from "@rezi-ui/core";
+import { describe, test } from "node:test";
+
+describe("MyWidget", () => {
+  test("renders correctly", () => {
+    const renderer = createTestRenderer({ width: 80, height: 24 });
+    const tree = ui.column({ p: 1 }, [
+      ui.text("Hello"),
+      ui.button({ id: "btn", label: "Click" }),
+    ]);
+
+    const result = renderer.render(tree);
+
+    matchesSnapshot(result.text, {
+      snapshotPath: "__snapshots__/my-widget.txt",
+      update: process.env.UPDATE_SNAPSHOTS === "1",
+    });
+  });
+});
+```
+
+#### Options
+
+<ParamField path="options.snapshotPath" type="string" required>
+  Path to snapshot file.
+</ParamField>
+
+<ParamField path="options.update" type="boolean">
+  Update snapshot if mismatch (default: false).
+</ParamField>
+
+<ParamField path="options.normalize" type="(text: string) => string">
+  Normalize output before comparison.
+</ParamField>
+
+### Golden File Testing
+
+<ParamField path="assertBytesEqual" type="function">
+  Compare binary data with golden file, showing hexdump on mismatch.
+</ParamField>
+
+<ParamField path="hexdump" type="function">
+  Generate hexdump string from binary data.
+</ParamField>
+
+```typescript
+import { assertBytesEqual, hexdump } from "@rezi-ui/testkit";
+import { createDrawlistBuilderV3 } from "@rezi-ui/core";
+import { readFileSync } from "node:fs";
+import { describe, test } from "node:test";
+
+describe("Drawlist generation", () => {
+  test("matches golden file", () => {
+    const builder = createDrawlistBuilderV3({ width: 80, height: 24 });
+    builder.text(0, 0, "Hello");
+    const result = builder.build();
+
+    const golden = readFileSync("golden/hello.zrdl");
+    assertBytesEqual(result.bytes, golden, "Drawlist mismatch");
+  });
+
+  test("inspect bytes", () => {
+    const data = new Uint8Array([0x5a, 0x52, 0x44, 0x4c]);
+    console.log(hexdump(data));
+    // 00000000  5a 52 44 4c                                       |ZRDL|
+  });
+});
+```
+
+### Fixture Loading
+
+<ParamField path="readFixture" type="function">
+  Load test fixture file from `fixtures/` directory.
+</ParamField>
+
+```typescript
+import { readFixture } from "@rezi-ui/testkit";
+import { parseReproBundleBytes } from "@rezi-ui/core";
+import { describe, test } from "node:test";
+
+describe("Repro bundle", () => {
+  test("parses fixture", () => {
+    const bytes = readFixture("repro-v1-basic.bin");
+    const result = parseReproBundleBytes(bytes);
+
+    assert(result.ok === true);
+    assert(result.bundle.schema === 1);
+  });
+});
+```
+
+**Fixture directory**: `packages/testkit/fixtures/`
+
+### Random Number Generation
+
+<ParamField path="createRng" type="function">
+  Create deterministic random number generator for reproducible tests.
+</ParamField>
+
+```typescript
+import { createRng } from "@rezi-ui/testkit";
+import { describe, test, assert } from "node:test";
+
+describe("RNG", () => {
+  test("generates reproducible random numbers", () => {
+    const rng1 = createRng(12345);
+    const rng2 = createRng(12345);
+
+    // Same seed produces same sequence
+    assert.strictEqual(rng1.next(), rng2.next());
+    assert.strictEqual(rng1.next(), rng2.next());
+  });
+
+  test("generates random integers in range", () => {
+    const rng = createRng(54321);
+    const value = rng.nextInt(1, 10); // 1 <= value < 10
+
+    assert(value >= 1 && value < 10);
+  });
+
+  test("generates random floats", () => {
+    const rng = createRng(99999);
+    const value = rng.nextFloat(); // 0 <= value < 1
+
+    assert(value >= 0 && value < 1);
+  });
+});
+```
+
+#### RNG Methods
+
+<ResponseField name="next" type="() => number">
+  Generate next 32-bit unsigned integer.
+</ResponseField>
+
+<ResponseField name="nextInt" type="(min: number, max: number) => number">
+  Generate random integer in [min, max).
+</ResponseField>
+
+<ResponseField name="nextFloat" type="() => number">
+  Generate random float in [0, 1).
+</ResponseField>
+
+<ResponseField name="nextBool" type="() => boolean">
+  Generate random boolean.
+</ResponseField>
+
+<ResponseField name="shuffle" type="<T>(array: T[]) => T[]">
+  Shuffle array in-place using Fisher-Yates algorithm.
+</ResponseField>
+
+### Test Harness Utilities
+
+<ParamField path="describe" type="function">
+  Test suite grouping (re-export from node:test).
+</ParamField>
+
+<ParamField path="test" type="function">
+  Individual test case (re-export from node:test).
+</ParamField>
+
+<ParamField path="assert" type="function">
+  Assertion utilities (re-export from node:assert).
+</ParamField>
+
+```typescript
+import { describe, test, assert } from "@rezi-ui/testkit";
+
+describe("Math utilities", () => {
+  test("addition works", () => {
+    assert.strictEqual(1 + 1, 2);
+  });
+
+  test("async test", async () => {
+    const result = await fetchData();
+    assert(result.ok);
+  });
+});
+```
+
+## Testing Patterns
+
+### Unit Test Example
+
+```typescript
+import { describe, test, assert } from "@rezi-ui/testkit";
+import { computeSelection, toggleSort } from "@rezi-ui/core";
+
+describe("Table utilities", () => {
+  test("computeSelection returns correct indices", () => {
+    const result = computeSelection(
+      { type: "range", start: 2, end: 5 },
+      10,
+      "multi"
+    );
+
+    assert.deepStrictEqual(result.selectedIndices, [2, 3, 4, 5]);
+  });
+
+  test("toggleSort cycles through states", () => {
+    const col1 = toggleSort(null, "name");
+    assert.strictEqual(col1.column, "name");
+    assert.strictEqual(col1.direction, "asc");
+
+    const col2 = toggleSort(col1, "name");
+    assert.strictEqual(col2.direction, "desc");
+
+    const col3 = toggleSort(col2, "name");
+    assert.strictEqual(col3, null);
+  });
+});
+```
+
+### Snapshot Test Example
+
+```typescript
+import { matchesSnapshot } from "@rezi-ui/testkit";
+import { createTestRenderer, ui } from "@rezi-ui/core";
+import { describe, test } from "node:test";
+
+describe("Dashboard screen", () => {
+  test("renders with empty state", () => {
+    const renderer = createTestRenderer({ width: 80, height: 24 });
+    const state = { items: [], loading: false };
+
+    const tree = ui.page({ p: 1 }, [
+      ui.panel("Dashboard", [
+        ui.text(state.items.length === 0 ? "No items" : `${state.items.length} items`),
+      ]),
+    ]);
+
+    const result = renderer.render(tree);
+    matchesSnapshot(result.text, {
+      snapshotPath: "__snapshots__/dashboard-empty.txt",
+    });
+  });
+
+  test("renders with data", () => {
+    const renderer = createTestRenderer({ width: 80, height: 24 });
+    const state = { items: ["A", "B", "C"], loading: false };
+
+    const tree = ui.page({ p: 1 }, [
+      ui.panel("Dashboard", [
+        ui.text(`${state.items.length} items`),
+        ...state.items.map((item) => ui.text(item)),
+      ]),
+    ]);
+
+    const result = renderer.render(tree);
+    matchesSnapshot(result.text, {
+      snapshotPath: "__snapshots__/dashboard-data.txt",
+    });
+  });
+});
+```
+
+### Integration Test Example
+
+```typescript
+import { createRng, matchesSnapshot } from "@rezi-ui/testkit";
+import { createTestRenderer, ui, defineWidget } from "@rezi-ui/core";
+import { describe, test } from "node:test";
+
+const Counter = defineWidget<{ initial: number }>((props, ctx) => {
+  const [count, setCount] = ctx.useState(props.initial);
+
+  return ui.row([
+    ui.text(`Count: ${count}`),
+    ui.button({ id: ctx.id("inc"), label: "+" }),
+  ]);
+});
+
+describe("Counter widget", () => {
+  test("renders with initial value", () => {
+    const renderer = createTestRenderer({ width: 80, height: 24 });
+    const tree = Counter({ initial: 42 });
+
+    const result = renderer.render(tree);
+    matchesSnapshot(result.text, {
+      snapshotPath: "__snapshots__/counter-initial.txt",
+    });
+  });
+});
+```
+
+## Running Tests
+
+### Node.js Test Runner
+
+```bash
+# Run all tests
+node --test
+
+# Run specific test file
+node --test src/__tests__/myWidget.test.ts
+
+# With coverage
+node --test --experimental-test-coverage
+```
+
+### npm scripts
+
+```json package.json
+{
+  "scripts": {
+    "test": "node --test",
+    "test:watch": "node --test --watch",
+    "test:coverage": "node --test --experimental-test-coverage",
+    "test:update-snapshots": "UPDATE_SNAPSHOTS=1 node --test"
+  }
+}
+```
+
+### With tsx (TypeScript)
+
+```bash
+npm install --save-dev tsx
+
+# Run TypeScript tests directly
+tsx --test src/__tests__/*.test.ts
+```
+
+## Snapshot Management
+
+### Update Snapshots
+
+```bash
+UPDATE_SNAPSHOTS=1 node --test
+```
+
+### Review Changes
+
+```bash
+git diff __snapshots__/
+```
+
+### Commit Snapshots
+
+Commit snapshot files to version control:
+
+```bash
+git add __snapshots__/
+git commit -m "test: update snapshots"
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use deterministic RNG for fuzz tests">
+    Always seed `createRng()` with a fixed value to ensure reproducible test failures.
+
+    ```typescript
+    const rng = createRng(12345); // Fixed seed
+    ```
+  </Accordion>
+
+  <Accordion title="Normalize snapshots for consistency">
+    Strip timestamps, random IDs, and other non-deterministic data from snapshots.
+
+    ```typescript
+    matchesSnapshot(output, {
+      snapshotPath: "snapshot.txt",
+      normalize: (text) => text.replace(/\d{4}-\d{2}-\d{2}/g, "YYYY-MM-DD"),
+    });
+    ```
+  </Accordion>
+
+  <Accordion title="Test pure functions first">
+    Unit test pure utility functions before testing stateful widgets.
+
+    ```typescript
+    // Easy to test
+    test("formatDuration", () => {
+      assert.strictEqual(formatDuration(90), "1m 30s");
+    });
+    ```
+  </Accordion>
+
+  <Accordion title="Use testkit for Rezi-specific testing">
+    Prefer `@rezi-ui/testkit` utilities over generic test libraries for better integration.
+  </Accordion>
+</AccordionGroup>
+
+## TypeScript Types
+
+```typescript
+import type {
+  Rng,
+  SnapshotMatchOptions,
+} from "@rezi-ui/testkit";
+```
+
+## Related Documentation
+
+<CardGroup cols={2}>
+  <Card title="Testing Utilities" icon="vial" href="/api/core#testing">
+    Core testing exports
+  </Card>
+  <Card title="Test Renderer" icon="flask" href="/testing/test-renderer">
+    Using createTestRenderer
+  </Card>
+  <Card title="Node.js Tests" icon="check" href="https://nodejs.org/api/test.html" external>
+    Node.js test runner docs
+  </Card>
+  <Card title="Repro System" icon="rotate" href="/testing/repro-bundles">
+    Reproducible bug reports
+  </Card>
+</CardGroup>

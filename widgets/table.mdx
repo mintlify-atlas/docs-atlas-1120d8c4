@@ -1,0 +1,485 @@
+---
+title: "Table"
+description: "Tabular data display with sorting, selection, and virtualization"
+---
+
+# Table Widget
+
+The table widget displays structured data in rows and columns with built-in support for sorting, selection, and virtualization for large datasets.
+
+## Basic Usage
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+}
+
+const users: User[] = [
+  { id: "1", name: "Alice", email: "alice@example.com", role: "Admin" },
+  { id: "2", name: "Bob", email: "bob@example.com", role: "User" },
+  { id: "3", name: "Charlie", email: "charlie@example.com", role: "User" },
+];
+
+const columns = [
+  { key: "name", header: "Name", flex: 1 },
+  { key: "email", header: "Email", flex: 2 },
+  { key: "role", header: "Role", width: 15 },
+];
+
+ui.table({
+  id: "users-table",
+  columns,
+  data: users,
+  getRowKey: (row) => row.id,
+});
+```
+
+## Column Definitions
+
+### Fixed Width Columns
+
+Columns with explicit `width` maintain a fixed size:
+
+```typescript
+const columns = [
+  { key: "id", header: "ID", width: 10 },
+  { key: "name", header: "Name", width: 30 },
+  { key: "status", header: "Status", width: 15 },
+];
+```
+
+### Flex Columns
+
+Columns with `flex` distribute remaining space proportionally:
+
+```typescript
+const columns = [
+  { key: "id", header: "ID", width: 10 },
+  { key: "name", header: "Name", flex: 2 }, // Takes 2x space
+  { key: "description", header: "Description", flex: 3 }, // Takes 3x space
+];
+```
+
+### Column Constraints
+
+Use `minWidth` and `maxWidth` to constrain flex column sizing:
+
+```typescript
+const columns = [
+  {
+    key: "name",
+    header: "Name",
+    flex: 1,
+    minWidth: 20,
+    maxWidth: 50,
+  },
+];
+```
+
+## Custom Cell Rendering
+
+Use the `render` function to customize cell content:
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+const columns = [
+  {
+    key: "status",
+    header: "Status",
+    width: 15,
+    render: (value, row) => {
+      const variant = value === "active" ? "success" : "default";
+      return ui.badge({ text: String(value), variant });
+    },
+  },
+  {
+    key: "email",
+    header: "Email",
+    flex: 1,
+    render: (value) => {
+      return ui.link({
+        id: `email-${value}`,
+        url: `mailto:${value}`,
+        label: String(value),
+      });
+    },
+  },
+];
+```
+
+## Text Alignment
+
+Control cell content alignment:
+
+```typescript
+const columns = [
+  { key: "name", header: "Name", flex: 1, align: "left" },
+  { key: "count", header: "Count", width: 15, align: "right" },
+  { key: "status", header: "Status", width: 15, align: "center" },
+];
+```
+
+## Sorting
+
+### Controlled Sorting
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+const MyTable = defineWidget((ctx) => {
+  const [sortColumn, setSortColumn] = ctx.useState<string | undefined>(undefined);
+  const [sortDirection, setSortDirection] = ctx.useState<"asc" | "desc">("asc");
+
+  const columns = [
+    { key: "name", header: "Name", flex: 1, sortable: true },
+    { key: "email", header: "Email", flex: 1, sortable: true },
+    { key: "created", header: "Created", width: 20, sortable: true },
+  ];
+
+  // Sort data based on state
+  const sortedData = [...data].sort((a, b) => {
+    if (!sortColumn) return 0;
+    const aVal = a[sortColumn as keyof typeof a];
+    const bVal = b[sortColumn as keyof typeof b];
+    const dir = sortDirection === "asc" ? 1 : -1;
+    return aVal < bVal ? -dir : aVal > bVal ? dir : 0;
+  });
+
+  return ui.table({
+    id: "sortable-table",
+    columns,
+    data: sortedData,
+    getRowKey: (row) => row.id,
+    sortColumn,
+    sortDirection,
+    onSort: (column, direction) => {
+      setSortColumn(column);
+      setSortDirection(direction);
+    },
+  });
+});
+```
+
+Sort indicators (▲ ▼) appear automatically in sortable column headers.
+
+## Row Selection
+
+### Single Selection
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+const MyTable = defineWidget((ctx) => {
+  const [selection, setSelection] = ctx.useState<readonly string[]>([]);
+
+  return ui.table({
+    id: "selectable-table",
+    columns,
+    data,
+    getRowKey: (row) => row.id,
+    selectionMode: "single",
+    selection,
+    onSelectionChange: setSelection,
+  });
+});
+```
+
+### Multi-Selection
+
+Supports Ctrl+Click and Shift+Click for range selection:
+
+```typescript
+ui.table({
+  id: "multi-select-table",
+  columns,
+  data,
+  getRowKey: (row) => row.id,
+  selectionMode: "multi",
+  selection,
+  onSelectionChange: setSelection,
+});
+```
+
+## Row Actions
+
+### Single Click
+
+```typescript
+ui.table({
+  id: "clickable-table",
+  columns,
+  data,
+  getRowKey: (row) => row.id,
+  onRowPress: (row, index) => {
+    console.log(`Clicked row ${index}:`, row);
+  },
+});
+```
+
+### Double Click
+
+```typescript
+ui.table({
+  id: "dblclick-table",
+  columns,
+  data,
+  getRowKey: (row) => row.id,
+  onRowDoublePress: (row, index) => {
+    // Open detail view
+    openDetail(row.id);
+  },
+});
+```
+
+## Virtualization
+
+Virtualization is enabled by default for performance with large datasets. Only visible rows (plus overscan buffer) are rendered.
+
+### Large Dataset Example
+
+```typescript
+// 100,000 rows - renders instantly
+const largeDataset = Array.from({ length: 100_000 }, (_, i) => ({
+  id: String(i),
+  name: `User ${i}`,
+  email: `user${i}@example.com`,
+}));
+
+ui.table({
+  id: "large-table",
+  columns,
+  data: largeDataset,
+  getRowKey: (row) => row.id,
+  virtualized: true, // Default: true
+  overscan: 5, // Rows to render outside viewport (default: 3)
+});
+```
+
+### Disable Virtualization
+
+For small tables where full rendering is preferred:
+
+```typescript
+ui.table({
+  id: "small-table",
+  columns,
+  data: smallDataset,
+  getRowKey: (row) => row.id,
+  virtualized: false,
+});
+```
+
+## Visual Styling
+
+### Striped Rows
+
+```typescript
+ui.table({
+  id: "striped-table",
+  columns,
+  data,
+  getRowKey: (row) => row.id,
+  stripedRows: true,
+  stripeStyle: {
+    odd: { r: 30, g: 30, b: 30 },
+    even: { r: 20, g: 20, b: 20 },
+  },
+});
+```
+
+### Border Style
+
+```typescript
+ui.table({
+  id: "bordered-table",
+  columns,
+  data,
+  getRowKey: (row) => row.id,
+  borderStyle: {
+    variant: "rounded",
+    color: { r: 100, g: 100, b: 100 },
+  },
+});
+```
+
+### Selection Style
+
+```typescript
+ui.table({
+  id: "custom-selection-table",
+  columns,
+  data,
+  getRowKey: (row) => row.id,
+  selectionMode: "single",
+  selection,
+  onSelectionChange: setSelection,
+  selectionStyle: {
+    bg: { r: 50, g: 100, b: 150 },
+    fg: { r: 255, g: 255, b: 255 },
+  },
+});
+```
+
+## Header Configuration
+
+### Hide Header
+
+```typescript
+ui.table({
+  id: "no-header-table",
+  columns,
+  data,
+  getRowKey: (row) => row.id,
+  showHeader: false,
+});
+```
+
+### Header Height
+
+```typescript
+ui.table({
+  id: "tall-header-table",
+  columns,
+  data,
+  getRowKey: (row) => row.id,
+  headerHeight: 2, // Default: 1
+});
+```
+
+## Row Height
+
+```typescript
+ui.table({
+  id: "tall-rows-table",
+  columns,
+  data,
+  getRowKey: (row) => row.id,
+  rowHeight: 2, // Default: 1
+});
+```
+
+## Performance Characteristics
+
+- **Initial render**: O(viewport) - only visible rows are rendered
+- **Scroll update**: ~2ms per frame - efficient viewport windowing
+- **Memory**: O(viewport + overscan) - scales with visible area, not dataset size
+- **Column width calculation**: O(columns) - one-time flex distribution
+- **Selection**: O(1) lookup with internal Set-based tracking
+
+## Data Binding Patterns
+
+### Local State
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+const UserTable = defineWidget((ctx) => {
+  const [users, setUsers] = ctx.useState<User[]>(initialUsers);
+  const [selection, setSelection] = ctx.useState<readonly string[]>([]);
+
+  const deleteSelected = () => {
+    setUsers(users.filter((u) => !selection.includes(u.id)));
+    setSelection([]);
+  };
+
+  return ui.column({ gap: 1 }, [
+    ui.button({
+      id: "delete-btn",
+      label: "Delete Selected",
+      disabled: selection.length === 0,
+      onPress: deleteSelected,
+    }),
+    ui.table({
+      id: "users-table",
+      columns,
+      data: users,
+      getRowKey: (row) => row.id,
+      selectionMode: "multi",
+      selection,
+      onSelectionChange: setSelection,
+    }),
+  ]);
+});
+```
+
+### Global State
+
+```typescript
+function view(state: AppState) {
+  return ui.table({
+    id: "users-table",
+    columns,
+    data: state.users,
+    getRowKey: (row) => row.id,
+    selection: state.selectedUserIds,
+    onSelectionChange: (keys) => {
+      app.update({ ...state, selectedUserIds: keys });
+    },
+  });
+}
+```
+
+## Props Reference
+
+### TableProps
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `id` | `string` | **Required** | Widget identifier |
+| `columns` | `readonly TableColumn<T>[]` | **Required** | Column definitions |
+| `data` | `readonly T[]` | **Required** | Row data array |
+| `getRowKey` | `(row: T, index: number) => string` | **Required** | Row key extractor |
+| `rowHeight` | `number` | `1` | Row height in cells |
+| `headerHeight` | `number` | `1` | Header row height |
+| `selection` | `readonly string[]` | `[]` | Selected row keys |
+| `selectionMode` | `"none" \| "single" \| "multi"` | `"none"` | Selection mode |
+| `onSelectionChange` | `(keys: readonly string[]) => void` | — | Selection change callback |
+| `sortColumn` | `string` | — | Currently sorted column |
+| `sortDirection` | `"asc" \| "desc"` | — | Sort direction |
+| `onSort` | `(column: string, direction: "asc" \| "desc") => void` | — | Sort change callback |
+| `onRowPress` | `(row: T, index: number) => void` | — | Row click callback |
+| `onRowDoublePress` | `(row: T, index: number) => void` | — | Row double-click callback |
+| `virtualized` | `boolean` | `true` | Enable virtualization |
+| `overscan` | `number` | `3` | Rows outside viewport |
+| `stripedRows` | `boolean` | `false` | Alternate row colors |
+| `stripeStyle` | `TableStripeStyle` | — | Stripe color config |
+| `selectionStyle` | `TextStyle` | — | Selected row style |
+| `showHeader` | `boolean` | `true` | Show header row |
+| `borderStyle` | `TableBorderStyle` | — | Border styling |
+| `focusable` | `boolean` | `true` | Include in tab order |
+| `accessibleLabel` | `string` | — | Accessibility label |
+| `focusConfig` | `FocusConfig` | — | Focus appearance |
+| `dsSize` | `WidgetSize` | `"md"` | Design system size |
+| `dsTone` | `WidgetTone` | `"default"` | Design system tone |
+
+### TableColumn
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `key` | `string` | **Required** | Unique column ID |
+| `header` | `string` | **Required** | Column header text |
+| `width` | `number` | — | Fixed width in cells |
+| `minWidth` | `number` | — | Minimum width |
+| `maxWidth` | `number` | — | Maximum width |
+| `flex` | `number` | — | Flex factor (default: 1 if no width) |
+| `render` | `(value: unknown, row: T, index: number) => VNode` | — | Custom cell renderer |
+| `align` | `"left" \| "center" \| "right"` | `"left"` | Content alignment |
+| `overflow` | `"clip" \| "ellipsis" \| "middle"` | `"ellipsis"` | Overflow handling |
+| `sortable` | `boolean` | `false` | Enable sorting |
+
+## Related Widgets
+
+- [Virtual List](/widgets/virtual-list) - List virtualization without columns
+- [Tree](/widgets/tree) - Hierarchical data display
+
+## Location in Source
+
+- Implementation: `packages/core/src/widgets/table.ts`
+- Types: `packages/core/src/widgets/types.ts:1259-1369`
+- Factory: `packages/core/src/widgets/ui.ts:table()`

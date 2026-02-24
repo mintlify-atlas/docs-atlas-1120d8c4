@@ -1,0 +1,321 @@
+---
+title: "Spacer"
+description: "Flexible spacing element for layouts"
+---
+
+## Overview
+
+The Spacer widget creates flexible or fixed spacing within stack layouts (Row/Column). It's commonly used to push elements apart or create flexible layouts.
+
+## Basic Usage
+
+<CodeGroup>
+```typescript ui.spacer() API
+import { ui } from '@rezi-ui/core';
+
+// Flexible spacer (fills available space)
+ui.row({ gap: 1 }, [
+  ui.text('Left'),
+  ui.spacer({ flex: 1 }),
+  ui.text('Right')
+])
+
+// Fixed-size spacer
+ui.column({ gap: 0 }, [
+  ui.text('Top'),
+  ui.spacer({ size: 3 }),
+  ui.text('Bottom')
+])
+
+// Multiple flexible spacers
+ui.row({ gap: 0 }, [
+  ui.text('Start'),
+  ui.spacer({ flex: 1 }),
+  ui.text('Center'),
+  ui.spacer({ flex: 1 }),
+  ui.text('End')
+])
+```
+
+```tsx JSX
+import { Row, Column, Text, Spacer } from '@rezi-ui/jsx';
+
+// Flexible spacer
+<Row gap={1}>
+  <Text>Left</Text>
+  <Spacer flex={1} />
+  <Text>Right</Text>
+</Row>
+
+// Fixed-size spacer
+<Column gap={0}>
+  <Text>Top</Text>
+  <Spacer size={3} />
+  <Text>Bottom</Text>
+</Column>
+
+// Multiple flexible spacers
+<Row gap={0}>
+  <Text>Start</Text>
+  <Spacer flex={1} />
+  <Text>Center</Text>
+  <Spacer flex={1} />
+  <Text>End</Text>
+</Row>
+```
+</CodeGroup>
+
+## Props
+
+<ParamField path="flex" type="number" default="0">
+  Flex factor for flexible spacing. A value greater than 0 makes the spacer grow to fill available space.
+  
+  Multiple spacers with the same flex value will share space equally.
+</ParamField>
+
+<ParamField path="size" type="number">
+  Fixed size in cells along the stack axis (width for Row, height for Column).
+  
+  When specified, `flex` is ignored.
+</ParamField>
+
+<ParamField path="key" type="string">
+  Optional reconciliation key.
+</ParamField>
+
+## Flexible Spacing
+
+Use `flex` to create flexible layouts where spacers grow to fill available space:
+
+### Equal Spacing
+
+```typescript
+// Push items to opposite ends
+ui.row({ width: '100%' }, [
+  ui.text('Left'),
+  ui.spacer({ flex: 1 }),
+  ui.text('Right')
+])
+```
+
+### Multiple Equal Spacers
+
+```typescript
+// Evenly distribute items
+ui.row({ width: '100%' }, [
+  ui.text('A'),
+  ui.spacer({ flex: 1 }),
+  ui.text('B'),
+  ui.spacer({ flex: 1 }),
+  ui.text('C'),
+  ui.spacer({ flex: 1 }),
+  ui.text('D')
+])
+```
+
+### Weighted Spacing
+
+```typescript
+// Different flex values create proportional spacing
+ui.row({ width: '100%' }, [
+  ui.text('Left'),
+  ui.spacer({ flex: 1 }),
+  ui.text('Center'),
+  ui.spacer({ flex: 2 }),
+  ui.text('Right')
+])
+// Right spacer is twice as large as left spacer
+```
+
+## Fixed Spacing
+
+Use `size` for fixed spacing between elements:
+
+```typescript
+// Vertical spacing
+ui.column({ gap: 0 }, [
+  ui.text('Section 1'),
+  ui.spacer({ size: 3 }),
+  ui.text('Section 2')
+])
+
+// Horizontal spacing
+ui.row({ gap: 0 }, [
+  ui.text('Item 1'),
+  ui.spacer({ size: 5 }),
+  ui.text('Item 2')
+])
+```
+
+<Note>
+  Fixed-size spacers are useful when you need precise spacing that doesn't depend on available space.
+</Note>
+
+## Common Patterns
+
+### Left-Right Layout
+
+```typescript
+// Push content to opposite ends
+ui.row({ gap: 1, items: 'center', width: '100%' }, [
+  ui.text('Title'),
+  ui.spacer({ flex: 1 }),
+  ui.button('action', 'Action')
+])
+```
+
+### Centered Content
+
+```typescript
+// Center element horizontally
+ui.row({ width: '100%' }, [
+  ui.spacer({ flex: 1 }),
+  ui.text('Centered'),
+  ui.spacer({ flex: 1 })
+])
+
+// Center element vertically
+ui.column({ height: '100%' }, [
+  ui.spacer({ flex: 1 }),
+  ui.text('Centered'),
+  ui.spacer({ flex: 1 })
+])
+```
+
+### Status Bar
+
+```typescript
+ui.row({ gap: 1, items: 'center', width: '100%' }, [
+  ui.text('Ready'),
+  ui.spacer({ flex: 1 }),
+  ui.text('Line 42'),
+  ui.text('UTF-8'),
+  ui.text('TypeScript')
+])
+```
+
+### Toolbar
+
+```typescript
+ui.row({ gap: 1, items: 'center', width: '100%' }, [
+  ui.button('new', 'New'),
+  ui.button('open', 'Open'),
+  ui.button('save', 'Save'),
+  ui.spacer({ flex: 1 }),
+  ui.button('settings', 'Settings'),
+  ui.button('help', 'Help')
+])
+```
+
+### Modal Footer
+
+```typescript
+ui.row({ gap: 1, items: 'center', width: '100%' }, [
+  ui.spacer({ flex: 1 }),
+  ui.button('cancel', 'Cancel'),
+  ui.button('confirm', 'Confirm', { intent: 'primary' })
+])
+```
+
+### Header with Logo and Nav
+
+```typescript
+ui.row({ gap: 2, items: 'center', width: '100%', p: 1 }, [
+  ui.text('🚀 MyApp', { variant: 'heading' }),
+  ui.spacer({ flex: 1 }),
+  ui.row({ gap: 1 }, [
+    ui.text('Home'),
+    ui.text('About'),
+    ui.text('Contact')
+  ])
+])
+```
+
+### Section Spacing
+
+```typescript
+ui.column({ gap: 0, width: '100%' }, [
+  ui.text('Header', { variant: 'heading' }),
+  ui.divider(),
+  ui.spacer({ size: 2 }),
+  ui.text('Content paragraph 1'),
+  ui.spacer({ size: 1 }),
+  ui.text('Content paragraph 2'),
+  ui.spacer({ size: 2 }),
+  ui.divider(),
+  ui.text('Footer')
+])
+```
+
+### Three-Column Layout
+
+```typescript
+ui.row({ gap: 1, width: '100%' }, [
+  ui.box({ width: 20 }, [ui.text('Sidebar')]),
+  ui.spacer({ flex: 1 }),
+  ui.box({ width: 60 }, [ui.text('Main Content')]),
+  ui.spacer({ flex: 1 }),
+  ui.box({ width: 20 }, [ui.text('Sidebar')])
+])
+```
+
+## Spacer vs Gap
+
+**Use Spacer when:**
+- You need flexible spacing that grows to fill space
+- You want different spacing between specific items
+- You need to push items to opposite ends
+- You're creating complex alignment patterns
+
+**Use `gap` prop when:**
+- You want consistent spacing between all children
+- The spacing is fixed and doesn't need to be flexible
+- You're using a simple stack layout
+
+```typescript
+// Using gap (simpler for uniform spacing)
+ui.row({ gap: 1 }, [
+  ui.text('A'),
+  ui.text('B'),
+  ui.text('C')
+])
+
+// Using spacer (more control)
+ui.row({ gap: 0 }, [
+  ui.text('A'),
+  ui.spacer({ size: 1 }),
+  ui.text('B'),
+  ui.spacer({ size: 2 }),
+  ui.text('C')
+])
+```
+
+## Flex Behavior
+
+Spacer flex works like CSS flexbox:
+
+```typescript
+// All flex: 1 spacers share space equally
+ui.row({ width: 100 }, [
+  ui.text('A'),
+  ui.spacer({ flex: 1 }), // Gets 33.3% of free space
+  ui.text('B'),
+  ui.spacer({ flex: 1 }), // Gets 33.3% of free space
+  ui.text('C'),
+  ui.spacer({ flex: 1 })  // Gets 33.3% of free space
+])
+
+// Different flex values create proportional distribution
+ui.row({ width: 100 }, [
+  ui.text('A'),
+  ui.spacer({ flex: 1 }), // Gets 25% of free space (1/4)
+  ui.text('B'),
+  ui.spacer({ flex: 3 })  // Gets 75% of free space (3/4)
+])
+```
+
+## Related Widgets
+
+- [Row & Column](/widgets/row-column) - Stack layouts that contain spacers
+- [Divider](/widgets/divider) - Visual separator lines
+- [Box](/widgets/box) - Container with gap prop for spacing children

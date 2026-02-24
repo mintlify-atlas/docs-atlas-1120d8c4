@@ -1,0 +1,255 @@
+---
+title: Benchmarks
+description: Performance benchmarks and methodology
+---
+
+This page documents Rezi's benchmark methodology, results, and comparisons with other TUI frameworks.
+
+**Source:** `BENCHMARKS.md` in repository  
+**Suite:** `packages/bench/`  
+**Last updated:** 2026-02-22
+
+## Frameworks Compared
+
+| Framework | Runtime | Driver | Notes |
+|---|---|---|---|
+| **Rezi** | Node.js (worker) | `@rezi-ui/core` + `@rezi-ui/node` | Full layout engine, binary drawlist, native C renderer |
+| **Ink** | Node.js (worker) | React + Yoga + ANSI output | React reconciler, flexbox layout via Yoga |
+| **OpenTUI (React)** | Bun (subprocess) | `@opentui/react` on `@opentui/core` | React declarative driver |
+| **OpenTUI (Core)** | Bun (subprocess) | `@opentui/core` imperative API | Direct object mutation, no React overhead |
+| **Bubble Tea** | Go (subprocess) | `charmbracelet/bubbletea` | Elm architecture, string-based `View()` rendering |
+| **terminal-kit** | Node.js (worker) | `terminal-kit` | Low-level terminal buffer library, no widget/layout system |
+| **blessed** | Node.js (worker) | `blessed` | Low-level terminal UI with box model, no constraint layout |
+| **Ratatui** | Rust (subprocess) | `ratatui` | Native Rust terminal renderer, immediate mode |
+
+## Benchmark Scenarios
+
+The suite contains 22 scenarios in three tiers:
+
+### Primitive Workloads
+
+Isolated subsystem stress tests:
+
+- `startup` — app create/destroy cycle
+- `tree-construction` — build widget tree from scratch (10, 100, 500, 1000 items)
+- `rerender` — update a single changing value in an existing tree
+- `content-update` — update text content across a large tree
+- `layout-stress` — grid layout with many cells
+- `scroll-stress` — scroll a 2000-item list
+- `virtual-list` — viewport-windowed rendering over 100K items
+- `tables` — 100-row, 8-column data table rendering
+- `memory-profile` — steady-state memory behavior
+
+### Terminal-Level Workloads
+
+End-to-end render + terminal write:
+
+- `terminal-rerender`
+- `terminal-frame-fill` (1 and 40 dirty lines)
+- `terminal-screen-transition`
+- `terminal-fps-stream`
+- `terminal-input-latency`
+- `terminal-memory-soak`
+- `terminal-virtual-list`
+- `terminal-table`
+
+### Full-App Workloads
+
+Structured UI composition:
+
+- `terminal-full-ui` — composite dashboard shell with panels, status bar, data sections
+- `terminal-full-ui-navigation` — same shell with page routing
+- `terminal-strict-ui` — structured multi-panel layout (header, 3-column body, footer, status bar)
+- `terminal-strict-ui-navigation` — same structured layout with navigation
+
+**Strict scenarios exist to reduce bias** when comparing Rezi (which has a layout engine) against libraries that operate closer to raw terminal buffers (blessed, ratatui, terminal-kit).
+
+## Results (2026-02-22, PTY mode)
+
+Single-replicate, default iteration counts. WSL host (directional only).
+
+### Rezi vs. Ink
+
+**21 scenarios where both participate:**
+
+| Scenario | Ratio (Ink slower) |
+|---|---:|
+| tree-construction (10 items) | 206x |
+| tree-construction (100 items) | 80x |
+| tree-construction (500 items) | 49x |
+| tree-construction (1000 items) | 46x |
+| rerender | 47x |
+| content-update | 32x |
+| layout-stress | 10x |
+| scroll-stress | 12x |
+| virtual-list | 23x |
+| tables | 11x |
+| terminal-rerender | 47x |
+| terminal-frame-fill (1 dirty line) | 55x |
+| terminal-frame-fill (40 dirty lines) | 36x |
+| terminal-fps-stream | 10x |
+| terminal-input-latency | 35x |
+| terminal-full-ui | 10x |
+| terminal-strict-ui | 21x |
+
+**Summary:** Rezi is faster than Ink in every measured scenario. The gap is largest on tree construction and rerender workloads (45-206x) and smallest on complex UI composition (10x).
+
+### Rezi vs. OpenTUI (React)
+
+**21 scenarios:**
+
+Rezi faster in all 21 scenarios. Range: 1.8x to 155x. Geomean: ~10x.
+
+### Rezi vs. OpenTUI (Core)
+
+**21 scenarios:**
+
+Rezi faster in 19/21 scenarios. Range: 1.3x to 13x. Geomean: ~2.6x.
+
+**OpenTUI Core wins:**
+- `layout-stress`: Core 1.5x faster (517 vs 347 ops/s)
+- `tables`: Core 1.6x faster (434 vs 277 ops/s)
+
+### Rezi vs. Bubble Tea
+
+**21 scenarios:**
+
+Rezi faster in 20/21 scenarios. Bubble Tea throughput clusters around ~120 ops/s in most scenarios due to its 8.33ms tick rate.
+
+**Bubble Tea wins:**
+- `scroll-stress`: Bubble Tea 2.5x faster (120 vs 48 ops/s)
+
+### Rezi vs. terminal-kit / blessed / Ratatui
+
+These three participate only in scenarios that make sense for their level of abstraction.
+
+**On primitive workloads** (rerender, frame-fill, simple construction):
+- terminal-kit: 1x-13x faster than Rezi
+- blessed: 2x-19x faster than Rezi
+- Ratatui: 2x-20x faster than Rezi
+
+**On complex UI workloads** (strict-ui, full-ui, fps-stream, tables, virtual-list):
+- Rezi is competitive or faster
+
+**Rationale:** terminal-kit and blessed write directly to terminal buffers without computing layout. Ratatui is compiled Rust. On workloads that actually require structured layout and widget composition, the gap narrows or reverses.
+
+## Representative Numbers
+
+Selected scenarios showing the performance landscape across categories:
+
+| Scenario | Rezi | Ink | OpenTUI React | OpenTUI Core | Bubble Tea | Ratatui |
+|---|---:|---:|---:|---:|---:|---:|
+| startup | 1.87ms (516 ops/s) | 5.62ms (112) | 8.68ms (33) | 4.92ms (38) | 9.94ms (49) | 184µs (5.2K) |
+| tree-construction (100) | 326µs (3.1K) | 26ms (38) | 36ms (27) | 2.15ms (466) | 8.33ms (120) | 696µs (1.4K) |
+| rerender | 373µs (2.7K) | 17.7ms (57) | 2.70ms (370) | 1.16ms (860) | 8.33ms (120) | 51µs (19.7K) |
+| layout-stress | 2.88ms (347) | 28ms (36) | 33ms (30) | 1.93ms (517) | 8.33ms (120) | -- |
+| virtual-list (100K items) | 985µs (1.0K) | 22.6ms (44) | 28.5ms (35) | 1.28ms (780) | 8.33ms (120) | -- |
+| terminal-strict-ui | 1.19ms (836) | 25.5ms (39) | 19.4ms (51) | 1.77ms (565) | 8.33ms (120) | 240µs (4.2K) |
+| terminal-full-ui | 2.49ms (401) | 25.6ms (39) | 5.07ms (197) | 1.31ms (760) | 8.33ms (120) | 336µs (3.0K) |
+
+## Memory Usage
+
+| Framework | Typical peak RSS (UI scenarios) | Notes |
+|---|---|---|
+| Rezi | 80-210 MB | Heap ~20-120 MB depending on tree size |
+| Ink | 120-980 MB | Grows significantly with tree size |
+| OpenTUI (React) | 200 MB - 15 GB | Memory scales poorly; OOMs on tree-construction at 1000 items |
+| OpenTUI (Core) | 100-190 MB | Comparable to Rezi |
+| Bubble Tea | 7-10 MB | Go runtime baseline, very low footprint |
+| Ratatui | 3-16 MB | Native binary, minimal overhead |
+| terminal-kit | 69-83 MB | Lightweight buffer library |
+| blessed | 77-300 MB | Varies with screen complexity |
+
+## Methodology
+
+### What is Measured
+
+Each benchmark iteration measures one complete render cycle: state update through final frame output. For PTY-mode benchmarks, this includes the terminal write path.
+
+### Runtime Differences
+
+These benchmarks compare frameworks, but also inevitably compare runtimes:
+- Rezi, Ink, blessed: Node.js worker processes
+- OpenTUI (both drivers): Bun subprocesses
+- Bubble Tea: Go subprocess
+- Ratatui: Rust subprocess
+
+Cross-framework numbers include runtime and toolchain effects alongside framework costs.
+
+### Scenario Parity
+
+- **Primitive scenarios** (rerender, frame-fill) test narrow subsystem performance. Libraries without layout engines (terminal-kit, blessed, Ratatui) have an inherent advantage here because they do less work per frame.
+- **Strict-ui scenarios** build equivalent multi-panel layouts across all frameworks. Bubble Tea renders via lipgloss string composition rather than a widget tree, which is a different code path.
+- **Full-ui scenarios** test composite dashboards with data sections, status bars, and navigation.
+
+### Environment
+
+WSL and virtualized hosts introduce measurable scheduler jitter. Treat WSL-collected results as directional. For publication-grade numbers, use bare-metal Linux with CPU pinning and multiple replicates.
+
+## Reproducing Benchmarks
+
+### Full Cross-Framework Suite (PTY mode)
+
+```bash
+npm ci
+npm run build
+npm run build:native
+npx tsc -b packages/bench
+
+# Build Ratatui bench binary
+cd benchmarks/native/ratatui-bench
+cargo build --release
+cd -
+
+node --expose-gc packages/bench/dist/run.js \
+  --suite all \
+  --io pty \
+  --output-dir benchmarks/local-all
+```
+
+### Rigorous Terminal Suite (replicates + shuffle + affinity)
+
+```bash
+node --expose-gc packages/bench/dist/run.js \
+  --suite terminal \
+  --io pty \
+  --replicates 7 \
+  --discard-first-replicate \
+  --shuffle-framework-order \
+  --shuffle-seed local-terminal \
+  --cpu-affinity 0-7 \
+  --env-check warn \
+  --output-dir benchmarks/local-terminal
+```
+
+### Quick Matchup: Rezi vs OpenTUI
+
+```bash
+# React driver
+node --expose-gc packages/bench/dist/run.js \
+  --matchup rezi-opentui \
+  --io pty \
+  --quick \
+  --output-dir benchmarks/local-rezi-opentui-react-quick
+
+# Core driver
+node --expose-gc packages/bench/dist/run.js \
+  --matchup rezi-opentui \
+  --opentui-driver core \
+  --io pty \
+  --quick \
+  --output-dir benchmarks/local-rezi-opentui-core-quick
+```
+
+## Limitations
+
+- PTY benchmarks include framework render + terminal write path, not terminal emulator pixel paint.
+- Absolute numbers are host-specific; compare within the same dataset, mode, and host.
+- Quick-mode single-replicate outputs are useful for trend checks, not confidence-grade claims.
+- OpenTUI React OOMs on `tree-construction` at 1000 items (inherent to React driver memory scaling).
+
+## Related Documentation
+
+- [Render Pipeline](/architecture/render-pipeline) — Rendering phases
+- [Layout Engine](/architecture/layout-engine) — Layout algorithm details
+- [Determinism](/architecture/determinism) — Reproducibility guarantees

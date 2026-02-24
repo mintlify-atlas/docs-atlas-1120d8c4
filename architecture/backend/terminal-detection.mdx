@@ -1,0 +1,313 @@
+---
+title: Terminal Detection
+description: Terminal capability detection and profile negotiation
+---
+
+The Rezi backend detects terminal capabilities from environment variables to negotiate optimal rendering features. This ensures compatibility across terminal emulators and CI environments.
+
+## Detection Strategy
+
+Terminal capabilities are detected at backend initialization:
+
+1. **Read environment variables** (`TERM`, `COLORTERM`, `TERM_PROGRAM`, etc.)
+2. **Parse terminal profile** from detected values
+3. **Apply overrides** from explicit environment variables
+4. **Negotiate with engine** to enable supported features
+
+**Location:** `packages/node/src/backend/terminalProfile.ts`
+
+## Environment Variables
+
+### Core Variables
+
+| Variable | Purpose | Example Values |
+|----------|---------|----------------|
+| `TERM` | Terminal type | `xterm-256color`, `screen-256color`, `dumb` |
+| `COLORTERM` | Color support | `truecolor`, `24bit` |
+| `TERM_PROGRAM` | Terminal emulator | `iTerm.app`, `vscode`, `Apple_Terminal` |
+| `TERM_PROGRAM_VERSION` | Emulator version | `3.4.0` |
+
+### CI Detection
+
+| Variable | Meaning |
+|----------|----------|
+| `CI` | Generic CI environment |
+| `GITHUB_ACTIONS` | GitHub Actions |
+| `GITLAB_CI` | GitLab CI |
+| `CIRCLECI` | CircleCI |
+| `TRAVIS` | Travis CI |
+| `JENKINS_URL` | Jenkins |
+
+**CI behavior:** Rezi disables mouse and focus tracking in CI environments by default.
+
+### Explicit Overrides
+
+| Variable | Purpose | Values |
+|----------|---------|--------|
+| `ZRUI_TRUECOLOR` | Force truecolor | `1` (enable) / `0` (disable) |
+| `ZRUI_MOUSE` | Force mouse events | `1` (enable) / `0` (disable) |
+| `ZRUI_UNICODE` | Force Unicode | `1` (enable) / `0` (disable) |
+| `ZRUI_EMOJI_WIDTH` | Emoji width policy | `wide` / `narrow` |
+| `ZRUI_EMOJI_WIDTH_PROBE` | Enable probing | `1` (enable) |
+
+## Terminal Capabilities
+
+```typescript
+interface TerminalCaps {
+  truecolor: boolean;  // 24-bit RGB color support
+  unicode: boolean;    // Unicode rendering support
+  mouse: boolean;      // Mouse event support
+  focus: boolean;      // Focus tracking support
+}
+```
+
+### Truecolor Detection
+
+**Enabled when:**
+- `COLORTERM=truecolor` or `COLORTERM=24bit`
+- `TERM_PROGRAM` is a known truecolor emulator (iTerm2, VS Code, Hyper, Alacritty, Kitty, WezTerm)
+- `TERM` contains `truecolor` or `24bit`
+
+**Disabled when:**
+- `TERM=dumb`
+- `ZRUI_TRUECOLOR=0`
+
+**Fallback:** 256-color palette
+
+### Unicode Detection
+
+**Enabled when:**
+- `LANG` or `LC_ALL` contains `UTF-8` or `utf8`
+- `TERM` is not `dumb`
+
+**Disabled when:**
+- `TERM=dumb`
+- `ZRUI_UNICODE=0`
+
+**Fallback:** ASCII-only rendering
+
+### Mouse Detection
+
+**Enabled when:**
+- Terminal is interactive (isatty)
+- Not in CI environment
+- `TERM` is not `dumb`
+
+**Disabled when:**
+- `CI=true` (any CI)
+- `TERM=dumb`
+- `ZRUI_MOUSE=0`
+
+**Protocols supported:**
+- SGR mouse encoding (preferred)
+- UTF-8 mouse encoding (fallback)
+- X10 mouse encoding (legacy)
+
+### Focus Tracking Detection
+
+**Enabled when:**
+- Mouse events enabled
+- Terminal supports focus events (most modern emulators)
+
+**Disabled when:**
+- Mouse disabled
+- CI environment
+
+## Known Terminal Profiles
+
+### iTerm2 (macOS)
+
+**Detected by:** `TERM_PROGRAM=iTerm.app`
+
+**Capabilities:**
+- Truecolor: Yes
+- Unicode: Yes
+- Mouse: Yes
+- Focus: Yes
+
+**Notes:** One of the most feature-complete terminals
+
+### VS Code Integrated Terminal
+
+**Detected by:** `TERM_PROGRAM=vscode`
+
+**Capabilities:**
+- Truecolor: Yes
+- Unicode: Yes
+- Mouse: Yes
+- Focus: Yes
+
+**Notes:** Based on xterm.js
+
+### Alacritty
+
+**Detected by:** `TERM=alacritty` or `TERM_PROGRAM=Alacritty`
+
+**Capabilities:**
+- Truecolor: Yes
+- Unicode: Yes
+- Mouse: Yes
+- Focus: Yes
+
+**Notes:** GPU-accelerated terminal
+
+### Kitty
+
+**Detected by:** `TERM=xterm-kitty`
+
+**Capabilities:**
+- Truecolor: Yes
+- Unicode: Yes
+- Mouse: Yes
+- Focus: Yes
+
+**Notes:** Supports advanced graphics protocol
+
+### WezTerm
+
+**Detected by:** `TERM_PROGRAM=WezTerm`
+
+**Capabilities:**
+- Truecolor: Yes
+- Unicode: Yes
+- Mouse: Yes
+- Focus: Yes
+
+### Linux Console
+
+**Detected by:** `TERM=linux`
+
+**Capabilities:**
+- Truecolor: No (256 colors)
+- Unicode: Limited
+- Mouse: No
+- Focus: No
+
+### tmux/screen
+
+**Detected by:** `TERM=screen*` or `TERM=tmux*`
+
+**Capabilities:**
+- Truecolor: Depends on `COLORTERM`
+- Unicode: Yes (if parent terminal supports)
+- Mouse: Yes (if parent terminal supports)
+- Focus: Yes (if parent terminal supports)
+
+**Notes:** Acts as multiplexer; capabilities depend on parent terminal
+
+### CI Environments
+
+**Detected by:** `CI=true`
+
+**Capabilities:**
+- Truecolor: No (256 colors for safety)
+- Unicode: Yes
+- Mouse: No
+- Focus: No
+
+**Notes:** Conservative defaults for CI logs
+
+## Capability Negotiation
+
+The backend negotiates capabilities with the engine:
+
+```typescript
+function negotiateCapabilities(
+  detected: TerminalCaps,
+  userConfig?: Partial<TerminalCaps>
+): TerminalCaps {
+  return {
+    truecolor: userConfig?.truecolor ?? detected.truecolor,
+    unicode: userConfig?.unicode ?? detected.unicode,
+    mouse: userConfig?.mouse ?? detected.mouse,
+    focus: userConfig?.focus ?? detected.focus,
+  };
+}
+```
+
+**Priority:**
+1. User config (explicit overrides)
+2. Environment variable overrides (`ZRUI_*`)
+3. Detected capabilities
+4. Safe defaults
+
+## Emoji Width Policy
+
+Emoji width detection aligns TypeScript layout with native rendering:
+
+### Detection Strategy
+
+```typescript
+function resolveEmojiWidthPolicy(): "wide" | "narrow" {
+  // 1. Explicit override
+  if (process.env.ZRUI_EMOJI_WIDTH === "wide") return "wide";
+  if (process.env.ZRUI_EMOJI_WIDTH === "narrow") return "narrow";
+  
+  // 2. Terminal probing (if enabled)
+  if (process.env.ZRUI_EMOJI_WIDTH_PROBE === "1") {
+    return probeEmojiWidth();
+  }
+  
+  // 3. Known terminal defaults
+  if (process.env.TERM_PROGRAM === "iTerm.app") return "wide";
+  if (process.env.TERM_PROGRAM === "vscode") return "narrow";
+  
+  // 4. Safe default
+  return "wide";
+}
+```
+
+**Location:** `packages/node/src/backend/emojiWidthPolicy.ts`
+
+### Probing (Experimental)
+
+When `ZRUI_EMOJI_WIDTH_PROBE=1`:
+
+1. Write test emoji to terminal
+2. Query cursor position
+3. Measure cell width consumed
+4. Return `"wide"` if 2 cells, `"narrow"` if 1 cell
+
+**Caveats:**
+- Requires interactive terminal
+- Adds ~10-50ms latency to startup
+- May not work in all emulators
+
+## Default Capabilities
+
+When detection fails or no terminal is attached:
+
+```typescript
+const DEFAULT_TERMINAL_CAPS: TerminalCaps = {
+  truecolor: true,
+  unicode: true,
+  mouse: true,
+  focus: true,
+};
+```
+
+**Rationale:** Optimistic defaults for modern terminals. Degrades gracefully if features unsupported.
+
+## Testing Terminal Detection
+
+Test different profiles:
+
+```bash
+# Force minimal capabilities
+TERM=dumb npm start
+
+# Force 256-color mode
+TERM=xterm-256color COLORTERM= npm start
+
+# Simulate CI environment
+CI=true npm start
+
+# Test specific emulator
+TERM_PROGRAM=vscode npm start
+```
+
+## Related Documentation
+
+- [Node.js Backend](/architecture/backend/node) — Backend implementation
+- [Native Addon](/architecture/backend/native) — Engine integration
+- [Terminal I/O Contract](/terminal-io-contract) — Terminal interaction guarantees

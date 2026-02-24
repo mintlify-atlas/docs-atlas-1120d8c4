@@ -1,0 +1,516 @@
+---
+title: "Code Editor"
+description: "Multi-line code editing with syntax highlighting, selections, and undo/redo"
+---
+
+# Code Editor Widget
+
+The code editor widget provides a full-featured text editing experience with syntax highlighting, line numbers, selections, search, and undo/redo support.
+
+## Basic Usage
+
+```typescript
+import { ui } from "@rezi-ui/core";
+import { defineWidget } from "@rezi-ui/core";
+
+const Editor = defineWidget((ctx) => {
+  const [lines, setLines] = ctx.useState(["function hello() {", '  console.log("Hello");', "}"]);
+  const [cursor, setCursor] = ctx.useState({ line: 0, column: 0 });
+  const [selection, setSelection] = ctx.useState<EditorSelection | null>(null);
+  const [scrollTop, setScrollTop] = ctx.useState(0);
+  const [scrollLeft, setScrollLeft] = ctx.useState(0);
+
+  return ui.codeEditor({
+    id: "my-editor",
+    lines,
+    cursor,
+    selection,
+    scrollTop,
+    scrollLeft,
+    syntaxLanguage: "typescript",
+    onChange: (newLines, newCursor) => {
+      setLines(newLines);
+      setCursor(newCursor);
+    },
+    onSelectionChange: setSelection,
+    onScroll: (top, left) => {
+      setScrollTop(top);
+      setScrollLeft(left);
+    },
+  });
+});
+```
+
+## Syntax Highlighting
+
+### Built-in Languages
+
+The code editor includes tokenizers for multiple languages:
+
+```typescript
+ui.codeEditor({
+  id: "editor",
+  lines,
+  cursor,
+  selection,
+  scrollTop,
+  scrollLeft,
+  syntaxLanguage: "typescript", // or "javascript", "json", "python", etc.
+  onChange: handleChange,
+  onSelectionChange: setSelection,
+  onScroll: setScroll,
+});
+```
+
+**Supported languages**:
+- `typescript`
+- `javascript`
+- `json`
+- `go`
+- `rust`
+- `c` / `cpp` / `c++`
+- `csharp` / `c#`
+- `java`
+- `python`
+- `bash`
+- `plain` (no highlighting)
+
+### Token Types
+
+Syntax tokens are classified into semantic categories:
+
+- `keyword` - Language keywords (if, function, class)
+- `type` - Type names (string, number, boolean)
+- `string` - String literals
+- `number` - Numeric literals
+- `comment` - Comments
+- `operator` - Operators (+, -, *, =)
+- `punctuation` - Punctuation (., ,, ;, :)
+- `function` - Function names
+- `variable` - Variable names (uppercase constants)
+- `plain` - Plain text
+
+### Custom Tokenizer
+
+Provide your own tokenizer for custom highlighting:
+
+```typescript
+import type { CodeEditorSyntaxToken, CodeEditorTokenizeContext } from "@rezi-ui/core";
+
+function myTokenizer(
+  line: string,
+  context: CodeEditorTokenizeContext,
+): readonly CodeEditorSyntaxToken[] {
+  const tokens: CodeEditorSyntaxToken[] = [];
+  
+  // Simple example: highlight words starting with @
+  const regex = /(@\w+)|\s+|\S+/g;
+  let match;
+  
+  while ((match = regex.exec(line)) !== null) {
+    const text = match[0];
+    const kind = text.startsWith("@") ? "keyword" : "plain";
+    tokens.push({ text, kind });
+  }
+  
+  return tokens;
+}
+
+ui.codeEditor({
+  id: "custom-editor",
+  lines,
+  cursor,
+  selection,
+  scrollTop,
+  scrollLeft,
+  tokenizeLine: myTokenizer,
+  onChange: handleChange,
+  onSelectionChange: setSelection,
+  onScroll: setScroll,
+});
+```
+
+## Editing Operations
+
+### Text Insertion
+
+The editor supports multi-line paste:
+
+```typescript
+import { insertText } from "@rezi-ui/core";
+
+const result = insertText(lines, cursor, "new text");
+// Returns { lines, cursor, selection }
+```
+
+### Deletion
+
+```typescript
+import { deleteCharBefore, deleteCharAfter, deleteRange } from "@rezi-ui/core";
+
+// Backspace
+const backspaceResult = deleteCharBefore(lines, cursor);
+
+// Delete key
+const deleteResult = deleteCharAfter(lines, cursor);
+
+// Delete selection
+if (selection) {
+  const deleteSelection = deleteRange(lines, selection);
+}
+```
+
+### Indentation
+
+```typescript
+import { indentLines, dedentLines } from "@rezi-ui/core";
+
+// Indent lines 5-10
+const indented = indentLines(lines, [5, 10], 2, true);
+
+// Dedent lines 5-10
+const dedented = dedentLines(lines, [5, 10], 2);
+```
+
+## Cursor Movement
+
+```typescript
+import { moveCursor, moveCursorByWord } from "@rezi-ui/core";
+
+// Arrow keys
+const up = moveCursor(lines, cursor, "up");
+const down = moveCursor(lines, cursor, "down");
+const left = moveCursor(lines, cursor, "left");
+const right = moveCursor(lines, cursor, "right");
+
+// Home/End
+const home = moveCursor(lines, cursor, "home");
+const end = moveCursor(lines, cursor, "end");
+
+// Document start/end
+const docStart = moveCursor(lines, cursor, "docStart");
+const docEnd = moveCursor(lines, cursor, "docEnd");
+
+// Word movement (Ctrl+Arrow)
+const wordLeft = moveCursorByWord(lines, cursor, "left");
+const wordRight = moveCursorByWord(lines, cursor, "right");
+```
+
+## Selections
+
+### Selection Range
+
+```typescript
+import type { EditorSelection } from "@rezi-ui/core";
+
+const selection: EditorSelection = {
+  anchor: { line: 0, column: 0 },   // Selection start
+  active: { line: 2, column: 10 },  // Cursor position
+};
+```
+
+### Get Selected Text
+
+```typescript
+import { getSelectedText } from "@rezi-ui/core";
+
+if (selection) {
+  const text = getSelectedText(lines, selection);
+  console.log("Selected:", text);
+}
+```
+
+## Undo/Redo
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+import { UndoStack } from "@rezi-ui/core";
+
+const Editor = defineWidget((ctx) => {
+  const [lines, setLines] = ctx.useState(["// Start typing"]);
+  const [cursor, setCursor] = ctx.useState({ line: 0, column: 0 });
+  const [undoStack] = ctx.useState(() => new UndoStack());
+
+  const handleUndo = () => {
+    const action = undoStack.undo();
+    if (action) {
+      // Restore previous state from action
+    }
+  };
+
+  const handleRedo = () => {
+    const action = undoStack.redo();
+    if (action) {
+      // Restore next state from action
+    }
+  };
+
+  return ui.codeEditor({
+    id: "undo-editor",
+    lines,
+    cursor,
+    selection: null,
+    scrollTop: 0,
+    scrollLeft: 0,
+    onChange: (newLines, newCursor) => {
+      setLines(newLines);
+      setCursor(newCursor);
+    },
+    onSelectionChange: () => {},
+    onScroll: () => {},
+    onUndo: handleUndo,
+    onRedo: handleRedo,
+  });
+});
+```
+
+Undo stack configuration:
+- **Max stack size**: 1000 entries (configurable via `MAX_UNDO_STACK`)
+- **Grouping window**: 300ms (edits within this window are grouped)
+
+## Search and Replace
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+const SearchableEditor = defineWidget((ctx) => {
+  const [lines, setLines] = ctx.useState(initialLines);
+  const [cursor, setCursor] = ctx.useState({ line: 0, column: 0 });
+  const [searchQuery, setSearchQuery] = ctx.useState("");
+  const [searchMatches, setSearchMatches] = ctx.useState<SearchMatch[]>([]);
+  const [currentMatchIndex, setCurrentMatchIndex] = ctx.useState(0);
+
+  // Find matches in lines
+  const findMatches = (query: string): SearchMatch[] => {
+    if (!query) return [];
+    const matches: SearchMatch[] = [];
+    
+    lines.forEach((line, lineIndex) => {
+      let index = 0;
+      while ((index = line.indexOf(query, index)) !== -1) {
+        matches.push({
+          line: lineIndex,
+          startColumn: index,
+          endColumn: index + query.length,
+        });
+        index += 1;
+      }
+    });
+    
+    return matches;
+  };
+
+  ctx.useEffect(() => {
+    setSearchMatches(findMatches(searchQuery));
+  }, [searchQuery]);
+
+  return ui.column({ gap: 1 }, [
+    ui.input({
+      id: "search-input",
+      value: searchQuery,
+      placeholder: "Search...",
+      onInput: (value) => setSearchQuery(value),
+    }),
+    ui.codeEditor({
+      id: "searchable-editor",
+      lines,
+      cursor,
+      selection: null,
+      scrollTop: 0,
+      scrollLeft: 0,
+      searchQuery,
+      searchMatches,
+      currentMatchIndex,
+      onChange: (newLines, newCursor) => {
+        setLines(newLines);
+        setCursor(newCursor);
+      },
+      onSelectionChange: () => {},
+      onScroll: () => {},
+    }),
+  ]);
+});
+```
+
+## Diagnostics
+
+Show inline error/warning markers:
+
+```typescript
+import type { CodeEditorDiagnostic } from "@rezi-ui/core";
+
+const diagnostics: CodeEditorDiagnostic[] = [
+  {
+    line: 2,
+    startColumn: 10,
+    endColumn: 20,
+    severity: "error",
+    message: "Unexpected token",
+  },
+  {
+    line: 5,
+    startColumn: 0,
+    endColumn: 8,
+    severity: "warning",
+    message: "Unused variable",
+  },
+];
+
+ui.codeEditor({
+  id: "diagnostic-editor",
+  lines,
+  cursor,
+  selection: null,
+  scrollTop: 0,
+  scrollLeft: 0,
+  diagnostics,
+  onChange: handleChange,
+  onSelectionChange: setSelection,
+  onScroll: setScroll,
+});
+```
+
+Severity levels:
+- `error` - Red underline
+- `warning` - Yellow underline
+- `info` - Blue underline
+- `hint` - Gray underline
+
+## Configuration
+
+### Line Numbers
+
+```typescript
+ui.codeEditor({
+  id: "editor",
+  lines,
+  cursor,
+  selection: null,
+  scrollTop: 0,
+  scrollLeft: 0,
+  lineNumbers: false, // Hide line numbers (default: true)
+  onChange: handleChange,
+  onSelectionChange: setSelection,
+  onScroll: setScroll,
+});
+```
+
+### Tab Size
+
+```typescript
+ui.codeEditor({
+  id: "editor",
+  lines,
+  cursor,
+  selection: null,
+  scrollTop: 0,
+  scrollLeft: 0,
+  tabSize: 4, // Default: 2
+  insertSpaces: true, // Use spaces instead of tabs (default: true)
+  onChange: handleChange,
+  onSelectionChange: setSelection,
+  onScroll: setScroll,
+});
+```
+
+### Word Wrap
+
+```typescript
+ui.codeEditor({
+  id: "editor",
+  lines,
+  cursor,
+  selection: null,
+  scrollTop: 0,
+  scrollLeft: 0,
+  wordWrap: true, // Wrap long lines (default: false)
+  onChange: handleChange,
+  onSelectionChange: setSelection,
+  onScroll: setScroll,
+});
+```
+
+### Read-Only Mode
+
+```typescript
+ui.codeEditor({
+  id: "viewer",
+  lines,
+  cursor,
+  selection: null,
+  scrollTop: 0,
+  scrollLeft: 0,
+  readOnly: true, // Disable editing
+  onChange: () => {},
+  onSelectionChange: () => {},
+  onScroll: () => {},
+});
+```
+
+## Keyboard Shortcuts
+
+Built-in shortcuts:
+
+- **Arrow keys**: Move cursor
+- **Ctrl/Cmd+Arrow**: Move by word
+- **Home/End**: Line start/end
+- **Ctrl/Cmd+Home/End**: Document start/end
+- **Shift+Arrow**: Select
+- **Ctrl/Cmd+A**: Select all
+- **Ctrl/Cmd+C**: Copy
+- **Ctrl/Cmd+V**: Paste
+- **Ctrl/Cmd+X**: Cut
+- **Ctrl/Cmd+Z**: Undo
+- **Ctrl/Cmd+Shift+Z**: Redo
+- **Tab**: Indent (or insert tab)
+- **Shift+Tab**: Dedent
+- **Backspace**: Delete before cursor
+- **Delete**: Delete after cursor
+
+## Props Reference
+
+### CodeEditorProps
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `id` | `string` | **Required** | Widget identifier |
+| `lines` | `readonly string[]` | **Required** | Document content |
+| `cursor` | `CursorPosition` | **Required** | Cursor position |
+| `selection` | `EditorSelection \| null` | **Required** | Selection range |
+| `scrollTop` | `number` | **Required** | Vertical scroll |
+| `scrollLeft` | `number` | **Required** | Horizontal scroll |
+| `onChange` | `(lines: readonly string[], cursor: CursorPosition) => void` | **Required** | Content change callback |
+| `onSelectionChange` | `(selection: EditorSelection \| null) => void` | **Required** | Selection change callback |
+| `onScroll` | `(scrollTop: number, scrollLeft: number) => void` | **Required** | Scroll callback |
+| `tabSize` | `number` | `2` | Tab size in spaces |
+| `insertSpaces` | `boolean` | `true` | Use spaces for tabs |
+| `lineNumbers` | `boolean` | `true` | Show line numbers |
+| `wordWrap` | `boolean` | `false` | Wrap long lines |
+| `readOnly` | `boolean` | `false` | Read-only mode |
+| `searchQuery` | `string` | — | Search query |
+| `searchMatches` | `readonly SearchMatch[]` | — | Search match positions |
+| `currentMatchIndex` | `number` | — | Highlighted match index |
+| `diagnostics` | `readonly CodeEditorDiagnostic[]` | — | Error/warning markers |
+| `syntaxLanguage` | `CodeEditorSyntaxLanguage` | `"plain"` | Built-in syntax language |
+| `tokenizeLine` | `CodeEditorLineTokenizer` | — | Custom tokenizer |
+| `highlightActiveCursorCell` | `boolean` | `true` | Highlight cursor cell |
+| `onUndo` | `() => void` | — | Undo callback |
+| `onRedo` | `() => void` | — | Redo callback |
+| `focusable` | `boolean` | `true` | Include in tab order |
+| `accessibleLabel` | `string` | — | Accessibility label |
+| `focusConfig` | `FocusConfig` | — | Focus appearance |
+| `scrollbarVariant` | `"minimal" \| "classic" \| "modern" \| "dots" \| "thin"` | `"minimal"` | Scrollbar style |
+| `scrollbarStyle` | `TextStyle` | — | Scrollbar color |
+
+## Related Widgets
+
+- [Diff Viewer](/widgets/diff-viewer) - Side-by-side diff display
+- [Input](/widgets/input) - Single-line text input
+- [Textarea](/widgets/textarea) - Multi-line plain text
+
+## Location in Source
+
+- Implementation: `packages/core/src/widgets/codeEditor.ts`
+- Syntax: `packages/core/src/widgets/codeEditorSyntax.ts`
+- Types: `packages/core/src/widgets/types.ts:1856-2012`
+- Factory: `packages/core/src/widgets/ui.ts:codeEditor()`

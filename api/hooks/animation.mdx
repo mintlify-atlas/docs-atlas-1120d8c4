@@ -1,0 +1,513 @@
+---
+title: "Animation Hooks"
+description: "Hooks for declarative animations in widgets"
+---
+
+## Overview
+
+Animation hooks provide declarative animation primitives for smooth UI transitions. All hooks run at 60 FPS and support playback controls.
+
+<Warning>
+  Animation hooks must be called in `defineWidget` contexts only, following standard hook rules.
+</Warning>
+
+## useTransition
+
+Animate from current value to target value over time with easing.
+
+<ParamField path="ctx" type="WidgetContext" required>
+  Widget context from defineWidget.
+</ParamField>
+
+<ParamField path="value" type="number" required>
+  Target numeric value to animate to.
+</ParamField>
+
+<ParamField path="config" type="UseTransitionConfig">
+  Transition configuration.
+</ParamField>
+
+<ParamField path="config.duration" type="number">
+  Duration in milliseconds (default: 160ms).
+</ParamField>
+
+<ParamField path="config.delay" type="number">
+  Delay before animation starts (default: 0ms).
+</ParamField>
+
+<ParamField path="config.easing" type="string | (t: number) => number">
+  Easing function. Built-in: `"linear"`, `"ease-in"`, `"ease-out"`, `"ease-in-out"` (default).
+</ParamField>
+
+<ParamField path="config.playback" type="PlaybackControl">
+  Playback controls (paused, reversed, rate).
+</ParamField>
+
+<ParamField path="config.onComplete" type="() => void">
+  Callback fired when animation completes.
+</ParamField>
+
+**Returns**: Current interpolated number
+
+```typescript
+import { defineWidget, useTransition, ui } from "@rezi-ui/core";
+
+const FadeIn = defineWidget<{ visible: boolean }>((props, ctx) => {
+  const opacity = useTransition(ctx, props.visible ? 1 : 0, {
+    duration: 300,
+    easing: "ease-in-out",
+  });
+
+  return ui.box({
+    opacity,
+    children: [ui.text("Fading content")],
+  });
+});
+```
+
+### Easing Functions
+
+<CodeGroup>
+```typescript Built-in Easings
+import { useTransition, ui } from "@rezi-ui/core";
+
+const Widget = defineWidget((props, ctx) => {
+  const linear = useTransition(ctx, props.value, { easing: "linear" });
+  const easeIn = useTransition(ctx, props.value, { easing: "ease-in" });
+  const easeOut = useTransition(ctx, props.value, { easing: "ease-out" });
+  const easeInOut = useTransition(ctx, props.value, { easing: "ease-in-out" });
+
+  return ui.box({ x: linear });
+});
+```
+
+```typescript Custom Easing
+const Widget = defineWidget((props, ctx) => {
+  // Custom cubic bezier
+  const custom = useTransition(ctx, props.value, {
+    easing: (t) => t * t * (3 - 2 * t), // Smoothstep
+  });
+
+  return ui.box({ x: custom });
+});
+```
+</CodeGroup>
+
+### Playback Control
+
+```typescript
+import { defineWidget, useTransition, ui } from "@rezi-ui/core";
+
+const ControlledAnimation = defineWidget((props, ctx) => {
+  const [paused, setPaused] = ctx.useState(false);
+  const [reversed, setReversed] = ctx.useState(false);
+  const [rate, setRate] = ctx.useState(1);
+
+  const x = useTransition(ctx, 100, {
+    duration: 2000,
+    playback: { paused, reversed, rate },
+  });
+
+  return ui.column([
+    ui.box({ x, w: 10, h: 3 }, [ui.text("Moving")]),
+    ui.button({ id: ctx.id("pause"), label: paused ? "Resume" : "Pause", onPress: () => setPaused(!paused) }),
+    ui.button({ id: ctx.id("reverse"), label: "Reverse", onPress: () => setReversed(!reversed) }),
+    ui.button({ id: ctx.id("speed"), label: `Speed: ${rate}x`, onPress: () => setRate(rate === 1 ? 2 : 1) }),
+  ]);
+});
+```
+
+## useSpring
+
+Physics-based spring animation with mass, stiffness, and damping.
+
+<ParamField path="ctx" type="WidgetContext" required>
+  Widget context.
+</ParamField>
+
+<ParamField path="value" type="number" required>
+  Target value.
+</ParamField>
+
+<ParamField path="config" type="UseSpringConfig">
+  Spring configuration.
+</ParamField>
+
+<ParamField path="config.mass" type="number">
+  Mass of the spring (default: 1).
+</ParamField>
+
+<ParamField path="config.stiffness" type="number">
+  Spring stiffness (default: 170).
+</ParamField>
+
+<ParamField path="config.damping" type="number">
+  Damping ratio (default: 26).
+</ParamField>
+
+<ParamField path="config.velocity" type="number">
+  Initial velocity (default: 0).
+</ParamField>
+
+<ParamField path="config.restThreshold" type="number">
+  Velocity threshold for "at rest" (default: 0.01).
+</ParamField>
+
+**Returns**: `AnimatedValue` with `{ value, velocity, isAnimating }`
+
+```typescript
+import { defineWidget, useSpring, ui } from "@rezi-ui/core";
+
+const SpringBox = defineWidget<{ x: number }>((props, ctx) => {
+  const spring = useSpring(ctx, props.x, {
+    stiffness: 200,
+    damping: 20,
+    mass: 1,
+  });
+
+  return ui.column([
+    ui.box({ x: spring.value, w: 10, h: 3 }, [ui.text("Springy")]),
+    ui.text(`Velocity: ${spring.velocity.toFixed(2)}`),
+    ui.text(spring.isAnimating ? "Animating" : "At rest"),
+  ]);
+});
+```
+
+### Spring Presets
+
+```typescript
+// Bouncy spring
+const bouncy = useSpring(ctx, value, {
+  stiffness: 300,
+  damping: 10,
+});
+
+// Gentle spring
+const gentle = useSpring(ctx, value, {
+  stiffness: 120,
+  damping: 20,
+});
+
+// Stiff spring
+const stiff = useSpring(ctx, value, {
+  stiffness: 400,
+  damping: 30,
+});
+
+// Slow spring
+const slow = useSpring(ctx, value, {
+  stiffness: 80,
+  damping: 15,
+  mass: 2,
+});
+```
+
+## useSequence
+
+Keyframe-based animation sequence.
+
+<ParamField path="ctx" type="WidgetContext" required>
+  Widget context.
+</ParamField>
+
+<ParamField path="config" type="UseSequenceConfig" required>
+  Sequence configuration.
+</ParamField>
+
+<ParamField path="config.keyframes" type="SequenceKeyframe[]" required>
+  Array of keyframes with time and value.
+</ParamField>
+
+<ParamField path="config.duration" type="number">
+  Total duration in milliseconds.
+</ParamField>
+
+<ParamField path="config.loop" type="boolean">
+  Loop animation (default: false).
+</ParamField>
+
+<ParamField path="config.autoplay" type="boolean">
+  Start automatically (default: true).
+</ParamField>
+
+**Returns**: `{ value: number, progress: number, isAnimating: boolean }`
+
+```typescript
+import { defineWidget, useSequence, ui } from "@rezi-ui/core";
+
+const Pulse = defineWidget((props, ctx) => {
+  const { value: scale } = useSequence(ctx, {
+    keyframes: [
+      { time: 0, value: 1 },
+      { time: 0.5, value: 1.2 },
+      { time: 1, value: 1 },
+    ],
+    duration: 1000,
+    loop: true,
+  });
+
+  return ui.box({
+    w: Math.round(20 * scale),
+    h: Math.round(5 * scale),
+  }, [ui.text("Pulsing")]);
+});
+```
+
+### Complex Sequences
+
+```typescript
+const ComplexAnimation = defineWidget((props, ctx) => {
+  const { value: opacity, progress } = useSequence(ctx, {
+    keyframes: [
+      { time: 0, value: 0, easing: "ease-in" },
+      { time: 0.3, value: 1, easing: "linear" },
+      { time: 0.7, value: 1, easing: "ease-out" },
+      { time: 1, value: 0 },
+    ],
+    duration: 2000,
+    onComplete: () => console.log("Sequence done"),
+  });
+
+  return ui.column([
+    ui.box({ opacity }, [ui.text("Fading")]),
+    ui.progress({ value: progress, max: 1 }),
+  ]);
+});
+```
+
+## useStagger
+
+Stagger animations across multiple items with delay offset.
+
+<ParamField path="ctx" type="WidgetContext" required>
+  Widget context.
+</ParamField>
+
+<ParamField path="config" type="UseStaggerConfig" required>
+  Stagger configuration.
+</ParamField>
+
+<ParamField path="config.count" type="number" required>
+  Number of items to stagger.
+</ParamField>
+
+<ParamField path="config.stagger" type="number">
+  Delay between each item in milliseconds (default: 50ms).
+</ParamField>
+
+<ParamField path="config.duration" type="number">
+  Duration per item (default: 160ms).
+</ParamField>
+
+<ParamField path="config.from" type="'start' | 'end' | 'center'">
+  Stagger direction (default: 'start').
+</ParamField>
+
+**Returns**: `number[]` - Array of animated values for each item
+
+```typescript
+import { defineWidget, useStagger, ui } from "@rezi-ui/core";
+
+const StaggeredList = defineWidget<{ items: string[]; visible: boolean }>((props, ctx) => {
+  const opacities = useStagger(ctx, {
+    count: props.items.length,
+    target: props.visible ? 1 : 0,
+    stagger: 50,
+    duration: 300,
+  });
+
+  return ui.column(
+    props.items.map((item, i) =>
+      ui.box({ opacity: opacities[i] }, [ui.text(item)])
+    )
+  );
+});
+```
+
+### Stagger Directions
+
+```typescript
+// Stagger from start (0, 1, 2, ...)
+const fromStart = useStagger(ctx, {
+  count: 5,
+  target: 1,
+  from: "start",
+  stagger: 100,
+});
+
+// Stagger from end (4, 3, 2, 1, 0)
+const fromEnd = useStagger(ctx, {
+  count: 5,
+  target: 1,
+  from: "end",
+  stagger: 100,
+});
+
+// Stagger from center (2, 1&3, 0&4)
+const fromCenter = useStagger(ctx, {
+  count: 5,
+  target: 1,
+  from: "center",
+  stagger: 100,
+});
+```
+
+## useAnimatedValue
+
+Low-level animated value with manual control over transition/spring mode.
+
+<ParamField path="ctx" type="WidgetContext" required>
+  Widget context.
+</ParamField>
+
+<ParamField path="target" type="number" required>
+  Target value.
+</ParamField>
+
+<ParamField path="config" type="UseAnimatedValueConfig" required>
+  Configuration with mode selection.
+</ParamField>
+
+**Returns**: `AnimatedValue`
+
+```typescript
+import { defineWidget, useAnimatedValue, ui } from "@rezi-ui/core";
+
+const CustomAnimation = defineWidget((props, ctx) => {
+  const animated = useAnimatedValue(ctx, props.target, {
+    mode: "transition",
+    transition: {
+      duration: 500,
+      easing: "ease-in-out",
+    },
+  });
+
+  return ui.box({ x: animated.value });
+});
+```
+
+## useParallel
+
+Run multiple animations in parallel with different configs.
+
+<ParamField path="ctx" type="WidgetContext" required>
+  Widget context.
+</ParamField>
+
+<ParamField path="configs" type="UseParallelConfig" required>
+  Array of animation configs.
+</ParamField>
+
+**Returns**: `ParallelAnimationEntry[]`
+
+```typescript
+import { defineWidget, useParallel, ui } from "@rezi-ui/core";
+
+const ParallelDemo = defineWidget<{ visible: boolean }>((props, ctx) => {
+  const [x, y, opacity] = useParallel(ctx, [
+    { target: props.visible ? 100 : 0, config: { duration: 500 } },
+    { target: props.visible ? 50 : 0, config: { duration: 700 } },
+    { target: props.visible ? 1 : 0, config: { duration: 300 } },
+  ]);
+
+  return ui.box({
+    x: x.value,
+    y: y.value,
+    opacity: opacity.value,
+  }, [ui.text("Moving")]);
+});
+```
+
+## useChain
+
+Chain animations sequentially (one after another).
+
+<ParamField path="ctx" type="WidgetContext" required>
+  Widget context.
+</ParamField>
+
+<ParamField path="configs" type="UseChainConfig" required>
+  Array of animation configs (executed in order).
+</ParamField>
+
+**Returns**: `number` - Current animated value
+
+```typescript
+import { defineWidget, useChain, ui } from "@rezi-ui/core";
+
+const ChainDemo = defineWidget((props, ctx) => {
+  const x = useChain(ctx, [
+    { target: 50, config: { duration: 500 } },
+    { target: 100, config: { duration: 500 } },
+    { target: 0, config: { duration: 500 } },
+  ]);
+
+  return ui.box({ x }, [ui.text("Chaining")]);
+});
+```
+
+## Container Transitions
+
+Widgets like `ui.box`, `ui.column`, `ui.row`, and `ui.grid` support automatic transitions:
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.box({
+  transition: {
+    duration: 300,
+    properties: ["position", "size", "opacity"],
+  },
+  exitTransition: {
+    duration: 200,
+    properties: ["opacity"],
+  },
+}, [/* children */]);
+```
+
+## Performance Tips
+
+<AccordionGroup>
+  <Accordion title="Avoid animating too many values">
+    Animating 100+ values simultaneously can impact frame rate. Use `useStagger` for large lists.
+  </Accordion>
+
+  <Accordion title="Prefer useTransition for simple cases">
+    `useTransition` is lighter than `useSpring` when you don't need physics.
+  </Accordion>
+
+  <Accordion title="Use playback controls for pausing">
+    When widgets are off-screen or inactive, pause animations to save CPU.
+
+    ```typescript
+    const x = useTransition(ctx, target, {
+      playback: { paused: !props.visible },
+    });
+    ```
+  </Accordion>
+
+  <Accordion title="Round animated values">
+    For layout properties (x, y, width, height), round to integers:
+
+    ```typescript
+    const x = Math.round(useTransition(ctx, target));
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Related Documentation
+
+<CardGroup cols={2}>
+  <Card title="defineWidget" icon="wrench" href="/api/widget-authoring">
+    Widget composition API
+  </Card>
+  <Card title="State Hooks" icon="database" href="/api/hooks/state">
+    useState and useRef
+  </Card>
+  <Card title="Animation Guide" icon="play" href="/guide/animations">
+    Animation patterns and examples
+  </Card>
+  <Card title="Animation Lab" icon="flask" href="/templates/animation-lab">
+    Interactive animation showcase
+  </Card>
+</CardGroup>

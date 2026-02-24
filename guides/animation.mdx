@@ -1,0 +1,411 @@
+---
+title: 'Animation System'
+description: 'Add smooth transitions and animations to your TUI with Rezi animation hooks'
+---
+
+Rezi provides declarative animation hooks for smooth transitions, spring physics, and complex sequences.
+
+## Animation Hooks
+
+All animation hooks are available in `defineWidget` contexts:
+
+```typescript
+import { defineWidget, useTransition, useSpring } from "@rezi-ui/core";
+
+const AnimatedWidget = defineWidget((props, ctx) => {
+  // Animation hooks go here
+  const opacity = useTransition(ctx, props.visible ? 1 : 0);
+  
+  return ui.box({ opacity: opacity.value }, children);
+});
+```
+
+## Transition Animations
+
+Smooth eased transitions between values:
+
+```typescript
+import { defineWidget, useTransition, ui } from "@rezi-ui/core";
+
+const FadeInOut = defineWidget<{ visible: boolean }>((props, ctx) => {
+  const opacity = useTransition(ctx, props.visible ? 1 : 0, {
+    duration: 200,    // milliseconds
+    easing: "easeOut",
+  });
+  
+  return ui.box({ opacity: opacity.value }, [
+    ui.text("Fading content"),
+  ]);
+});
+```
+
+### Configuration
+
+```typescript
+type UseTransitionConfig = {
+  duration?: number;           // Animation duration in ms (default: 160)
+  easing?: EasingInput;        // Easing function
+  delay?: number;              // Delay before start (default: 0)
+  onComplete?: () => void;     // Called when animation finishes
+};
+```
+
+### Easing Functions
+
+<Tabs>
+  <Tab title="Built-in">
+    ```typescript
+    useTransition(ctx, target, { easing: "linear" })
+    useTransition(ctx, target, { easing: "easeIn" })
+    useTransition(ctx, target, { easing: "easeOut" })
+    useTransition(ctx, target, { easing: "easeInOut" })
+    ```
+  </Tab>
+  
+  <Tab title="Cubic Bezier">
+    ```typescript
+    useTransition(ctx, target, { 
+      easing: [0.4, 0.0, 0.2, 1.0]  // Material Design standard
+    })
+    ```
+  </Tab>
+  
+  <Tab title="Custom Function">
+    ```typescript
+    useTransition(ctx, target, { 
+      easing: (t) => t * t  // Quadratic ease-in
+    })
+    ```
+  </Tab>
+</Tabs>
+
+## Spring Animations
+
+Physics-based spring animations:
+
+```typescript
+import { useSpring } from "@rezi-ui/core";
+
+const BouncyBox = defineWidget<{ x: number }>((props, ctx) => {
+  const pos = useSpring(ctx, props.x, {
+    stiffness: 200,   // Spring stiffness (default: 180)
+    damping: 20,      // Damping ratio (default: 12)
+    mass: 1,          // Mass (default: 1)
+  });
+  
+  return ui.box({
+    position: "absolute",
+    left: Math.round(pos.value),
+    border: "single",
+  }, [ui.text("Spring!")]);
+});
+```
+
+### Spring Configuration
+
+```typescript
+type UseSpringConfig = {
+  stiffness?: number;      // Spring stiffness (higher = faster)
+  damping?: number;        // Damping (higher = less oscillation)
+  mass?: number;           // Mass (higher = slower)
+  precision?: number;      // Rest threshold (default: 0.01)
+  onComplete?: () => void; // Called when spring settles
+};
+```
+
+### Common Presets
+
+```typescript
+// Bouncy
+useSpring(ctx, target, { stiffness: 200, damping: 10 })
+
+// Smooth
+useSpring(ctx, target, { stiffness: 100, damping: 20 })
+
+// Stiff
+useSpring(ctx, target, { stiffness: 300, damping: 30 })
+```
+
+## Sequence Animations
+
+Chain multiple keyframes:
+
+```typescript
+import { useSequence } from "@rezi-ui/core";
+
+const Pulse = defineWidget<{ active: boolean }>((props, ctx) => {
+  const scale = useSequence(ctx, {
+    keyframes: [
+      { value: 1, duration: 0 },
+      { value: 1.2, duration: 150, easing: "easeOut" },
+      { value: 1, duration: 150, easing: "easeIn" },
+    ],
+    loop: props.active,
+  });
+  
+  return ui.box({ w: Math.round(20 * scale.value) }, [
+    ui.text("Pulsing"),
+  ]);
+});
+```
+
+### Sequence Options
+
+```typescript
+type UseSequenceConfig = {
+  keyframes: Array<{
+    value: number;
+    duration: number;      // Duration to reach this value
+    easing?: EasingInput;
+  }>;
+  loop?: boolean;          // Loop the sequence
+  delay?: number;          // Initial delay
+  onComplete?: () => void;
+};
+```
+
+## Stagger Animations
+
+Animate multiple items with delays:
+
+```typescript
+import { useStagger, each } from "@rezi-ui/core";
+
+const StaggeredList = defineWidget<{ items: string[] }>((props, ctx) => {
+  const stagger = useStagger(ctx, props.items.length, {
+    staggerMs: 50,      // Delay between items
+    duration: 200,
+    easing: "easeOut",
+  });
+  
+  return ui.column({ gap: 1 }, 
+    each(props.items, (item, index) => 
+      ui.box({ opacity: stagger[index]?.value || 0 }, [
+        ui.text(item),
+      ])
+    )
+  );
+});
+```
+
+## Parallel Animations
+
+Animate multiple properties simultaneously:
+
+```typescript
+import { useParallel } from "@rezi-ui/core";
+
+const SlideAndFade = defineWidget<{ visible: boolean }>((props, ctx) => {
+  const animations = useParallel(ctx, [
+    { target: props.visible ? 0 : 20, config: { duration: 200 } },  // x offset
+    { target: props.visible ? 1 : 0, config: { duration: 200 } },   // opacity
+  ]);
+  
+  return ui.box({
+    position: "absolute",
+    left: Math.round(animations[0].value),
+    opacity: animations[1].value,
+  }, [ui.text("Slide and fade")]);
+});
+```
+
+## Chained Animations
+
+Run animations in sequence:
+
+```typescript
+import { useChain } from "@rezi-ui/core";
+
+const SequentialMove = defineWidget<{ stage: number }>((props, ctx) => {
+  const pos = useChain(ctx, [
+    { target: 0, config: { duration: 200 } },   // Start at 0
+    { target: 20, config: { duration: 200 } },  // Move to 20
+    { target: 10, config: { duration: 200 } },  // Move to 10
+  ][props.stage] || { target: 0 });
+  
+  return ui.box({
+    position: "absolute",
+    left: Math.round(pos.value),
+    border: "single",
+  }, [ui.text("Moving")]);
+});
+```
+
+## Animated Value
+
+Low-level animated value with playback control:
+
+```typescript
+import { useAnimatedValue } from "@rezi-ui/core";
+
+const CustomAnimation = defineWidget((props, ctx) => {
+  const animated = useAnimatedValue(ctx, 0, {
+    mode: "transition",
+    transition: { duration: 300, easing: "easeInOut" },
+  });
+  
+  // Control playback
+  animated.start(100);     // Animate to 100
+  animated.stop();         // Stop animation
+  animated.set(50);        // Jump to value
+  
+  return ui.box({ w: Math.round(animated.value) }, [
+    ui.text("Animated width"),
+  ]);
+});
+```
+
+## Container Transitions
+
+Declarative transitions on containers:
+
+```typescript
+ui.box({
+  transition: {
+    duration: 200,
+    easing: "easeOut",
+    properties: ["position", "size"],  // Animate only these properties
+  },
+  border: "single",
+}, children)
+```
+
+Container transitions automatically animate:
+- **Position** (`x`, `y`) changes
+- **Size** (`w`, `h`) changes
+- **Opacity** changes
+
+### Exit Transitions
+
+Animate widgets before unmount:
+
+```typescript
+ui.box({
+  exitTransition: {
+    duration: 200,
+    easing: "easeIn",
+  },
+  opacity: state.visible ? 1 : 0,
+}, children)
+```
+
+When removed from the tree, the widget fades out over 200ms before being destroyed.
+
+## Real-World Examples
+
+### Slide-in Sidebar
+
+```typescript
+const Sidebar = defineWidget<{ open: boolean }>((props, ctx) => {
+  const width = useTransition(ctx, props.open ? 30 : 0, {
+    duration: 250,
+    easing: "easeOut",
+  });
+  
+  return ui.box({
+    w: Math.round(width.value),
+    h: "100%",
+    overflow: "hidden",
+    border: "single",
+  }, [
+    ui.column({ gap: 1, p: 1 }, [
+      ui.text("Sidebar", { variant: "heading" }),
+      ui.text("Content..."),
+    ]),
+  ]);
+});
+```
+
+### Loading Spinner
+
+```typescript
+const Spinner = defineWidget((props, ctx) => {
+  const frame = useSequence(ctx, {
+    keyframes: [
+      { value: 0, duration: 0 },
+      { value: 1, duration: 100 },
+      { value: 2, duration: 100 },
+      { value: 3, duration: 100 },
+    ],
+    loop: true,
+  });
+  
+  const frames = ["⠋", "⠙", "⠹", "⠸"];
+  const current = frames[Math.floor(frame.value) % frames.length];
+  
+  return ui.text(current, { style: { fg: "accent.primary" } });
+});
+```
+
+### Notification Toast
+
+```typescript
+const Toast = defineWidget<{ message: string; visible: boolean }>((props, ctx) => {
+  const opacity = useTransition(ctx, props.visible ? 1 : 0, {
+    duration: 200,
+    easing: "easeOut",
+  });
+  
+  const y = useSpring(ctx, props.visible ? 0 : -5, {
+    stiffness: 200,
+    damping: 20,
+  });
+  
+  return ui.box({
+    position: "absolute",
+    top: Math.round(y.value),
+    right: 1,
+    opacity: opacity.value,
+    preset: "elevated",
+    shadow: true,
+  }, [
+    ui.text(props.message),
+  ]);
+});
+```
+
+## Performance
+
+Animation hooks use requestAnimationFrame-equivalent timing:
+- **Frame rate:** 60fps (16.67ms per frame)
+- **Overhead:** Minimal - only animating widgets re-render
+- **Batching:** Multiple animations batch into single render
+
+From benchmarks:
+- Simple transitions: ~0.1ms overhead per frame
+- Complex sequences: ~0.5ms overhead per frame
+
+<Note>
+Animations automatically pause when the terminal is not visible or the app is idle. This prevents wasted CPU cycles.
+</Note>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use Transitions" icon="arrow-right-arrow-left">
+    Prefer `useTransition` for simple value animations. It's the most straightforward and predictable.
+  </Card>
+  
+  <Card title="Springs for Physics" icon="spring">
+    Use `useSpring` when you want natural, physics-based motion with overshoot and settling.
+  </Card>
+  
+  <Card title="Container Transitions" icon="box">
+    Use declarative `transition` props on containers for automatic position/size animations without hooks.
+  </Card>
+  
+  <Card title="Exit Transitions" icon="door-open">
+    Always use `exitTransition` for removing items from lists. Instant disappearance feels jarring.
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Routing" icon="route" href="/guides/routing">
+    Implement page navigation with animated transitions
+  </Card>
+  <Card title="Graphics" icon="image" href="/guides/graphics">
+    Draw charts, images, and custom graphics
+  </Card>
+</CardGroup>

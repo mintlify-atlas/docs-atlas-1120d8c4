@@ -1,0 +1,353 @@
+---
+title: "@rezi-ui/node"
+description: "Node.js and Bun backend for Rezi framework"
+---
+
+## Installation
+
+```bash
+npm install @rezi-ui/node @rezi-ui/core
+```
+
+## Overview
+
+`@rezi-ui/node` provides a production-ready backend for running Rezi applications on Node.js (18+) and Bun (1.3.0+). It includes:
+
+- Worker-thread based rendering engine
+- Terminal I/O management
+- Hot state reload for development
+- Image loading utilities
+- Stream adapters for `useTail`, `useWebSocket`, etc.
+
+## Quick Start
+
+```typescript
+import { createNodeApp } from "@rezi-ui/node";
+import { ui } from "@rezi-ui/core";
+
+type State = { count: number };
+
+const app = createNodeApp<State>({
+  initialState: { count: 0 },
+});
+
+app.view((state) =>
+  ui.page({ p: 1 }, [
+    ui.text(`Count: ${state.count}`),
+    ui.button({ id: "inc", label: "Increment" }),
+  ])
+);
+
+app.on("press", (evt) => {
+  if (evt.id === "inc") {
+    app.update((s) => ({ count: s.count + 1 }));
+  }
+});
+
+await app.run();
+```
+
+## API Reference
+
+### createNodeApp
+
+Create a fully configured Rezi app with Node.js backend.
+
+<ParamField path="options" type="CreateNodeAppOptions<S>" required>
+  Configuration object for the app.
+</ParamField>
+
+<ParamField path="options.initialState" type="S" required>
+  Initial application state.
+</ParamField>
+
+<ParamField path="options.routes" type="RouteDefinition<S>[]">
+  Optional route definitions for page router.
+</ParamField>
+
+<ParamField path="options.initialRoute" type="string">
+  Initial route path (default: first route).
+</ParamField>
+
+<ParamField path="options.theme" type="Theme | ThemeDefinition">
+  Theme to use. Automatically converts to NO_COLOR when `NO_COLOR` env var is present.
+</ParamField>
+
+<ParamField path="options.config" type="NodeAppConfig">
+  Optional configuration for app and backend behavior.
+</ParamField>
+
+<ParamField path="options.config.fpsCap" type="number">
+  Frame rate cap (default: 60). Set to 30 for production apps to reduce CPU usage.
+</ParamField>
+
+<ParamField path="options.config.executionMode" type="'worker' | 'inline'">
+  Execution mode (default: 'worker'). Use 'inline' for debugging.
+</ParamField>
+
+<ParamField path="options.config.drawlistVersion" type="1 | 3 | 5">
+  ZRDL protocol version (default: 5).
+</ParamField>
+
+<ParamField path="options.hotReload" type="NodeAppHotReloadOptions<S>">
+  Development hot reload configuration.
+</ParamField>
+
+**Returns**: `NodeApp<S>` - App instance with backend attached.
+
+```typescript
+import { createNodeApp } from "@rezi-ui/node";
+import { darkTheme } from "@rezi-ui/core";
+
+const app = createNodeApp({
+  initialState: { users: [] },
+  theme: darkTheme,
+  config: {
+    fpsCap: 30, // Production setting
+  },
+});
+```
+
+### NodeApp Type
+
+The returned app instance extends the core `App<S>` with Node-specific properties:
+
+<ResponseField name="backend" type="NodeBackend">
+  The underlying Node.js backend instance.
+</ResponseField>
+
+<ResponseField name="isNoColor" type="boolean">
+  True when `NO_COLOR` environment variable is present.
+</ResponseField>
+
+<ResponseField name="hotReload" type="HotStateReloadController | null">
+  Hot reload controller when configured, null otherwise.
+</ResponseField>
+
+### createNodeBackend
+
+Low-level backend constructor. Prefer `createNodeApp()` for standard usage.
+
+<ParamField path="config" type="NodeBackendConfig">
+  Backend configuration.
+</ParamField>
+
+```typescript
+import { createNodeBackend } from "@rezi-ui/node";
+import { createApp } from "@rezi-ui/core";
+
+const backend = createNodeBackend({
+  executionMode: "worker",
+  fpsCap: 60,
+});
+
+const app = createApp({
+  backend,
+  initialState: {},
+});
+```
+
+## Hot State Reload
+
+Development feature for hot-reloading view and route modules without losing state.
+
+### Configuration
+
+```typescript
+import { createNodeApp } from "@rezi-ui/node";
+import { watch } from "node:fs";
+
+const app = createNodeApp({
+  initialState: { count: 0 },
+  hotReload: {
+    // Watch view file
+    view: {
+      path: "./src/view.ts",
+      exportName: "view", // Named export to reload
+    },
+    // Optional: Watch routes
+    routes: {
+      path: "./src/routes.ts",
+      exportName: "routes",
+    },
+    // Optional: Custom file watcher
+    watcher: (paths, onChange) => {
+      // Custom watch implementation
+      return () => {}; // Cleanup
+    },
+  },
+});
+
+await app.run();
+// HSR automatically starts/stops with app lifecycle
+```
+
+### Manual Control
+
+```typescript
+import { createHotStateReload } from "@rezi-ui/node";
+
+const hsr = createHotStateReload(app, {
+  view: { path: "./src/view.ts", exportName: "view" },
+});
+
+await hsr.start();
+// ... app runs with HSR active
+await hsr.stop();
+```
+
+<ResponseField name="hotReload.start" type="() => Promise<void>">
+  Start watching for file changes.
+</ResponseField>
+
+<ResponseField name="hotReload.stop" type="() => Promise<void>">
+  Stop watching and cleanup.
+</ResponseField>
+
+<ResponseField name="hotReload.reload" type="() => Promise<void>">
+  Manually trigger a reload.
+</ResponseField>
+
+## Image Loading
+
+<ParamField path="loadImage" type="function">
+  Load image from file system or URL for use in `ui.image()`.
+</ParamField>
+
+```typescript
+import { createNodeApp, loadImage } from "@rezi-ui/node";
+import { ui } from "@rezi-ui/core";
+
+const app = createNodeApp({ initialState: {} });
+
+app.view(async () => {
+  const logo = await loadImage("./logo.png");
+
+  return ui.page({ p: 1 }, [
+    ui.image({
+      data: logo.data,
+      width: logo.width,
+      height: logo.height,
+      fit: "contain",
+    }),
+  ]);
+});
+```
+
+**Supported formats**: PNG, JPEG, WebP, GIF (via image decoding)
+
+## Stream Utilities
+
+### createNodeTailSource
+
+Create a tail source for `useTail` hook to follow file updates.
+
+```typescript
+import { createNodeApp, createNodeTailSource } from "@rezi-ui/node";
+import { defineWidget, useTail, ui } from "@rezi-ui/core";
+
+const LogViewer = defineWidget(() => {
+  const logs = useTail(ctx, {
+    source: createNodeTailSource("/var/log/app.log"),
+    maxLines: 100,
+  });
+
+  return ui.column(logs.lines.map((line) => ui.text(line)));
+});
+```
+
+## Configuration Options
+
+### Execution Modes
+
+<ParamField path="executionMode" type="'worker' | 'inline'">
+  - `worker` (default): Engine runs in worker thread for best performance
+  - `inline`: Engine runs in main thread for easier debugging
+</ParamField>
+
+### Frame Transport
+
+<ParamField path="frameTransport" type="'copy' | 'sab'">
+  - `copy` (default): Frame data copied to worker
+  - `sab`: Use SharedArrayBuffer for zero-copy frame submission (experimental)
+</ParamField>
+
+### Performance Tuning
+
+```typescript
+import { createNodeApp } from "@rezi-ui/node";
+
+const app = createNodeApp({
+  initialState: {},
+  config: {
+    // Frame rate
+    fpsCap: 30, // Lower for production apps
+
+    // Buffer sizes
+    maxEventBytes: 8192, // Event batch buffer size
+    maxDrawlistBytes: 1024 * 1024, // Max drawlist size (1MB)
+
+    // Worker thread settings (when executionMode: 'worker')
+    frameSabSlotCount: 2, // SAB ring buffer slots
+    frameSabSlotBytes: 512 * 1024, // Bytes per slot
+  },
+});
+```
+
+## NO_COLOR Support
+
+`createNodeApp` automatically detects the `NO_COLOR` environment variable and converts any provided theme to monochrome:
+
+```bash
+# Force monochrome output
+NO_COLOR=1 node dist/main.js
+```
+
+```typescript
+import { createNodeApp } from "@rezi-ui/node";
+import { draculaTheme } from "@rezi-ui/core";
+
+const app = createNodeApp({
+  initialState: {},
+  theme: draculaTheme, // Automatically converted to mono when NO_COLOR=1
+});
+
+console.log(app.isNoColor); // true when NO_COLOR is set
+```
+
+## TypeScript Types
+
+```typescript
+import type {
+  NodeApp,
+  NodeAppConfig,
+  NodeBackend,
+  NodeBackendConfig,
+  CreateNodeAppOptions,
+  HotStateReloadController,
+  HotStateReloadOptions,
+} from "@rezi-ui/node";
+```
+
+## Runtime Requirements
+
+- **Node.js**: 18.0.0 or higher
+- **Bun**: 1.3.0 or higher
+- **Platform**: Linux, macOS, Windows (with limitations)
+
+## Related Documentation
+
+<CardGroup cols={2}>
+  <Card title="@rezi-ui/core" icon="cube" href="/api/core">
+    Core framework APIs
+  </Card>
+  <Card title="Getting Started" icon="rocket" href="/getting-started/installation">
+    Installation guide
+  </Card>
+  <Card title="App Lifecycle" icon="circle-play" href="/guide/lifecycle">
+    Understanding app lifecycle
+  </Card>
+  <Card title="Worker Model" icon="gears" href="/advanced/architecture">
+    Backend architecture details
+  </Card>
+</CardGroup>

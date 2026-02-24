@@ -1,0 +1,367 @@
+---
+title: Sparkline
+description: Compact inline chart for showing trends
+---
+
+The Sparkline widget renders a mini inline chart using block characters, perfect for showing trends in dashboards and tables.
+
+## Basic Usage
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.sparkline([1, 3, 5, 7, 5, 3, 1, 4, 8, 2]);
+```
+
+## Props
+
+<ParamField path="data" type="number[]" required>
+  Data points to visualize. Values are normalized to 0-1 range for display.
+</ParamField>
+
+<ParamField path="width" type="number">
+  Display width in cells. Defaults to `data.length`.
+</ParamField>
+
+<ParamField path="min" type="number">
+  Minimum value for scaling. Auto-detected if omitted.
+</ParamField>
+
+<ParamField path="max" type="number">
+  Maximum value for scaling. Auto-detected if omitted.
+</ParamField>
+
+<ParamField path="highRes" type="boolean" default="false">
+  Enable sub-cell rendering for smoother lines.
+</ParamField>
+
+<ParamField path="blitter" type="GraphicsBlitter">
+  Rendering mode for highRes mode. One of `"braille"`, `"sextant"`, `"quadrant"`, `"halfblock"`.
+</ParamField>
+
+<ParamField path="style" type="TextStyle">
+  Optional style override.
+</ParamField>
+
+## Display Modes
+
+### Standard Mode (Default)
+
+Uses block characters `▁▂▃▄▅▆▇█` for 8-level bars:
+
+```typescript
+ui.sparkline([1, 2, 4, 7, 9, 5, 3]);
+// Output: ▁▂▄▆█▅▃
+```
+
+### High-Resolution Mode
+
+Uses sub-cell blitters for smooth lines:
+
+```typescript
+ui.sparkline([1, 3, 5, 7, 5, 3, 1], {
+  highRes: true,
+  blitter: "braille",
+});
+```
+
+Best for:
+- `"braille"` - Smooth curves
+- `"halfblock"` - Good for sparklines
+- `"sextant"` - Balance of resolution/visibility
+
+## Scaling
+
+### Auto-Scale (Default)
+
+Values auto-scale to fit full height:
+
+```typescript
+ui.sparkline([10, 20, 30, 40]);
+// 10 = bottom, 40 = top
+```
+
+### Fixed Range
+
+Manually set min/max for consistent scaling:
+
+```typescript
+ui.sparkline([10, 20, 30, 40], {
+  min: 0,
+  max: 100,
+});
+// All values scale to 0-100 range
+```
+
+### Fixed Width
+
+```typescript
+ui.sparkline([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], {
+  width: 5, // Compress to 5 cells
+});
+```
+
+## Examples
+
+### Inline Metrics
+
+```typescript
+function metricRow(label: string, value: number, trend: number[]): VNode {
+  return ui.row({ gap: 2 }, [
+    ui.text(label, { style: { bold: true } }),
+    ui.text(String(value)),
+    ui.sparkline(trend, { width: 20 }),
+  ]);
+}
+```
+
+### Dashboard Table
+
+```typescript
+type Metric = {
+  name: string;
+  current: number;
+  history: number[];
+};
+
+function metricsDashboard(metrics: Metric[]): VNode {
+  return ui.column({ gap: 1, p: 1 }, [
+    ui.text("Metrics", { variant: "heading" }),
+    ...metrics.map((m) =>
+      ui.row({ gap: 2, key: m.name }, [
+        ui.text(m.name, { style: { bold: true } }),
+        ui.text(String(m.current)),
+        ui.sparkline(m.history, { width: 30 }),
+      ])
+    ),
+  ]);
+}
+```
+
+### Status Summary
+
+```typescript
+function statusSummary(services: Array<{
+  name: string;
+  uptime: number[];
+}>): VNode {
+  return ui.column({ gap: 0 }, [
+    ui.text("Service Health (Last 24h)", { variant: "heading" }),
+    ...services.map((s) => {
+      const avgUptime = s.uptime.reduce((a, b) => a + b) / s.uptime.length;
+      const color = avgUptime > 0.99 ? "#10b981" : avgUptime > 0.95 ? "#f59e0b" : "#ef4444";
+      
+      return ui.row({ gap: 2, key: s.name }, [
+        ui.text(s.name),
+        ui.sparkline(s.uptime, {
+          width: 24,
+          min: 0.9,
+          max: 1.0,
+          style: { fg: color },
+        }),
+        ui.text(`${(avgUptime * 100).toFixed(1)}%`, { style: { dim: true } }),
+      ]);
+    }),
+  ]);
+}
+```
+
+### Real-Time Monitor
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+type MonitorState = {
+  metrics: Record<string, number[]>;
+  maxHistory: number;
+};
+
+function realtimeMonitor(state: MonitorState): VNode {
+  return ui.column({ gap: 1, p: 1 }, [
+    ui.text("Live Metrics", { variant: "heading" }),
+    ...Object.entries(state.metrics).map(([name, history]) => {
+      // Keep only recent history
+      const recent = history.slice(-state.maxHistory);
+      const current = recent[recent.length - 1] ?? 0;
+      
+      return ui.row({ gap: 2, key: name }, [
+        ui.text(name.padEnd(12)),
+        ui.text(current.toFixed(1).padStart(6)),
+        ui.sparkline(recent, {
+          width: 40,
+          highRes: true,
+          blitter: "braille",
+        }),
+      ]);
+    }),
+  ]);
+}
+```
+
+### Comparison View
+
+```typescript
+function comparisonSparklines(
+  series: Array<{ name: string; data: number[] }>
+): VNode {
+  // Compute global min/max for consistent scaling
+  const allValues = series.flatMap((s) => s.data);
+  const min = Math.min(...allValues);
+  const max = Math.max(...allValues);
+  
+  return ui.column({ gap: 0 }, [
+    ui.text("Comparison", { variant: "heading" }),
+    ...series.map((s) =>
+      ui.row({ gap: 2, key: s.name }, [
+        ui.text(s.name.padEnd(15)),
+        ui.sparkline(s.data, {
+          width: 50,
+          min,
+          max,
+        }),
+      ])
+    ),
+  ]);
+}
+```
+
+### Trend Indicator
+
+```typescript
+function trendIndicator(history: number[]): VNode {
+  const first = history[0] ?? 0;
+  const last = history[history.length - 1] ?? 0;
+  const change = ((last - first) / first) * 100;
+  
+  const arrow = change > 0 ? "↑" : change < 0 ? "↓" : "→";
+  const color = change > 0 ? "#10b981" : change < 0 ? "#ef4444" : "#6b7280";
+  
+  return ui.row({ gap: 2 }, [
+    ui.sparkline(history, { width: 15 }),
+    ui.text(arrow, { style: { fg: color, bold: true } }),
+    ui.text(`${change > 0 ? "+" : ""}${change.toFixed(1)}%`, {
+      style: { fg: color },
+    }),
+  ]);
+}
+```
+
+### Table Integration
+
+```typescript
+function metricsTable(
+  data: Array<{
+    id: string;
+    name: string;
+    value: number;
+    history: number[];
+  }>
+): VNode {
+  return ui.table({
+    id: "metrics-table",
+    columns: [
+      { key: "name", header: "Metric", width: 20 },
+      { key: "value", header: "Current", width: 10, align: "right" },
+      {
+        key: "history",
+        header: "Trend",
+        width: 30,
+        render: (value) => {
+          const history = value as number[];
+          return ui.sparkline(history, { width: 28 });
+        },
+      },
+    ],
+    data,
+    getRowKey: (row) => row.id,
+  });
+}
+```
+
+### Multi-Line Display
+
+```typescript
+function multilineSparklines(datasets: Record<string, number[]>): VNode {
+  return ui.column({ gap: 0, p: 1 }, [
+    ui.text("System Metrics", { variant: "heading" }),
+    ui.divider(),
+    ...Object.entries(datasets).map(([label, data]) =>
+      ui.row({ gap: 1, key: label }, [
+        ui.text(label.padEnd(10), { style: { dim: true } }),
+        ui.sparkline(data, {
+          width: 60,
+          highRes: true,
+          blitter: "braille",
+        }),
+      ])
+    ),
+  ]);
+}
+```
+
+## Styling
+
+### Custom Colors
+
+```typescript
+ui.sparkline(data, {
+  style: {
+    fg: "#3b82f6",
+    bold: true,
+  },
+});
+```
+
+### Conditional Colors
+
+```typescript
+function coloredSparkline(data: number[], threshold: number): VNode {
+  const current = data[data.length - 1] ?? 0;
+  const color = current > threshold ? "#ef4444" : "#10b981";
+  
+  return ui.sparkline(data, {
+    style: { fg: color },
+  });
+}
+```
+
+## Performance
+
+- Standard mode: Instant for any size
+- High-res mode: Best for < 200 points
+- Recommended width: 10-50 cells
+
+## Common Patterns
+
+### Rolling Window
+
+```typescript
+function rollingSparkline(history: number[], windowSize: number): VNode {
+  const window = history.slice(-windowSize);
+  return ui.sparkline(window);
+}
+```
+
+### Normalized Display
+
+```typescript
+function normalizedSparkline(data: number[]): VNode {
+  const mean = data.reduce((a, b) => a + b) / data.length;
+  const stdDev = Math.sqrt(
+    data.reduce((a, b) => a + (b - mean) ** 2, 0) / data.length
+  );
+  const normalized = data.map((v) => (v - mean) / stdDev);
+  
+  return ui.sparkline(normalized, {
+    min: -3,
+    max: 3,
+  });
+}
+```
+
+## See Also
+
+- [Line Chart](/widgets/line-chart) - Full-featured line charts
+- [Bar Chart](/widgets/bar-chart) - Categorical bars
+- [Gauge](/widgets/gauge) - Single-value indicators
+- [Progress](/widgets/progress) - Progress bars

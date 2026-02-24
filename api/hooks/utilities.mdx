@@ -1,0 +1,190 @@
+---
+title: "Utility Hooks"
+description: "Data fetching and utility hooks"
+---
+
+## Data Hooks
+
+### useAsync
+
+Handle async operations with loading/error state.
+
+```typescript
+import { defineWidget, useAsync, ui } from "@rezi-ui/core";
+
+const UserProfile = defineWidget<{ userId: string }>((props, ctx) => {
+  const user = useAsync(ctx, async () => {
+    const res = await fetch(`/api/users/${props.userId}`);
+    return res.json();
+  }, [props.userId]);
+
+  if (user.loading) return ui.text("Loading...");
+  if (user.error) return ui.text("Error loading user");
+  return ui.text(user.data?.name ?? "Unknown");
+});
+```
+
+### useInterval
+
+Run callback at regular intervals.
+
+```typescript
+import { defineWidget, useInterval, ui } from "@rezi-ui/core";
+
+const Clock = defineWidget((props, ctx) => {
+  const [time, setTime] = ctx.useState(() => new Date().toLocaleTimeString());
+
+  useInterval(ctx, () => {
+    setTime(new Date().toLocaleTimeString());
+  }, 1000);
+
+  return ui.text(time);
+});
+```
+
+### useStream
+
+Consume async iterables/streams.
+
+```typescript
+import { defineWidget, useStream, ui } from "@rezi-ui/core";
+
+const StreamViewer = defineWidget<{ stream: AsyncIterable<string> }>((props, ctx) => {
+  const state = useStream(ctx, props.stream, [props.stream]);
+
+  if (state.loading) return ui.text("Connecting...");
+  if (state.error) return ui.text("Stream error");
+  return ui.text(state.value ?? "Waiting for data...");
+});
+```
+
+### useWebSocket
+
+Connect to WebSocket with auto-reconnect.
+
+```typescript
+import { defineWidget, useWebSocket, ui } from "@rezi-ui/core";
+
+const LiveFeed = defineWidget<{ url: string }>((props, ctx) => {
+  const ws = useWebSocket(ctx, props.url, {
+    reconnectMs: 3000,
+    onMessage: (data) => console.log("Received:", data),
+  });
+
+  return ui.column([
+    ui.text(`Status: ${ws.state}`),
+    ui.text(`Messages: ${ws.messages.length}`),
+    ...ws.messages.slice(-10).map((msg) => ui.text(msg)),
+  ]);
+});
+```
+
+### useEventSource
+
+Connect to Server-Sent Events.
+
+```typescript
+import { defineWidget, useEventSource, ui } from "@rezi-ui/core";
+
+const SSEViewer = defineWidget<{ url: string }>((props, ctx) => {
+  const sse = useEventSource(ctx, props.url, {
+    eventType: "message",
+    reconnectMs: 5000,
+  });
+
+  return ui.column([
+    ui.text(`Connected: ${sse.connected}`),
+    ui.text(sse.lastMessage?.data ?? "No messages"),
+  ]);
+});
+```
+
+### useTail
+
+Follow file tail (requires tail source factory).
+
+```typescript
+import { createNodeApp, createNodeTailSource } from "@rezi-ui/node";
+import { defineWidget, useTail, ui } from "@rezi-ui/core";
+
+const LogTail = defineWidget<{ path: string }>((props, ctx) => {
+  const logs = useTail(ctx, {
+    source: createNodeTailSource(props.path),
+    maxLines: 100,
+  }, [props.path]);
+
+  return ui.column([
+    ui.text(`Lines: ${logs.lines.length}`),
+    ...logs.lines.map((line) => ui.text(line)),
+  ]);
+});
+```
+
+## Utility Hooks
+
+### useDebounce
+
+Debounce a value with delay.
+
+```typescript
+import { defineWidget, useDebounce, ui } from "@rezi-ui/core";
+
+const Search = defineWidget((props, ctx) => {
+  const [query, setQuery] = ctx.useState("");
+  const debouncedQuery = useDebounce(ctx, query, 500);
+
+  ctx.useEffect(() => {
+    if (debouncedQuery) {
+      // Search API called only after 500ms of no changes
+      searchAPI(debouncedQuery);
+    }
+  }, [debouncedQuery]);
+
+  return ui.column([
+    ui.input({ id: ctx.id("search"), value: query, onChange: setQuery }),
+    ui.text(`Searching for: ${debouncedQuery}`),
+  ]);
+});
+```
+
+### usePrevious
+
+Track previous render's value.
+
+```typescript
+import { defineWidget, usePrevious, ui } from "@rezi-ui/core";
+
+const ChangeDetector = defineWidget<{ value: number }>((props, ctx) => {
+  const prevValue = usePrevious(ctx, props.value);
+  const changed = prevValue !== undefined && prevValue !== props.value;
+
+  return ui.column([
+    ui.text(`Current: ${props.value}`),
+    ui.text(`Previous: ${prevValue ?? "N/A"}`),
+    ui.text(changed ? "Value changed!" : "No change"),
+  ]);
+});
+```
+
+## Type Safety
+
+```typescript
+import type {
+  UseAsyncState,
+  UseStreamState,
+  UseWebSocketState,
+  UseEventSourceState,
+  UseTailState,
+} from "@rezi-ui/core";
+```
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="State Hooks" icon="database" href="/api/hooks/state">
+    useState and useRef
+  </Card>
+  <Card title="Lifecycle" icon="rotate" href="/api/hooks/lifecycle">
+    useEffect
+  </Card>
+</CardGroup>

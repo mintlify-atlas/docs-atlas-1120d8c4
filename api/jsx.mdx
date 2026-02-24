@@ -1,0 +1,519 @@
+---
+title: "@rezi-ui/jsx"
+description: "JSX runtime for Rezi framework"
+---
+
+## Installation
+
+```bash
+npm install @rezi-ui/jsx @rezi-ui/core
+```
+
+## Overview
+
+`@rezi-ui/jsx` provides JSX/TSX support for Rezi, allowing you to write UIs with familiar JSX syntax instead of `ui.*` factory functions. It offers:
+
+- Full JSX components for all Rezi widgets
+- TypeScript autocomplete and type checking
+- 1:1 parity with `ui.*` factories
+- Fragment support
+- Works with React/Preact JSX transform
+
+## TSConfig Setup
+
+Configure TypeScript to use the Rezi JSX runtime:
+
+```json tsconfig.json
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "@rezi-ui/jsx",
+    "types": ["@rezi-ui/jsx"]
+  }
+}
+```
+
+For automatic JSX runtime (React 17+):
+
+```json
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "@rezi-ui/jsx"
+  }
+}
+```
+
+## Quick Start
+
+<CodeGroup>
+```tsx JSX Syntax
+import { createNodeApp } from "@rezi-ui/node";
+import { Text, Button, Column } from "@rezi-ui/jsx";
+
+type State = { count: number };
+
+const app = createNodeApp<State>({
+  initialState: { count: 0 },
+});
+
+app.view((state) => (
+  <Column p={1}>
+    <Text>Count: {state.count}</Text>
+    <Button id="inc" label="Increment" />
+  </Column>
+));
+
+app.on("press", (evt) => {
+  if (evt.id === "inc") {
+    app.update((s) => ({ count: s.count + 1 }));
+  }
+});
+
+await app.run();
+```
+
+```typescript Equivalent ui.* syntax
+import { createNodeApp } from "@rezi-ui/node";
+import { ui } from "@rezi-ui/core";
+
+const app = createNodeApp({ initialState: { count: 0 } });
+
+app.view((state) =>
+  ui.column({ p: 1 }, [
+    ui.text(`Count: ${state.count}`),
+    ui.button({ id: "inc", label: "Increment" }),
+  ])
+);
+```
+</CodeGroup>
+
+## Component Reference
+
+All widgets have corresponding JSX components with identical props:
+
+### Layout Components
+
+<ResponseField name="Column" type="component">
+  Vertical flex container. Maps to `ui.column()`.
+</ResponseField>
+
+<ResponseField name="Row" type="component">
+  Horizontal flex container. Maps to `ui.row()`.
+</ResponseField>
+
+<ResponseField name="Box" type="component">
+  Flexible container with synthetic inner column. Maps to `ui.box()`.
+</ResponseField>
+
+<ResponseField name="Grid" type="component">
+  CSS Grid-like layout container. Maps to `ui.grid()`.
+</ResponseField>
+
+```tsx
+import { Column, Row, Box, Grid } from "@rezi-ui/jsx";
+
+<Column gap={2} p={1}>
+  <Row justifyContent="space-between">
+    <Text>Left</Text>
+    <Text>Right</Text>
+  </Row>
+
+  <Box border="single" p={2}>
+    <Text>Boxed content</Text>
+  </Box>
+
+  <Grid cols={3} gap={1}>
+    <Text>A</Text>
+    <Text>B</Text>
+    <Text>C</Text>
+  </Grid>
+</Column>
+```
+
+### Text & Content
+
+<ResponseField name="Text" type="component">
+  Inline text node. Maps to `ui.text()`.
+</ResponseField>
+
+<ResponseField name="RichText" type="component">
+  Styled text with multiple spans. Maps to `ui.richText()`.
+</ResponseField>
+
+<ResponseField name="Icon" type="component">
+  Icon display from icon registry. Maps to `ui.icon()`.
+</ResponseField>
+
+<ResponseField name="Kbd" type="component">
+  Keyboard shortcut display. Maps to `ui.kbd()`.
+</ResponseField>
+
+```tsx
+import { Text, RichText, Icon, Kbd } from "@rezi-ui/jsx";
+
+<Column>
+  <Text variant="heading">Welcome</Text>
+  <RichText
+    spans={[
+      { text: "Bold", bold: true },
+      { text: " and ", fg: { r: 100, g: 100, b: 100 } },
+      { text: "italic", italic: true },
+    ]}
+  />
+  <Icon name="file/folder" />
+  <Kbd keys={["Ctrl", "C"]} />
+</Column>
+```
+
+### Interactive Widgets
+
+<ResponseField name="Button" type="component">
+  Pressable button with design system styling. Maps to `ui.button()`.
+</ResponseField>
+
+<ResponseField name="Input" type="component">
+  Single-line text input. Maps to `ui.input()`.
+</ResponseField>
+
+<ResponseField name="Textarea" type="component">
+  Multi-line text input. Maps to `ui.textarea()`.
+</ResponseField>
+
+<ResponseField name="Checkbox" type="component">
+  Boolean checkbox control. Maps to `ui.checkbox()`.
+</ResponseField>
+
+<ResponseField name="Select" type="component">
+  Dropdown select menu. Maps to `ui.select()`.
+</ResponseField>
+
+<ResponseField name="Slider" type="component">
+  Numeric slider control. Maps to `ui.slider()`.
+</ResponseField>
+
+```tsx
+import { Button, Input, Checkbox, Select } from "@rezi-ui/jsx";
+
+<Column gap={1}>
+  <Button id="save" label="Save" intent="primary" />
+  <Input id="name" placeholder="Enter name..." />
+  <Checkbox id="agree" label="I agree to terms" />
+  <Select
+    id="theme"
+    options={[
+      { value: "dark", label: "Dark" },
+      { value: "light", label: "Light" },
+    ]}
+  />
+</Column>
+```
+
+### Structural Widgets
+
+<ResponseField name="Page" type="component">
+  Root page container. Maps to `ui.page()`.
+</ResponseField>
+
+<ResponseField name="Panel" type="component">
+  Titled content panel. Maps to `ui.panel()`.
+</ResponseField>
+
+<ResponseField name="Card" type="component">
+  Elevated card container. Maps to `ui.card()`.
+</ResponseField>
+
+<ResponseField name="Modal" type="component">
+  Centered modal dialog. Maps to `ui.modal()`.
+</ResponseField>
+
+<ResponseField name="Tabs" type="component">
+  Tab navigation widget. Maps to `ui.tabs()`.
+</ResponseField>
+
+```tsx
+import { Page, Panel, Card, Modal, Tabs } from "@rezi-ui/jsx";
+
+<Page p={1}>
+  <Panel title="Dashboard">
+    <Card>
+      <Text>Card content</Text>
+    </Card>
+  </Panel>
+
+  <Tabs
+    items={[
+      { id: "home", label: "Home" },
+      { id: "settings", label: "Settings" },
+    ]}
+    activeId="home"
+  />
+
+  <Modal id="confirm" title="Confirm Action" open={showModal}>
+    <Text>Are you sure?</Text>
+  </Modal>
+</Page>
+```
+
+### Advanced Widgets
+
+<ResponseField name="Table" type="component">
+  Data table with sorting and selection. Maps to `ui.table()`.
+</ResponseField>
+
+<ResponseField name="VirtualList" type="component">
+  Virtualized scrolling list. Maps to `ui.virtualList()`.
+</ResponseField>
+
+<ResponseField name="Tree" type="component">
+  Hierarchical tree view. Maps to `ui.tree()`.
+</ResponseField>
+
+<ResponseField name="CodeEditor" type="component">
+  Code editor with syntax highlighting. Maps to `ui.codeEditor()`.
+</ResponseField>
+
+<ResponseField name="CommandPalette" type="component">
+  Command palette with fuzzy search. Maps to `ui.commandPalette()`.
+</ResponseField>
+
+```tsx
+import { Table, VirtualList, Tree, CodeEditor } from "@rezi-ui/jsx";
+
+<Column>
+  <Table
+    id="users"
+    columns={[
+      { key: "name", label: "Name", width: 20 },
+      { key: "email", label: "Email", width: 30 },
+    ]}
+    rows={users}
+  />
+
+  <VirtualList
+    id="logs"
+    items={logEntries}
+    renderItem={(item) => <Text>{item.message}</Text>}
+    height={20}
+  />
+
+  <Tree id="files" data={fileTree} />
+
+  <CodeEditor
+    id="editor"
+    value={code}
+    language="typescript"
+    height={30}
+  />
+</Column>
+```
+
+## Children Handling
+
+JSX children are normalized automatically:
+
+```tsx
+// String children become text nodes
+<Column>
+  Hello world
+  {"Dynamic text: " + value}
+</Column>
+
+// Arrays are flattened
+<Column>
+  {items.map((item) => (
+    <Text key={item.id}>{item.name}</Text>
+  ))}
+</Column>
+
+// Fragments work
+<Column>
+  <>
+    <Text>First</Text>
+    <Text>Second</Text>
+  </>
+</Column>
+```
+
+## Composition with defineWidget
+
+`defineWidget` works seamlessly with JSX:
+
+```tsx
+import { defineWidget } from "@rezi-ui/jsx";
+import { Row, Text, Button } from "@rezi-ui/jsx";
+
+type CounterProps = {
+  initial: number;
+  key?: string;
+};
+
+const Counter = defineWidget<CounterProps>((props, ctx) => {
+  const [count, setCount] = ctx.useState(props.initial);
+
+  return (
+    <Row gap={1}>
+      <Text>Count: {count}</Text>
+      <Button
+        id={ctx.id("inc")}
+        label="+"
+        onPress={() => setCount((c) => c + 1)}
+      />
+      <Button
+        id={ctx.id("dec")}
+        label="-"
+        onPress={() => setCount((c) => c - 1)}
+      />
+    </Row>
+  );
+});
+
+// Usage
+<Column>
+  <Counter initial={0} />
+  <Counter initial={10} key="counter-2" />
+</Column>
+```
+
+## Control Flow
+
+All control flow utilities work with JSX:
+
+```tsx
+import { each, show, when, match } from "@rezi-ui/jsx";
+import { Column, Text } from "@rezi-ui/jsx";
+
+const items = ["Apple", "Banana", "Cherry"];
+const status = "loading";
+
+<Column>
+  {/* Map with keying */}
+  {each(items, (item) => (
+    <Text>{item}</Text>
+  ))}
+
+  {/* Conditional rendering */}
+  {show(items.length === 0, () => (
+    <Text>No items</Text>
+  ))}
+
+  {/* If/else */}
+  {when(
+    items.length > 5,
+    () => <Text>Many items</Text>,
+    () => <Text>Few items</Text>
+  )}
+
+  {/* Pattern matching */}
+  {match(status, {
+    loading: () => <Text>Loading...</Text>,
+    error: () => <Text fg={{ r: 255, g: 0, b: 0 }}>Error!</Text>,
+    success: () => <Text>Done!</Text>,
+  })}
+</Column>
+```
+
+## Type Safety
+
+All JSX components are fully typed:
+
+```tsx
+import type {
+  ButtonJsxProps,
+  ColumnJsxProps,
+  TableJsxProps,
+} from "@rezi-ui/jsx";
+
+// Props are validated at compile time
+<Button
+  id="btn" // Required
+  label="Click" // Required
+  intent="primary" // Type-checked
+  // @ts-expect-error - invalid prop
+  invalidProp="value"
+/>
+```
+
+## Re-exports from Core
+
+Common utilities are re-exported for convenience:
+
+```tsx
+import {
+  // Composition
+  defineWidget,
+  // Control flow
+  each,
+  show,
+  when,
+  match,
+  maybe,
+  // Styling
+  rgb,
+  recipe,
+  // Types
+  type WidgetContext,
+  type VNode,
+  type Rgb,
+  type TextStyle,
+} from "@rezi-ui/jsx";
+```
+
+## createElement API
+
+Low-level JSX transform function (usually not needed):
+
+```typescript
+import { createElement, h } from "@rezi-ui/jsx";
+
+// h is an alias for createElement
+const element = h("text", { children: ["Hello"] });
+```
+
+## Migration from ui.*
+
+JSX components map 1:1 to `ui.*` factories:
+
+<CodeGroup>
+```tsx JSX
+<Column gap={2} p={1}>
+  <Text variant="heading">Title</Text>
+  <Button id="btn" label="Click" intent="primary" />
+</Column>
+```
+
+```typescript ui.* equivalent
+ui.column({ gap: 2, p: 1 }, [
+  ui.text({ variant: "heading" }, "Title"),
+  ui.button({ id: "btn", label: "Click", intent: "primary" }),
+]);
+```
+</CodeGroup>
+
+**Key differences**:
+
+- JSX: Props are attributes, children are nested
+- ui.*: Props and children are separate arguments
+- JSX: String children auto-convert to text nodes
+- ui.*: Must explicitly call `ui.text()`
+
+## Performance
+
+JSX has no runtime overhead compared to `ui.*` factories. The JSX transform compiles directly to VNode creation.
+
+## Related Documentation
+
+<CardGroup cols={2}>
+  <Card title="@rezi-ui/core" icon="cube" href="/api/core">
+    Core framework APIs
+  </Card>
+  <Card title="Widget Authoring" icon="wrench" href="/api/widget-authoring">
+    Build custom widgets
+  </Card>
+  <Card title="JSX Guide" icon="react" href="/getting-started/jsx">
+    JSX usage guide
+  </Card>
+  <Card title="Widget Reference" icon="grid" href="/widgets/overview">
+    Complete widget catalog
+  </Card>
+</CardGroup>

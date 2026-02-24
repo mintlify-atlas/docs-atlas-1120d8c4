@@ -1,0 +1,339 @@
+---
+title: 'Mouse Event Handling'
+description: 'Handle mouse clicks, scrolling, and drag events in your TUI'
+---
+
+Rezi provides full mouse support with automatic terminal detection and event routing.
+
+## Mouse Event Types
+
+Rezi handles three primary mouse event types:
+
+<Tabs>
+  <Tab title="Click">
+    Mouse button press and release:
+    
+    ```typescript
+    app.on("event", (event, state) => {
+      if (event.action === "press" && event.id === "button") {
+        // Button was clicked
+        console.log(`Clicked at (${event.x}, ${event.y})`);
+      }
+    });
+    ```
+    
+    Interactive widgets (buttons, links, etc.) emit `press` actions on click.
+  </Tab>
+  
+  <Tab title="Scroll">
+    Mouse wheel events:
+    
+    ```typescript
+    app.on("event", (event, state) => {
+      if (event.action === "scroll") {
+        const delta = event.deltaY;  // Positive = scroll down, negative = scroll up
+        return { scrollY: state.scrollY + delta };
+      }
+    });
+    ```
+  </Tab>
+  
+  <Tab title="Drag">
+    Mouse movement with button held:
+    
+    ```typescript
+    app.on("mouse", (mouseEvent, state) => {
+      if (mouseEvent.kind === "drag") {
+        return { 
+          mouseX: mouseEvent.col,
+          mouseY: mouseEvent.row,
+        };
+      }
+    });
+    ```
+  </Tab>
+</Tabs>
+
+## Scrollable Containers
+
+Enable scrolling on containers with `overflow: "scroll"`:
+
+```typescript
+ui.box({
+  overflow: "scroll",
+  scrollY: state.scrollY,
+  h: 10,
+  border: "single",
+}, [
+  // Long content...
+  ...state.items.map(item => ui.text(item)),
+])
+```
+
+Mouse wheel events automatically route to the nearest scrollable ancestor.
+
+### Scroll Event Handling
+
+```typescript
+app.on("event", (event, state) => {
+  if (event.action === "scroll" && event.id === "list") {
+    // Update scroll position
+    return { scrollY: event.scrollY };
+  }
+});
+```
+
+## Virtual Lists
+
+Virtual lists handle mouse wheel scrolling automatically:
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.virtualList({
+  id: "items",
+  items: state.items,
+  itemHeight: 1,
+  h: 10,
+  renderItem: (item, index) => ui.text(item.text),
+})
+```
+
+Scroll position is managed internally. No manual scroll state needed.
+
+## Clickable Widgets
+
+All interactive widgets support mouse clicks:
+
+```typescript
+ui.column({ gap: 1 }, [
+  ui.button({ id: "save", label: "Save" }),      // Clickable
+  ui.link({ id: "docs", label: "Documentation" }), // Clickable
+  ui.checkbox({ id: "agree", checked: false }),    // Clickable
+])
+```
+
+Clicking a widget with `id` emits the appropriate action (`press`, `toggle`, etc.).
+
+## Raw Mouse Events
+
+Access raw mouse events for custom handling:
+
+```typescript
+app.on("mouse", (mouseEvent, state) => {
+  console.log(`Mouse kind: ${mouseEvent.kind}`);
+  console.log(`Position: (${mouseEvent.col}, ${mouseEvent.row})`);
+  console.log(`Button: ${mouseEvent.button}`);
+  console.log(`Modifiers: ctrl=${mouseEvent.ctrl}, alt=${mouseEvent.alt}`);
+  
+  // Return state update or undefined
+});
+```
+
+### Mouse Event Structure
+
+```typescript
+type ZrevMouseEvent = {
+  kind: "down" | "up" | "drag" | "scroll";
+  col: number;      // Column position (0-based)
+  row: number;      // Row position (0-based)
+  button: number;   // 0 = left, 1 = middle, 2 = right
+  ctrl: boolean;
+  alt: boolean;
+  shift: boolean;
+  deltaY?: number;  // For scroll events
+};
+```
+
+## Canvas Mouse Interaction
+
+Capture mouse events on canvas widgets:
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+const InteractiveCanvas = defineWidget((props, ctx) => {
+  const [mousePos, setMousePos] = ctx.useState({ x: 0, y: 0 });
+  
+  return ui.canvas({
+    id: ctx.id("canvas"),
+    w: 40,
+    h: 20,
+    blitter: "braille",
+    draw: (canvasCtx) => {
+      canvasCtx.fillStyle = "#ff0000";
+      canvasCtx.fillRect(mousePos.x, mousePos.y, 10, 10);
+    },
+    onMouseMove: (x, y) => {
+      setMousePos({ x, y });
+    },
+  });
+});
+```
+
+## Drag and Drop
+
+Implement drag interactions with mouse state:
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+const DraggableBox = defineWidget((props, ctx) => {
+  const [pos, setPos] = ctx.useState({ x: 0, y: 0 });
+  const [dragging, setDragging] = ctx.useState(false);
+  
+  ctx.useEffect(() => {
+    const handleMouse = (mouseEvent) => {
+      if (mouseEvent.kind === "down") {
+        setDragging(true);
+      } else if (mouseEvent.kind === "up") {
+        setDragging(false);
+      } else if (mouseEvent.kind === "drag" && dragging) {
+        setPos({ x: mouseEvent.col, y: mouseEvent.row });
+      }
+    };
+    
+    // Register handler
+    return () => {}; // Cleanup
+  }, [dragging]);
+  
+  return ui.box({
+    position: "absolute",
+    left: pos.x,
+    top: pos.y,
+    border: "single",
+  }, [ui.text("Drag me")]);
+});
+```
+
+## Terminal Mouse Support
+
+Rezi auto-detects mouse support:
+
+```typescript
+const caps = app.getCaps();
+
+if (caps.mouse) {
+  console.log("Mouse is supported");
+} else {
+  console.log("Mouse is not supported (keyboard only)");
+}
+```
+
+Most modern terminals support mouse events. If unsupported, widgets remain keyboard-accessible.
+
+## Split Pane Resizing
+
+Split panes support mouse-based resizing:
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.splitPane({
+  id: "editor",
+  direction: "horizontal",
+  sizes: [0.3, 0.7],  // 30% sidebar, 70% editor
+}, [
+  ui.panel("Sidebar", sidebarContent),
+  ui.panel("Editor", editorContent),
+])
+```
+
+Drag the divider with the mouse to resize panes.
+
+## Scroll Wheel Routing
+
+Scroll events automatically route to the nearest scrollable ancestor:
+
+```typescript
+ui.column({ gap: 1 }, [
+  ui.box({ 
+    overflow: "scroll",
+    scrollY: state.sidebarScroll,
+    h: 10,
+    border: "single",
+  }, sidebarContent),  // Scrolling here affects this box
+  
+  ui.box({ 
+    overflow: "scroll",
+    scrollY: state.editorScroll,
+    h: 20,
+    border: "single",
+  }, editorContent),   // Scrolling here affects this box
+])
+```
+
+The scroll target is determined by mouse position. Rezi automatically routes wheel events to the correct container.
+
+## Horizontal Scrolling
+
+Support horizontal mouse wheel (shift+scroll):
+
+```typescript
+ui.box({
+  overflow: "scroll",
+  scrollX: state.scrollX,
+  scrollY: state.scrollY,
+  w: 40,
+  h: 10,
+  border: "single",
+}, wideContent)
+
+app.on("event", (event, state) => {
+  if (event.action === "scroll") {
+    return {
+      scrollX: state.scrollX + (event.deltaX || 0),
+      scrollY: state.scrollY + (event.deltaY || 0),
+    };
+  }
+});
+```
+
+## Mouse Button Detection
+
+Distinguish between left, middle, and right clicks:
+
+```typescript
+app.on("mouse", (mouseEvent, state) => {
+  if (mouseEvent.kind === "down") {
+    if (mouseEvent.button === 0) {
+      // Left click
+    } else if (mouseEvent.button === 1) {
+      // Middle click
+    } else if (mouseEvent.button === 2) {
+      // Right click (context menu)
+    }
+  }
+});
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Keyboard Fallback" icon="keyboard">
+    Always provide keyboard alternatives. Not all terminals support mouse events. Interactive widgets should work with Tab + Enter.
+  </Card>
+  
+  <Card title="Scroll Targets" icon="up-down">
+    Use `overflow: "scroll"` on containers that should handle wheel events. Rezi routes events to the nearest scrollable ancestor.
+  </Card>
+  
+  <Card title="Virtual Lists" icon="list">
+    For long lists, use `ui.virtualList` instead of manual scroll handling. It's optimized for large datasets.
+  </Card>
+  
+  <Card title="Visual Feedback" icon="hand-pointer">
+    Provide hover states or cursor changes when possible. Terminal capabilities vary, so don't rely solely on mouse feedback.
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Animation" icon="wand-magic-sparkles" href="/guides/animation">
+    Add smooth transitions and animations to your UI
+  </Card>
+  <Card title="Routing" icon="route" href="/guides/routing">
+    Implement page navigation with the router
+  </Card>
+</CardGroup>

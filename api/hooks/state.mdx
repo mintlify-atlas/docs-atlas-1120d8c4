@@ -1,0 +1,468 @@
+---
+title: "State Management Hooks"
+description: "Hooks for managing local widget state"
+---
+
+## Overview
+
+State management hooks provide per-widget state that persists across renders. Available in `defineWidget` contexts only.
+
+<Warning>
+  All hooks must be called in the same order every render. No conditional hook calls.
+</Warning>
+
+## useState
+
+Create local state that persists across renders.
+
+<ParamField path="initial" type="T | (() => T)" required>
+  Initial value or lazy initializer function.
+</ParamField>
+
+**Returns**: `[T, (v: T | ((prev: T) => T)) => void]`
+
+```typescript
+import { defineWidget, ui } from "@rezi-ui/core";
+
+const Counter = defineWidget((props, ctx) => {
+  const [count, setCount] = ctx.useState(0);
+
+  return ui.row([
+    ui.text(`Count: ${count}`),
+    ui.button({
+      id: ctx.id("inc"),
+      label: "+",
+      onPress: () => setCount(count + 1),
+    }),
+    ui.button({
+      id: ctx.id("dec"),
+      label: "-",
+      onPress: () => setCount((prev) => prev - 1), // Updater function
+    }),
+  ]);
+});
+```
+
+### Lazy Initialization
+
+Use a function for expensive initialization:
+
+```typescript
+const ExpensiveWidget = defineWidget((props, ctx) => {
+  // Called only once on mount
+  const [data, setData] = ctx.useState(() => {
+    return loadLargeDataset();
+  });
+
+  return ui.text(`Loaded ${data.length} items`);
+});
+```
+
+### Updater Functions
+
+Prefer updater functions when new state depends on previous state:
+
+```typescript
+const TodoList = defineWidget((props, ctx) => {
+  const [todos, setTodos] = ctx.useState<string[]>([]);
+
+  const addTodo = (text: string) => {
+    // Good: Uses updater function
+    setTodos((prev) => [...prev, text]);
+
+    // Bad: Uses stale closure
+    // setTodos([...todos, text]);
+  };
+
+  return ui.column([
+    ...todos.map((todo) => ui.text(todo)),
+    ui.button({ id: ctx.id("add"), label: "Add", onPress: () => addTodo("New") }),
+  ]);
+});
+```
+
+## useRef
+
+Create a mutable ref that persists across renders without triggering re-renders.
+
+<ParamField path="initial" type="T" required>
+  Initial value for the ref.
+</ParamField>
+
+**Returns**: `{ current: T }`
+
+```typescript
+import { defineWidget, ui } from "@rezi-ui/core";
+
+const InputWithFocus = defineWidget((props, ctx) => {
+  const inputValueRef = ctx.useRef("");
+  const renderCountRef = ctx.useRef(0);
+
+  renderCountRef.current += 1;
+
+  return ui.column([
+    ui.text(`Rendered ${renderCountRef.current} times`),
+    ui.input({
+      id: ctx.id("input"),
+      value: inputValueRef.current,
+      onChange: (value) => {
+        inputValueRef.current = value;
+        // Note: Changing ref does NOT trigger re-render
+      },
+    }),
+  ]);
+});
+```
+
+### Common Use Cases
+
+<AccordionGroup>
+  <Accordion title="Store previous props/state">
+    ```typescript
+    const Widget = defineWidget<{ value: number }>((props, ctx) => {
+      const prevValueRef = ctx.useRef(props.value);
+      const changed = prevValueRef.current !== props.value;
+
+      ctx.useEffect(() => {
+        prevValueRef.current = props.value;
+      }, [props.value]);
+
+      return ui.text(changed ? "Value changed!" : "No change");
+    });
+    ```
+  </Accordion>
+
+  <Accordion title="Cache expensive computations">
+    ```typescript
+    const Widget = defineWidget((props, ctx) => {
+      const cacheRef = ctx.useRef<Map<string, number>>(new Map());
+
+      const compute = (key: string): number => {
+        if (cacheRef.current.has(key)) {
+          return cacheRef.current.get(key)!;
+        }
+        const result = expensiveComputation(key);
+        cacheRef.current.set(key, result);
+        return result;
+      };
+
+      return ui.text(`Result: ${compute("key")}`);
+    });
+    ```
+  </Accordion>
+
+  <Accordion title="Store interval/timeout IDs">
+    ```typescript
+    const Timer = defineWidget((props, ctx) => {
+      const [count, setCount] = ctx.useState(0);
+      const timerRef = ctx.useRef<ReturnType<typeof setInterval> | null>(null);
+
+      const start = () => {
+        if (timerRef.current) return;
+        timerRef.current = setInterval(() => {
+          setCount((c) => c + 1);
+        }, 1000);
+      };
+
+      const stop = () => {
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+          timerRef.current = null;
+        }
+      };
+
+      ctx.useEffect(() => {
+        return () => stop(); // Cleanup on unmount
+      }, []);
+
+      return ui.column([
+        ui.text(`Count: ${count}`),
+        ui.button({ id: ctx.id("start"), label: "Start", onPress: start }),
+        ui.button({ id: ctx.id("stop"), label: "Stop", onPress: stop }),
+      ]);
+    });
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## useMemo
+
+Memoize a computed value until dependencies change.
+
+<ParamField path="factory" type="() => T" required>
+  Function that computes the memoized value.
+</ParamField>
+
+<ParamField path="deps" type="readonly unknown[]">
+  Dependency array. Recompute when deps change (uses `Object.is` comparison).
+</ParamField>
+
+**Returns**: `T`
+
+```typescript
+import { defineWidget, ui } from "@rezi-ui/core";
+
+const DataTable = defineWidget<{ items: Item[] }>((props, ctx) => {
+  // Only recompute when items change
+  const sortedItems = ctx.useMemo(() => {
+    return [...props.items].sort((a, b) => a.name.localeCompare(b.name));
+  }, [props.items]);
+
+  const itemCount = ctx.useMemo(() => {
+    return sortedItems.length;
+  }, [sortedItems]);
+
+  return ui.column([
+    ui.text(`Total: ${itemCount}`),
+    ...sortedItems.map((item) => ui.text(item.name)),
+  ]);
+});
+```
+
+### When to Use useMemo
+
+<Check>
+  Use when computation is expensive and inputs change infrequently.
+</Check>
+
+<Warning>
+  Don't use for cheap operations — memoization has overhead.
+</Warning>
+
+```typescript
+// Good: Expensive computation
+const filtered = ctx.useMemo(() => {
+  return items.filter(complexFilter).map(expensiveTransform);
+}, [items]);
+
+// Bad: Cheap operation
+const doubled = ctx.useMemo(() => count * 2, [count]); // Unnecessary
+```
+
+## useCallback
+
+Memoize a callback reference until dependencies change.
+
+<ParamField path="callback" type="(...args: any[]) => any" required>
+  Callback function to memoize.
+</ParamField>
+
+<ParamField path="deps" type="readonly unknown[]">
+  Dependency array. Create new callback when deps change.
+</ParamField>
+
+**Returns**: Memoized callback
+
+```typescript
+import { defineWidget, ui } from "@rezi-ui/core";
+
+const Form = defineWidget<{ onSubmit: (data: string) => void }>((props, ctx) => {
+  const [value, setValue] = ctx.useState("");
+
+  // Callback only changes when props.onSubmit or value changes
+  const handleSubmit = ctx.useCallback(() => {
+    props.onSubmit(value);
+    setValue("");
+  }, [props.onSubmit, value]);
+
+  return ui.column([
+    ui.input({
+      id: ctx.id("input"),
+      value,
+      onChange: setValue,
+    }),
+    ui.button({
+      id: ctx.id("submit"),
+      label: "Submit",
+      onPress: handleSubmit,
+    }),
+  ]);
+});
+```
+
+### When to Use useCallback
+
+<Check>
+  Use when passing callbacks to child widgets that have their own memoization.
+</Check>
+
+```typescript
+const Parent = defineWidget((props, ctx) => {
+  const [filter, setFilter] = ctx.useState("");
+
+  // Child won't re-render unnecessarily
+  const handleItemPress = ctx.useCallback(
+    (id: string) => {
+      console.log("Pressed:", id);
+    },
+    [] // Stable callback
+  );
+
+  return ui.column([
+    ui.input({ id: ctx.id("filter"), value: filter, onChange: setFilter }),
+    ExpensiveList({ items: props.items, onItemPress: handleItemPress }),
+  ]);
+});
+```
+
+## useAppState
+
+Select a slice of app state with automatic re-render on change.
+
+<ParamField path="selector" type="(state: S) => T" required>
+  Function to extract desired state slice.
+</ParamField>
+
+**Returns**: Selected state value
+
+```typescript
+import { defineWidget, ui } from "@rezi-ui/core";
+
+type AppState = {
+  user: { name: string; email: string };
+  theme: "dark" | "light";
+  notifications: number;
+};
+
+const UserBadge = defineWidget<{}, AppState>((props, ctx) => {
+  // Only re-renders when user.name changes
+  const userName = ctx.useAppState((s) => s.user.name);
+
+  // Multiple selectors are fine
+  const theme = ctx.useAppState((s) => s.theme);
+  const notifCount = ctx.useAppState((s) => s.notifications);
+
+  return ui.row([
+    ui.text(`Welcome, ${userName}`),
+    ui.badge({ label: `${notifCount}`, variant: theme === "dark" ? "solid" : "outline" }),
+  ]);
+});
+```
+
+### Selector Best Practices
+
+<AccordionGroup>
+  <Accordion title="Keep selectors simple">
+    ```typescript
+    // Good: Simple selection
+    const name = ctx.useAppState((s) => s.user.name);
+
+    // Bad: Complex computation in selector
+    const filtered = ctx.useAppState((s) =>
+      s.items.filter((item) => item.active).map((item) => item.name)
+    );
+
+    // Better: Use useMemo for computation
+    const items = ctx.useAppState((s) => s.items);
+    const filtered = ctx.useMemo(
+      () => items.filter((item) => item.active).map((item) => item.name),
+      [items]
+    );
+    ```
+  </Accordion>
+
+  <Accordion title="Avoid creating new objects">
+    ```typescript
+    // Bad: Creates new object every render
+    const user = ctx.useAppState((s) => ({ name: s.user.name, email: s.user.email }));
+
+    // Good: Select exact slice
+    const user = ctx.useAppState((s) => s.user);
+
+    // Or select individually
+    const userName = ctx.useAppState((s) => s.user.name);
+    const userEmail = ctx.useAppState((s) => s.user.email);
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Hook Rules
+
+<Warning>
+  These rules are enforced at runtime. Violations cause errors.
+</Warning>
+
+### 1. Call hooks in the same order every render
+
+```typescript
+// Bad: Conditional hook call
+const Widget = defineWidget((props, ctx) => {
+  if (props.enabled) {
+    const [count, setCount] = ctx.useState(0); // Error!
+  }
+  return ui.empty();
+});
+
+// Good: Hook before condition
+const Widget = defineWidget((props, ctx) => {
+  const [count, setCount] = ctx.useState(0);
+
+  if (!props.enabled) {
+    return ui.empty();
+  }
+
+  return ui.text(`Count: ${count}`);
+});
+```
+
+### 2. Don't call hooks in loops
+
+```typescript
+// Bad: Hook in loop
+const Widget = defineWidget<{ items: string[] }>((props, ctx) => {
+  const states = props.items.map((item) => ctx.useState(0)); // Error!
+  return ui.empty();
+});
+
+// Good: One hook for array
+const Widget = defineWidget<{ items: string[] }>((props, ctx) => {
+  const [counts, setCounts] = ctx.useState<number[]>(() =>
+    props.items.map(() => 0)
+  );
+
+  return ui.column(
+    counts.map((count, i) => ui.text(`Item ${i}: ${count}`))
+  );
+});
+```
+
+### 3. Don't call hooks in callbacks
+
+```typescript
+// Bad: Hook in callback
+const Widget = defineWidget((props, ctx) => {
+  const handlePress = () => {
+    const [count, setCount] = ctx.useState(0); // Error!
+  };
+
+  return ui.button({ id: ctx.id("btn"), label: "Press", onPress: handlePress });
+});
+
+// Good: Hook at top level
+const Widget = defineWidget((props, ctx) => {
+  const [count, setCount] = ctx.useState(0);
+
+  const handlePress = () => {
+    setCount(count + 1); // OK
+  };
+
+  return ui.button({ id: ctx.id("btn"), label: "Press", onPress: handlePress });
+});
+```
+
+## Related Documentation
+
+<CardGroup cols={2}>
+  <Card title="defineWidget" icon="wrench" href="/api/widget-authoring">
+    Widget composition API
+  </Card>
+  <Card title="Lifecycle Hooks" icon="rotate" href="/api/hooks/lifecycle">
+    useEffect for side effects
+  </Card>
+  <Card title="Animation Hooks" icon="play" href="/api/hooks/animation">
+    Animation state management
+  </Card>
+  <Card title="Data Hooks" icon="database" href="/api/hooks/utilities">
+    Async data fetching
+  </Card>
+</CardGroup>

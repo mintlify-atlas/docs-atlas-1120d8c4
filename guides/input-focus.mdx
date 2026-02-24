@@ -1,0 +1,360 @@
+---
+title: 'Input Handling & Focus Management'
+description: 'Handle keyboard input, mouse events, and focus navigation in Rezi'
+---
+
+Rezi provides comprehensive input handling with keybindings, focus management, and event routing.
+
+## Keyboard Input
+
+### Basic Keybindings
+
+Register global keybindings with `app.keys()`:
+
+```typescript
+import { createNodeApp } from "@rezi-ui/node";
+import { ui } from "@rezi-ui/core";
+
+const app = createNodeApp({ initialState: { count: 0 } });
+
+// Single key
+app.keys("q", () => {
+  app.exit();
+});
+
+// Key with modifiers
+app.keys("ctrl+c", () => {
+  app.exit();
+});
+
+// Multiple bindings
+app.keys({
+  "up": () => app.update(s => ({ count: s.count + 1 })),
+  "down": () => app.update(s => ({ count: s.count - 1 })),
+  "space": () => app.update(s => ({ count: 0 })),
+});
+```
+
+### Key Syntax
+
+<Tabs>
+  <Tab title="Modifiers">
+    ```typescript
+    app.keys("ctrl+s", handleSave);      // Ctrl+S
+    app.keys("alt+enter", handleSubmit); // Alt+Enter
+    app.keys("meta+k", openCommand);     // Cmd+K (macOS) / Win+K (Windows)
+    app.keys("ctrl+shift+p", openPalette);
+    ```
+    
+    **Modifiers:** `ctrl`, `alt`, `shift`, `meta`
+  </Tab>
+  
+  <Tab title="Special Keys">
+    ```typescript
+    app.keys("enter", handleEnter);
+    app.keys("escape", handleEscape);
+    app.keys("tab", handleTab);
+    app.keys("backspace", handleBackspace);
+    app.keys("delete", handleDelete);
+    app.keys("up", handleUp);
+    app.keys("down", handleDown);
+    app.keys("left", handleLeft);
+    app.keys("right", handleRight);
+    app.keys("home", handleHome);
+    app.keys("end", handleEnd);
+    app.keys("pageup", handlePageUp);
+    app.keys("pagedown", handlePageDown);
+    ```
+  </Tab>
+  
+  <Tab title="Function Keys">
+    ```typescript
+    app.keys("f1", showHelp);
+    app.keys("f5", refresh);
+    app.keys("f11", toggleFullscreen);
+    ```
+    
+    **Available:** `f1` through `f12`
+  </Tab>
+</Tabs>
+
+### Key Chords
+
+Multi-key sequences with timeout:
+
+```typescript
+app.keys("g g", goToTop);      // Press 'g' twice
+app.keys("ctrl+k ctrl+c", toggleComment);
+```
+
+Chord timeout defaults to 1000ms. If the second key isn't pressed within the timeout, the chord is cancelled.
+
+## Widget Events
+
+Handle widget-specific events with `app.on()`:
+
+```typescript
+app.on("event", (event, state) => {
+  if (event.action === "press" && event.id === "save") {
+    // Button was pressed
+    return { ...state, saved: true };
+  }
+  
+  if (event.action === "input" && event.id === "username") {
+    // Text input changed
+    return { ...state, username: event.value };
+  }
+  
+  if (event.action === "select" && event.id === "theme") {
+    // Dropdown selection changed
+    return { ...state, selectedTheme: event.value };
+  }
+});
+```
+
+### Event Actions
+
+<Tabs>
+  <Tab title="press">
+    Emitted by buttons when activated:
+    
+    ```typescript
+    if (event.action === "press" && event.id === "submit") {
+      // Handle button press
+    }
+    ```
+  </Tab>
+  
+  <Tab title="input">
+    Emitted by text inputs on value change:
+    
+    ```typescript
+    if (event.action === "input" && event.id === "search") {
+      return { searchQuery: event.value };
+    }
+    ```
+  </Tab>
+  
+  <Tab title="select">
+    Emitted by dropdowns and selects:
+    
+    ```typescript
+    if (event.action === "select" && event.id === "country") {
+      return { selectedCountry: event.value };
+    }
+    ```
+  </Tab>
+  
+  <Tab title="toggle">
+    Emitted by checkboxes:
+    
+    ```typescript
+    if (event.action === "toggle" && event.id === "agree") {
+      return { agreed: event.checked };
+    }
+    ```
+  </Tab>
+  
+  <Tab title="change">
+    Emitted by radio groups and other controls:
+    
+    ```typescript
+    if (event.action === "change" && event.id === "options") {
+      return { selectedOption: event.value };
+    }
+    ```
+  </Tab>
+  
+  <Tab title="scroll">
+    Emitted by scrollable containers:
+    
+    ```typescript
+    if (event.action === "scroll" && event.id === "list") {
+      return { scrollY: event.scrollY };
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Focus Management
+
+### Tab Navigation
+
+Focusable widgets automatically participate in tab navigation:
+
+```typescript
+ui.column({ gap: 1 }, [
+  ui.input({ id: "username", value: state.username }),  // Tab order: 1
+  ui.input({ id: "password", value: state.password }),  // Tab order: 2
+  ui.button({ id: "login", label: "Login" }),          // Tab order: 3
+])
+```
+
+Press `Tab` to move forward, `Shift+Tab` to move backward.
+
+### Focus Zones
+
+Create isolated focus regions:
+
+```typescript
+ui.focusZone({ id: "sidebar" }, [
+  ui.button({ id: "home", label: "Home" }),
+  ui.button({ id: "settings", label: "Settings" }),
+  ui.button({ id: "help", label: "Help" }),
+])
+```
+
+Focus zones restrict tab navigation to their children. Use arrow keys within zones for fine-grained navigation.
+
+### Focus Traps
+
+Trap focus within modals and dialogs:
+
+```typescript
+ui.focusTrap({ id: "modal" }, [
+  ui.modal({
+    id: "confirm",
+    title: "Confirm Action",
+    open: state.showModal,
+  }, [
+    ui.text("Are you sure?"),
+    ui.actions([
+      ui.button({ id: "cancel", label: "Cancel" }),
+      ui.button({ id: "confirm", label: "Confirm", intent: "primary" }),
+    ]),
+  ]),
+])
+```
+
+Focus cannot escape a focus trap with Tab. Use Escape to close the modal and restore previous focus.
+
+### Focus Change Events
+
+Track focus changes:
+
+```typescript
+app.onFocusChange((focusInfo) => {
+  console.log(`Focus moved to: ${focusInfo.focusedId}`);
+  console.log(`Previous focus: ${focusInfo.previousId}`);
+});
+```
+
+## Interactive Widget IDs
+
+<Warning>
+All interactive widgets (button, input, select, checkbox, etc.) require a unique `id` prop. Omitting `id` causes a runtime crash.
+</Warning>
+
+```typescript
+// ✅ Correct
+ui.button({ id: "save", label: "Save" })
+ui.input({ id: "username", value: state.username })
+
+// ❌ Wrong - missing id
+ui.button({ label: "Save" })  // Runtime error!
+```
+
+### Dynamic IDs in Lists
+
+Use `ctx.id()` inside `defineWidget` for unique IDs:
+
+```typescript
+import { defineWidget, each } from "@rezi-ui/core";
+
+const TodoItem = defineWidget<{ id: string; text: string }>((props, ctx) => {
+  return ui.row({ gap: 1 }, [
+    ui.checkbox({ id: ctx.id("check") }),  // Unique per instance
+    ui.text(props.text),
+  ]);
+});
+
+const view = (state) => ui.column({ gap: 1 }, [
+  each(state.todos, (todo) => TodoItem({ id: todo.id, text: todo.text })),
+]);
+```
+
+## Keybinding Modes
+
+Create modal keybinding contexts:
+
+```typescript
+import { createNodeApp } from "@rezi-ui/node";
+
+const app = createNodeApp({ initialState: { mode: "normal" } });
+
+// Normal mode
+app.keys("i", () => {
+  app.setMode("insert");
+  return { mode: "insert" };
+});
+
+// Insert mode (different bindings)
+app.keys("escape", () => {
+  app.setMode("normal");
+  return { mode: "normal" };
+}, { mode: "insert" });
+```
+
+## Raw Key Events
+
+Access raw key events for custom handling:
+
+```typescript
+app.on("key", (keyEvent, state) => {
+  console.log(`Key: ${keyEvent.key}`);
+  console.log(`Modifiers: ctrl=${keyEvent.ctrl}, alt=${keyEvent.alt}`);
+  
+  // Return undefined to let default handlers run
+  // Return state update to handle the key
+});
+```
+
+## Focus Styling
+
+Customize focus indicators via theme:
+
+```typescript
+import { createThemeDefinition } from "@rezi-ui/core";
+
+const myTheme = createThemeDefinition("custom", {
+  // ... color tokens ...
+}, {
+  focus: {
+    indicator: "ring",        // "ring" | "bracket" | "arrow" | "dot" | "caret"
+    ringVariant: "double",    // For ring indicator
+    bracketSet: "square",     // For bracket indicator
+    arrowSet: "standard",     // For arrow indicator
+  },
+});
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Unique IDs" icon="fingerprint">
+    Always provide unique `id` props for interactive widgets. Use `ctx.id()` in lists to prevent collisions.
+  </Card>
+  
+  <Card title="Standard Keys" icon="keyboard">
+    Follow platform conventions: Ctrl+C/Ctrl+V on Windows/Linux, Cmd+C/Cmd+V on macOS. Use `meta` modifier for cross-platform shortcuts.
+  </Card>
+  
+  <Card title="Focus Traps" icon="lock">
+    Always use focus traps for modals and dialogs. Users expect Tab to cycle within the modal, not escape to background content.
+  </Card>
+  
+  <Card title="Escape Key" icon="door-open">
+    Reserve Escape for "back" or "cancel" actions. Users expect Escape to close overlays and return to the previous state.
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Mouse Support" icon="computer-mouse" href="/guides/mouse-support">
+    Handle mouse clicks, scrolling, and drag events
+  </Card>
+  <Card title="Animation" icon="wand-magic-sparkles" href="/guides/animation">
+    Add smooth transitions and animations
+  </Card>
+</CardGroup>

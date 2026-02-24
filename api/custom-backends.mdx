@@ -1,0 +1,338 @@
+---
+title: "Custom Backend Implementation"
+description: "Building custom backends for Rezi"
+---
+
+## Overview
+
+Rezi's runtime is backend-agnostic. You can implement custom backends for different platforms (embedded, web, FFI, etc.) by implementing the `RuntimeBackend` interface.
+
+## RuntimeBackend Interface
+
+```typescript
+import type { RuntimeBackend, BackendEventBatch, TerminalCaps } from "@rezi-ui/core";
+
+const myBackend: RuntimeBackend = {
+  async start() {
+    // Initialize engine, enter raw mode
+  },
+
+  async stop() {
+    // Exit raw mode, cleanup
+  },
+
+  dispose() {
+    // Release all resources (idempotent)
+  },
+
+  async requestFrame(drawlist: Uint8Array) {
+    // Submit ZRDL frame to engine
+  },
+
+  async pollEvents(): Promise<BackendEventBatch> {
+    // Poll for next event batch (ZREV format)
+    return {
+      bytes: new Uint8Array(),
+      droppedBatches: 0,
+      release: () => {},
+    };
+  },
+
+  postUserEvent(tag: number, payload: Uint8Array) {
+    // Post user event (thread-safe)
+  },
+
+  async getCaps(): Promise<TerminalCaps> {
+    // Return terminal capabilities
+    return DEFAULT_TERMINAL_CAPS;
+  },
+
+  async getProfile() {
+    // Optional: Return detailed terminal profile
+    return undefined;
+  },
+};
+```
+
+## Required Methods
+
+### start()
+
+<ParamField path="Returns" type="Promise<void>">
+  Initialize backend and enter raw mode.
+</ParamField>
+
+```typescript
+async start() {
+  // 1. Initialize terminal/engine
+  await this.engine.init();
+
+  // 2. Enter raw mode
+  await this.engine.setRawMode(true);
+
+  // 3. Enable mouse tracking, alternate screen, etc.
+  await this.engine.enableFeatures();
+}
+```
+
+### stop()
+
+<ParamField path="Returns" type="Promise<void>">
+  Exit raw mode and cleanup.
+</ParamField>
+
+```typescript
+async stop() {
+  // 1. Exit raw mode
+  await this.engine.setRawMode(false);
+
+  // 2. Restore terminal state
+  await this.engine.restore();
+}
+```
+
+### dispose()
+
+<ParamField path="Returns" type="void">
+  Release all resources. Must be idempotent.
+</ParamField>
+
+```typescript
+dispose() {
+  if (this.disposed) return;
+  this.disposed = true;
+
+  // Clean up resources
+  this.engine?.dispose();
+  this.eventQueue?.clear();
+}
+```
+
+### requestFrame()
+
+<ParamField path="drawlist" type="Uint8Array" required>
+  ZRDL drawlist bytes to render.
+</ParamField>
+
+<ParamField path="Returns" type="Promise<void>">
+  Resolves when frame is submitted (may not be rendered yet).
+</ParamField>
+
+```typescript
+async requestFrame(drawlist: Uint8Array) {
+  // Send drawlist to engine
+  await this.engine.submitFrame(drawlist);
+}
+```
+
+<Note>
+  The drawlist bytes must not be modified. Clone if you need to store them.
+</Note>
+
+### pollEvents()
+
+<ParamField path="Returns" type="Promise<BackendEventBatch>">
+  Next event batch in ZREV v1 format.
+</ParamField>
+
+```typescript
+async pollEvents(): Promise<BackendEventBatch> {
+  // Wait for next event batch
+  const batch = await this.eventQueue.next();
+
+  return {
+    bytes: batch.data, // ZREV v1 bytes
+    droppedBatches: batch.dropped,
+    release: () => {
+      // Return buffer to pool
+      this.bufferPool.release(batch.data.buffer);
+    },
+  };
+}
+```
+
+<Warning>
+  The runtime calls `release()` exactly once per batch. Do not reuse the buffer until `release()` is called.
+</Warning>
+
+### postUserEvent()
+
+<ParamField path="tag" type="number" required>
+  User-defined event tag.
+</ParamField>
+
+<ParamField path="payload" type="Uint8Array" required>
+  Arbitrary payload bytes.
+</ParamField>
+
+```typescript
+postUserEvent(tag: number, payload: Uint8Array) {
+  // Queue user event (thread-safe)
+  this.eventQueue.push({ tag, payload });
+
+  // Wake event poller if blocked
+  this.engine.wakePoller();
+}
+```
+
+### getCaps()
+
+<ParamField path="Returns" type="Promise<TerminalCaps>">
+  Terminal capability snapshot.
+</ParamField>
+
+```typescript
+import { DEFAULT_TERMINAL_CAPS, COLOR_MODE_RGB } from "@rezi-ui/core";
+
+async getCaps(): Promise<TerminalCaps> {
+  return {
+    ...DEFAULT_TERMINAL_CAPS,
+    colorMode: COLOR_MODE_RGB,
+    supportsMouse: true,
+    supportsOsc52: true,
+  };
+}
+```
+
+## Optional Markers
+
+Backends can expose optional markers:
+
+### Drawlist Version
+
+```typescript
+import { BACKEND_DRAWLIST_VERSION_MARKER } from "@rezi-ui/core";
+
+backend[BACKEND_DRAWLIST_VERSION_MARKER] = 5; // ZRDL v5
+```
+
+### FPS Cap
+
+```typescript
+import { BACKEND_FPS_CAP_MARKER } from "@rezi-ui/core";
+
+backend[BACKEND_FPS_CAP_MARKER] = 60;
+```
+
+### Max Event Bytes
+
+```typescript
+import { BACKEND_MAX_EVENT_BYTES_MARKER } from "@rezi-ui/core";
+
+backend[BACKEND_MAX_EVENT_BYTES_MARKER] = 8192;
+```
+
+### Raw Write
+
+```typescript
+import { BACKEND_RAW_WRITE_MARKER, type BackendRawWrite } from "@rezi-ui/core";
+
+const writeRaw: BackendRawWrite = (text: string) => {
+  process.stdout.write(text);
+};
+
+backend[BACKEND_RAW_WRITE_MARKER] = writeRaw;
+```
+
+## Example: Minimal Backend
+
+```typescript
+import { createApp, DEFAULT_TERMINAL_CAPS, type RuntimeBackend } from "@rezi-ui/core";
+
+class MinimalBackend implements RuntimeBackend {
+  private eventQueue: Uint8Array[] = [];
+
+  async start() {
+    console.log("Backend started");
+  }
+
+  async stop() {
+    console.log("Backend stopped");
+  }
+
+  dispose() {
+    this.eventQueue = [];
+  }
+
+  async requestFrame(drawlist: Uint8Array) {
+    console.log(`Frame: ${drawlist.length} bytes`);
+  }
+
+  async pollEvents() {
+    // Block until event available
+    while (this.eventQueue.length === 0) {
+      await new Promise(resolve => setTimeout(resolve, 16));
+    }
+
+    const bytes = this.eventQueue.shift()!;
+    return {
+      bytes,
+      droppedBatches: 0,
+      release: () => {},
+    };
+  }
+
+  postUserEvent(tag: number, payload: Uint8Array) {
+    // Encode as ZREV and push to queue
+    this.eventQueue.push(payload);
+  }
+
+  async getCaps() {
+    return DEFAULT_TERMINAL_CAPS;
+  }
+}
+
+const app = createApp({
+  backend: new MinimalBackend(),
+  initialState: {},
+});
+```
+
+## Protocol References
+
+### ZRDL (Drawlist)
+
+Drawlist binary format. See `docs/protocol/zrdl.md`.
+
+**Versions**: v1 (legacy), v3 (stable), v5 (latest)
+
+### ZREV (Events)
+
+Event batch binary format. See `docs/protocol/zrev.md`.
+
+**Current version**: v1
+
+## Testing Backends
+
+```typescript
+import { createApp, ui } from "@rezi-ui/core";
+import { describe, test, assert } from "node:test";
+
+describe("MyBackend", () => {
+  test("starts and stops", async () => {
+    const backend = new MyBackend();
+    const app = createApp({ backend, initialState: {} });
+
+    app.view(() => ui.text("Hello"));
+
+    // Start and stop
+    const runPromise = app.run();
+    await new Promise(resolve => setTimeout(resolve, 100));
+    app.stop();
+    await runPromise;
+
+    assert(true);
+  });
+});
+```
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="@rezi-ui/node" href="/api/node">
+    Reference backend implementation
+  </Card>
+  <Card title="Terminal Caps" href="/api/terminal-capabilities">
+    Capability detection
+  </Card>
+</CardGroup>

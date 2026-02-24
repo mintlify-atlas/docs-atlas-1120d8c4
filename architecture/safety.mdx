@@ -1,0 +1,315 @@
+---
+title: Safety and Security Model
+description: Safety rules, validation patterns, and security guarantees
+---
+
+Rezi treats all binary buffers and user inputs as untrusted. This page documents the safety patterns enforced throughout the framework.
+
+## Core Safety Principles
+
+1. **Validate before read.** Every field is bounds-checked before access. No buffer read occurs without first confirming that sufficient bytes remain.
+2. **Cap enforcement.** All resource pools (commands, strings, blobs, total bytes) have configurable upper bounds. The builder refuses to exceed them.
+3. **Structured error returns.** Parsers and builders never throw exceptions into user code for format violations. Errors are returned as typed result objects.
+4. **Alignment invariants.** All section offsets and sizes are 4-byte aligned. Padding bytes are explicitly zeroed, never left as garbage.
+5. **Deterministic failure.** The same invalid input always produces the same error. No undefined behavior, no silent data corruption.
+
+## Binary Protocol Safety
+
+### Validate-Before-Read Pattern
+
+The `BinaryReader` class enforces bounds checking on every read operation:
+
+```typescript
+class BinaryReader {
+  readU8(): number;    // Validates 1 byte available
+  readU32(): number;   // Validates 4 bytes available
+  readI32(): number;   // Validates 4 bytes available
+  readBytes(len: number): Uint8Array;  // Validates len bytes available
+  skip(len: number): void;  // Validates len bytes available
+
+  ensureAligned4(offset?: number): void;  // Validates 4-byte alignment
+
+  get offset(): number;     // Current cursor position
+  get remaining(): number;  // Bytes left to read
+}
+```
+
+If a read would exceed the buffer, the reader throws a `ZrBinaryError` with the exact byte offset and a description of how many bytes were needed vs. available.
+
+**Location:** `packages/core/src/binary/reader.ts`
+
+### Writer Safety
+
+The `BinaryWriter` class applies the same pattern on the write side:
+
+```typescript
+class BinaryWriter {
+  writeU8(v: number): void;    // Validates 1 byte of capacity
+  writeU32(v: number): void;   // Validates 4 bytes + alignment
+  writeI32(v: number): void;   // Validates 4 bytes + alignment
+  writeBytes(bytes: Uint8Array): void;  // Validates bytes.length capacity
+  padTo4(): void;              // Pads with zeros to next 4-byte boundary
+
+  finish(): Uint8Array;  // Returns the written portion
+}
+```
+
+The writer additionally enforces that `writeU32` and `writeI32` are called only at 4-byte aligned offsets. Calling at a misaligned offset throws `ZR_MISALIGNED`.
+
+**Location:** `packages/core/src/binary/writer.ts`
+
+### Binary Error Types
+
+All binary-layer violations produce a `ZrBinaryError`:
+
+```typescript
+class ZrBinaryError extends Error {
+  readonly code: ZrBinaryErrorCode;
+  readonly offset: number;
+  readonly detail: string;
+}
+```
+
+Error codes:
+
+| Code | Meaning |
+|------|----------|
+| `ZR_TRUNCATED` | Attempted read beyond buffer bounds |
+| `ZR_MISALIGNED` | Offset violates 4-byte alignment requirement |
+| `ZR_LIMIT` | Operation exceeds configured capacity |
+
+The `offset` field records the byte position where the violation occurred, enabling precise diagnosis in hex dumps.
+
+## Resource Caps
+
+The drawlist builder enforces hard caps on all resource pools. If any cap is exceeded, the builder records a sticky error and all subsequent commands become no-ops.
+
+### Builder Caps
+
+| Cap | Default | Description |
+|-----|---------|-------------|
+| `maxDrawlistBytes` | 2 MiB (2,097,152) | Maximum total ZRDL buffer size |
+| `maxCmdCount` | 100,000 | Maximum number of commands per drawlist |
+| `maxBlobBytes` | 512 KiB (524,288) | Maximum total blob byte pool size |
+| `maxBlobs` | 10,000 | Maximum number of blob entries |
+| `maxStringBytes` | 512 KiB (524,288) | Maximum total string byte pool size |
+| `maxStrings` | 10,000 | Maximum number of interned strings |
+
+Caps are configured at builder construction time:
+
+```typescript
+import { createDrawlistBuilderV2 } from "@rezi-ui/core";
+
+const builder = createDrawlistBuilderV2({
+  maxDrawlistBytes: 4 * 1024 * 1024,  // 4 MiB
+  maxCmdCount: 200_000,
+});
+```
+
+All cap values must be positive integers. The builder constructor validates this and records a sticky error for invalid values.
+
+### Engine-Side Caps
+
+The engine enforces its own independent limits when processing a submitted drawlist:
+
+| Engine cap | Description |
+|------------|-------------|
+| `dl_max_total_bytes` | Maximum accepted drawlist buffer size |
+| `dl_max_cmds` | Maximum command count |
+| `dl_max_strings` | Maximum string table entries |
+| `dl_max_blobs` | Maximum blob table entries |
+| `dl_max_clip_depth` | Maximum nesting depth of PUSH_CLIP/POP_CLIP |
+| `dl_max_text_run_segments` | Maximum segments in a single text run blob |
+
+If the engine's caps are stricter than the builder's, the engine will reject a drawlist that the builder accepted. **Align caps between builder and engine to avoid this.**
+
+## Structured Error Returns
+
+### DrawlistBuildResult
+
+The builder's `build()` method returns a discriminated union, never throws:
+
+```typescript
+type DrawlistBuildResult =
+  | Readonly<{ ok: true; bytes: Uint8Array }>
+  | Readonly<{ ok: false; error: DrawlistBuildError }>;
+
+type DrawlistBuildError = Readonly<{
+  code: DrawlistBuildErrorCode;
+  detail: string;
+}>;
+```
+
+Error codes from the builder:
+
+| Code | Meaning |
+|------|----------|
+| `ZRDL_TOO_LARGE` | Output exceeds a configured cap |
+| `ZRDL_BAD_PARAMS` | Invalid parameters passed to a drawing command |
+| `ZRDL_FORMAT` | Internal format constraint violated (alignment, size mismatch) |
+| `ZRDL_INTERNAL` | Implementation bug; should never occur in normal operation |
+
+### ZrResult Enum
+
+Engine FFI functions return `ZrResult` (an `int32`):
+
+```typescript
+enum ZrResult {
+  OK                  =  0,  // Success
+  ERR_INVALID_ARGUMENT = -1,  // NULL pointer, invalid enum, impossible value
+  ERR_OOM             = -2,  // Allocation failed
+  ERR_LIMIT           = -3,  // Buffer too small, cap exceeded
+  ERR_UNSUPPORTED     = -4,  // Unknown version, opcode, or feature
+  ERR_FORMAT          = -5,  // Malformed binary data
+  ERR_PLATFORM        = -6,  // OS/terminal call failed
+}
+```
+
+All negative values are errors. The core checks `ZrResult` after every engine call and converts failures to `ZrUiError` instances.
+
+### ZrUiError Class
+
+Runtime violations in the UI layer produce `ZrUiError`:
+
+```typescript
+class ZrUiError extends Error {
+  readonly name = "ZrUiError";
+  readonly code: ZrUiErrorCode;
+
+  constructor(code: ZrUiErrorCode, message?: string);
+}
+```
+
+Error codes:
+
+| Code | Meaning |
+|------|----------|
+| `ZRUI_INVALID_STATE` | Operation called in wrong lifecycle phase |
+| `ZRUI_MODE_CONFLICT` | Incompatible render mode combination |
+| `ZRUI_NO_RENDER_MODE` | Render attempted without a configured mode |
+| `ZRUI_REENTRANT_CALL` | Recursive call into render/update |
+| `ZRUI_UPDATE_DURING_RENDER` | State mutation during render phase |
+| `ZRUI_DUPLICATE_KEY` | Two siblings share the same key |
+| `ZRUI_DUPLICATE_ID` | Two widgets share the same ID |
+| `ZRUI_INVALID_PROPS` | Configuration/props validation failure |
+| `ZRUI_PROTOCOL_ERROR` | Binary protocol violation from engine |
+| `ZRUI_DRAWLIST_BUILD_ERROR` | Builder returned an error result |
+| `ZRUI_BACKEND_ERROR` | Backend operation failed |
+| `ZRUI_USER_CODE_THROW` | User-provided view/event handler threw |
+
+## Sticky Error Semantics
+
+The drawlist builder uses a **sticky error** pattern:
+
+1. The first error encountered during command emission is recorded in the builder's internal `error` field.
+2. All subsequent command calls (`clear()`, `drawText()`, etc.) check for a sticky error and return immediately if one exists. They become no-ops.
+3. `build()` returns the sticky error as `{ ok: false, error }`.
+4. `reset()` clears the sticky error, allowing the builder to be reused for the next frame.
+
+This design eliminates the need for per-call error checking. Callers can emit an entire frame's worth of commands and check for errors once at `build()` time:
+
+```typescript
+builder.clear();
+builder.fillRect(0, 0, 80, 24, style);
+builder.drawText(5, 5, "Hello", textStyle);
+// ... many more commands ...
+
+const result = builder.build();
+if (!result.ok) {
+  // Handle the first error that occurred
+  console.error(result.error.code, result.error.detail);
+}
+builder.reset();
+```
+
+**Warning:** After a sticky error, the builder's internal state is partially written. Only `build()` and `reset()` should be called. Do not attempt to "recover" by continuing to emit commands—they will all be silently dropped.
+
+## Widget ID Validation
+
+Interactive widgets require unique IDs:
+
+```typescript
+ui.button({ id: "submit", label: "Submit" })
+ui.input({ id: "username", placeholder: "Username" })
+```
+
+**Enforcement:**
+- Commit phase checks for duplicate IDs in the tree
+- Fatal error `ZRUI_DUPLICATE_ID` if duplicates found
+- Widget kinds that require IDs: button, input, checkbox, select, etc.
+
+**Location:** `packages/core/src/runtime/commit.ts`
+
+## Key Uniqueness Validation
+
+Explicit keys must be unique among siblings:
+
+```typescript
+ui.column([
+  each(items, (item) => 
+    ui.text({ key: item.id, text: item.name })
+  )
+]);
+```
+
+**Enforcement:**
+- Reconciliation checks for duplicate keys
+- Fatal error `ZRUI_DUPLICATE_KEY` if duplicates found
+
+**Location:** `packages/core/src/runtime/reconcile.ts`
+
+## Depth Limits
+
+Rezi enforces depth limits to prevent stack overflow:
+
+```typescript
+const MAX_WIDGET_DEPTH = 512;  // Max nesting depth
+```
+
+**Enforcement:**
+- Layout engine tracks depth during traversal
+- Error `ZRUI_INVALID_PROPS` (detail: `ZRUI_MAX_DEPTH`) if exceeded
+
+## Input Sanitization
+
+User-provided strings are sanitized:
+
+**Control characters:** Stripped from text content (except `\n` for newlines)
+
+**Invalid UTF-8:** Replaced with U+FFFD (replacement character)
+
+**Zero-width characters:** Preserved (used for combining characters)
+
+**Location:** `packages/core/src/layout/textMeasure.ts`
+
+## Memory Safety
+
+**No manual memory management** in TypeScript. Garbage collector handles cleanup.
+
+**Native engine:**
+- Pre-allocates buffers at creation time
+- No dynamic allocation during frame rendering
+- Explicit cleanup on `engine_destroy()`
+
+**Leak prevention:**
+- Unmounted widgets have state cleaned up
+- Event listeners auto-removed on unmount
+- Timers cancelled on unmount
+
+## Security Considerations
+
+**Terminal injection:** Rezi never emits raw ANSI sequences from user content. All rendering goes through validated ZRDL commands.
+
+**Path traversal:** Not applicable (no file I/O in core)
+
+**Code injection:** Not applicable (no `eval()` or dynamic code execution)
+
+**DoS via large trees:** Mitigated by depth limits and resource caps
+
+**DoS via large strings:** Mitigated by string byte caps
+
+## Related Documentation
+
+- [Protocol Overview](/architecture/protocol/overview) — Binary protocol principles
+- [ZRDL Protocol](/architecture/protocol/zrdl) — Drawlist validation rules
+- [Safety Rules (Protocol)](/architecture/protocol/safety) — Protocol-specific safety patterns

@@ -1,0 +1,587 @@
+---
+title: 'Component Composition'
+description: 'Build reusable components with defineWidget and hooks'
+icon: 'puzzle-piece'
+---
+
+Rezi provides `defineWidget()` for creating **reusable components with local state**. It's similar to React's function components with hooks, but optimized for TUI development.
+
+## defineWidget Basics
+
+`defineWidget()` creates a component factory with per-instance state:
+
+```typescript
+import { defineWidget, ui } from '@rezi-ui/core';
+
+type CounterProps = { 
+  initial: number; 
+  key?: string; 
+};
+
+const Counter = defineWidget<CounterProps>((props, ctx) => {
+  const [count, setCount] = ctx.useState(props.initial);
+  
+  return ui.row({ gap: 1 }, [
+    ui.text(`Count: ${count}`),
+    ui.button({
+      id: ctx.id('inc'),
+      label: '+1',
+      onPress: () => setCount(c => c + 1),
+    }),
+  ]);
+});
+
+// Usage
+app.view(() => ui.column([
+  Counter({ initial: 0 }),
+  Counter({ initial: 10, key: 'second' }),
+]));
+```
+
+### Component Lifecycle
+
+1. **Mount**: First render creates instance and initializes hooks
+2. **Update**: Props change or internal state updates trigger re-render
+3. **Unmount**: Component removed from tree, cleanup callbacks run
+
+Each instance maintains **independent state** across renders.
+
+## Widget Context (ctx)
+
+The `ctx` parameter provides hooks for state management:
+
+### ctx.useState
+
+Local state that persists across renders:
+
+```typescript
+const SearchBox = defineWidget((props, ctx) => {
+  const [query, setQuery] = ctx.useState('');
+  const [isSearching, setIsSearching] = ctx.useState(false);
+  
+  return ui.column({ gap: 1 }, [
+    ui.input({
+      id: ctx.id('search'),
+      value: query,
+      placeholder: 'Search...',
+      onInput: value => setQuery(value),
+    }),
+    isSearching && ui.spinner({ text: 'Searching...' }),
+  ]);
+});
+```
+
+<Info>
+  State updates are **batched** and coalesced. Multiple `setState` calls in the same event loop tick produce a single re-render.
+</Info>
+
+### ctx.useRef
+
+Mutable ref without triggering re-renders:
+
+```typescript
+const Timer = defineWidget((props, ctx) => {
+  const [seconds, setSeconds] = ctx.useState(0);
+  const intervalRef = ctx.useRef<NodeJS.Timeout | null>(null);
+  
+  ctx.useEffect(() => {
+    intervalRef.current = setInterval(() => {
+      setSeconds(s => s + 1);
+    }, 1000);
+    
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, []);
+  
+  return ui.text(`Elapsed: ${seconds}s`);
+});
+```
+
+### ctx.useEffect
+
+Side effects with cleanup:
+
+```typescript
+const DataFetcher = defineWidget<{ url: string }>((props, ctx) => {
+  const [data, setData] = ctx.useState(null);
+  const [loading, setLoading] = ctx.useState(false);
+  
+  ctx.useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    
+    fetch(props.url)
+      .then(res => res.json())
+      .then(data => {
+        if (!cancelled) {
+          setData(data);
+          setLoading(false);
+        }
+      });
+    
+    return () => {
+      cancelled = true;
+    };
+  }, [props.url]);
+  
+  if (loading) return ui.spinner({ text: 'Loading...' });
+  return ui.text(JSON.stringify(data));
+});
+```
+
+### ctx.useMemo
+
+Memoize expensive computations:
+
+```typescript
+const FilteredList = defineWidget<{ items: string[] }>((props, ctx) => {
+  const [filter, setFilter] = ctx.useState('');
+  
+  const filtered = ctx.useMemo(
+    () => props.items.filter(item => item.includes(filter)),
+    [props.items, filter]
+  );
+  
+  return ui.column({ gap: 1 }, [
+    ui.input({
+      id: ctx.id('filter'),
+      value: filter,
+      placeholder: 'Filter...',
+      onInput: setFilter,
+    }),
+    ui.text(`${filtered.length} results`),
+    ...filtered.map(item => ui.text(item, { key: item })),
+  ]);
+});
+```
+
+### ctx.useCallback
+
+Stable callback references:
+
+```typescript
+const Form = defineWidget((props, ctx) => {
+  const [name, setName] = ctx.useState('');
+  const [email, setEmail] = ctx.useState('');
+  
+  const handleSubmit = ctx.useCallback(() => {
+    props.onSubmit({ name, email });
+  }, [name, email, props.onSubmit]);
+  
+  return ui.column({ gap: 1 }, [
+    ui.input({ id: ctx.id('name'), value: name, onInput: setName }),
+    ui.input({ id: ctx.id('email'), value: email, onInput: setEmail }),
+    ui.button({ id: ctx.id('submit'), label: 'Submit', onPress: handleSubmit }),
+  ]);
+});
+```
+
+### ctx.useAppState
+
+Select a slice of app state:
+
+```typescript
+type AppState = { user: { name: string; email: string } };
+
+const UserGreeting = defineWidget<{}, AppState>((props, ctx) => {
+  const userName = ctx.useAppState(s => s.user.name);
+  
+  return ui.text(`Hello, ${userName}!`);
+});
+```
+
+<Warning>
+  The selector function must return a **stable reference** or the component will re-render on every app state change. Use object/array equality checks if needed.
+</Warning>
+
+### ctx.id
+
+Generate scoped IDs to prevent collisions:
+
+```typescript
+const MultiInput = defineWidget<{ fields: string[] }>((props, ctx) => {
+  const [values, setValues] = ctx.useState<Record<string, string>>({});
+  
+  return ui.column({ gap: 1 },
+    props.fields.map(field => 
+      ui.input({
+        id: ctx.id(field),  // Generates unique ID per instance
+        value: values[field] || '',
+        placeholder: field,
+        onInput: value => setValues(v => ({ ...v, [field]: value })),
+        key: field,
+      })
+    )
+  );
+});
+```
+
+Without `ctx.id()`, multiple instances would share the same input IDs and conflict.
+
+### ctx.useTheme
+
+Access current theme tokens:
+
+```typescript
+const ThemedBox = defineWidget((props, ctx) => {
+  const tokens = ctx.useTheme();
+  
+  return ui.box({
+    border: 'single',
+    style: {
+      fg: tokens?.fg.primary,
+      bg: tokens?.bg.surface,
+    },
+  }, props.children);
+});
+```
+
+### ctx.useViewport
+
+Responsive layouts based on terminal size:
+
+```typescript
+const ResponsiveLayout = defineWidget((props, ctx) => {
+  const viewport = ctx.useViewport();
+  
+  if (viewport.breakpoint === 'sm') {
+    return ui.column({ gap: 1 }, props.children);
+  }
+  
+  return ui.row({ gap: 2 }, props.children);
+});
+```
+
+## Utility Hooks
+
+Rezi provides additional hooks for common patterns:
+
+### useDebounce
+
+Debounce a value:
+
+```typescript
+import { useDebounce } from '@rezi-ui/core';
+
+const LiveSearch = defineWidget((props, ctx) => {
+  const [query, setQuery] = ctx.useState('');
+  const debouncedQuery = useDebounce(ctx, query, 300);
+  
+  ctx.useEffect(() => {
+    if (debouncedQuery) {
+      props.onSearch(debouncedQuery);
+    }
+  }, [debouncedQuery]);
+  
+  return ui.input({
+    id: ctx.id('search'),
+    value: query,
+    placeholder: 'Search...',
+    onInput: setQuery,
+  });
+});
+```
+
+### usePrevious
+
+Track previous render's value:
+
+```typescript
+import { usePrevious } from '@rezi-ui/core';
+
+const ValueDelta = defineWidget<{ value: number }>((props, ctx) => {
+  const prevValue = usePrevious(ctx, props.value);
+  const delta = prevValue !== undefined ? props.value - prevValue : 0;
+  
+  return ui.text(`Current: ${props.value} (${delta > 0 ? '+' : ''}${delta})`);
+});
+```
+
+### useAsync
+
+Manage async data loading:
+
+```typescript
+import { useAsync } from '@rezi-ui/core';
+
+const AsyncData = defineWidget<{ url: string }>((props, ctx) => {
+  const state = useAsync(
+    ctx,
+    async () => {
+      const res = await fetch(props.url);
+      return res.json();
+    },
+    [props.url]
+  );
+  
+  if (state.loading) return ui.spinner({ text: 'Loading...' });
+  if (state.error) return ui.errorDisplay(state.error.message);
+  if (!state.data) return ui.text('No data');
+  
+  return ui.text(JSON.stringify(state.data));
+});
+```
+
+### useInterval
+
+Interval callbacks with automatic cleanup:
+
+```typescript
+import { useInterval } from '@rezi-ui/core';
+
+const Clock = defineWidget((props, ctx) => {
+  const [time, setTime] = ctx.useState(new Date());
+  
+  useInterval(ctx, () => {
+    setTime(new Date());
+  }, 1000);
+  
+  return ui.text(time.toLocaleTimeString());
+});
+```
+
+### useStream
+
+Consume async iterables:
+
+```typescript
+import { useStream } from '@rezi-ui/core';
+
+const LogStream = defineWidget<{ stream: AsyncIterable<string> }>((props, ctx) => {
+  const state = useStream(ctx, props.stream, [props.stream]);
+  
+  return ui.column({ gap: 0 },
+    state.items.map((line, i) => 
+      ui.text(line, { key: i })
+    )
+  );
+});
+```
+
+### useWebSocket
+
+WebSocket connections with automatic reconnection:
+
+```typescript
+import { useWebSocket } from '@rezi-ui/core';
+
+const LiveFeed = defineWidget<{ url: string }>((props, ctx) => {
+  const ws = useWebSocket(ctx, props.url, undefined, {
+    reconnect: true,
+    reconnectInterval: 3000,
+  });
+  
+  return ui.column({ gap: 1 }, [
+    ui.badge(ws.status, { variant: ws.status === 'connected' ? 'success' : 'warning' }),
+    ...ws.messages.map((msg, i) => 
+      ui.text(msg, { key: i })
+    ),
+  ]);
+});
+```
+
+## Animation Hooks
+
+Rezi provides declarative animation hooks:
+
+### useTransition
+
+Smooth value interpolation:
+
+```typescript
+import { useTransition } from '@rezi-ui/core';
+
+const AnimatedProgress = defineWidget<{ value: number }>((props, ctx) => {
+  const animated = useTransition(ctx, props.value, {
+    duration: 500,
+    easing: 'easeOutCubic',
+  });
+  
+  return ui.progress({ value: animated, max: 100 });
+});
+```
+
+### useSpring
+
+Physics-based animation:
+
+```typescript
+import { useSpring } from '@rezi-ui/core';
+
+const BouncyCounter = defineWidget<{ count: number }>((props, ctx) => {
+  const animated = useSpring(ctx, props.count, {
+    tension: 170,
+    friction: 26,
+  });
+  
+  return ui.text(`Count: ${Math.round(animated)}`);
+});
+```
+
+### useSequence
+
+Sequential animations:
+
+```typescript
+import { useSequence } from '@rezi-ui/core';
+
+const LoadingSteps = defineWidget((props, ctx) => {
+  const step = useSequence(ctx, [
+    { value: 0, duration: 1000 },
+    { value: 1, duration: 1000 },
+    { value: 2, duration: 1000 },
+  ]);
+  
+  const steps = ['Loading...', 'Processing...', 'Done!'];
+  return ui.text(steps[Math.floor(step)] || '');
+});
+```
+
+### useStagger
+
+Staggered animations for lists:
+
+```typescript
+import { useStagger } from '@rezi-ui/core';
+
+const StaggeredList = defineWidget<{ items: string[] }>((props, ctx) => {
+  const opacities = useStagger(ctx, props.items.length, {
+    from: 0,
+    to: 1,
+    duration: 300,
+    staggerDelay: 50,
+  });
+  
+  return ui.column({ gap: 0 },
+    props.items.map((item, i) => 
+      ui.text(item, { 
+        key: item,
+        style: { /* opacity: opacities[i] */ },
+      })
+    )
+  );
+});
+```
+
+## Hook Rules
+
+<Warning>
+  **Hooks must follow these rules:**
+  
+  1. **Call hooks at the top level** — never inside conditions, loops, or callbacks
+  2. **Call hooks in the same order** every render
+  3. **Only call hooks inside `defineWidget` render functions**
+  
+  Violating these rules causes runtime errors or stale state.
+</Warning>
+
+```typescript
+// ❌ BAD: Conditional hook
+const Bad = defineWidget((props, ctx) => {
+  if (props.enabled) {
+    const [value, setValue] = ctx.useState(0);  // ERROR
+  }
+  return ui.text('...');
+});
+
+// ✅ GOOD: Hook at top level
+const Good = defineWidget((props, ctx) => {
+  const [value, setValue] = ctx.useState(0);
+  
+  if (!props.enabled) return ui.text('Disabled');
+  
+  return ui.text(`Value: ${value}`);
+});
+```
+
+## Component Options
+
+`defineWidget()` accepts an optional second parameter:
+
+```typescript
+const MyWidget = defineWidget(
+  (props, ctx) => { /* ... */ },
+  {
+    name: 'MyWidget',        // Display name for debugging
+    wrapper: 'column',       // Container type: 'column' | 'row'
+  }
+);
+```
+
+- **name**: Used in error messages and dev tools
+- **wrapper**: Controls the composite placeholder node (default: `'column'`)
+
+## Advanced Patterns
+
+### Higher-Order Components
+
+```typescript
+function withLoading<P extends { loading?: boolean }>(Component: WidgetFactory<P>) {
+  return defineWidget<P>((props, ctx) => {
+    if (props.loading) {
+      return ui.spinner({ text: 'Loading...' });
+    }
+    return Component(props);
+  });
+}
+
+const UserCard = defineWidget<{ user: User }>((props, ctx) => {
+  return ui.text(props.user.name);
+});
+
+const UserCardWithLoading = withLoading(UserCard);
+```
+
+### Render Props Pattern
+
+```typescript
+type DataLoaderProps<T> = {
+  url: string;
+  render: (data: T | null, loading: boolean) => VNode;
+  key?: string;
+};
+
+const DataLoader = defineWidget<DataLoaderProps<any>>((props, ctx) => {
+  const [data, setData] = ctx.useState(null);
+  const [loading, setLoading] = ctx.useState(false);
+  
+  ctx.useEffect(() => {
+    setLoading(true);
+    fetch(props.url)
+      .then(res => res.json())
+      .then(data => {
+        setData(data);
+        setLoading(false);
+      });
+  }, [props.url]);
+  
+  return props.render(data, loading);
+});
+
+// Usage
+app.view(() => 
+  DataLoader({
+    url: '/api/users',
+    render: (data, loading) => 
+      loading ? ui.spinner() : ui.text(JSON.stringify(data))
+  })
+);
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Lifecycle" icon="rotate" href="/concepts/lifecycle">
+    Understand app startup, shutdown, and the event loop
+  </Card>
+  <Card title="Widget Catalog" icon="books" href="/widgets/overview">
+    Explore all built-in widgets
+  </Card>
+  <Card title="Hooks Reference" icon="plug" href="/api/hooks">
+    Complete hook API documentation
+  </Card>
+  <Card title="Examples" icon="code" href="/examples">
+    Real-world component examples
+  </Card>
+</CardGroup>

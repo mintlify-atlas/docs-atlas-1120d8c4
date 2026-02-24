@@ -1,0 +1,577 @@
+---
+title: Form Handling & Validation
+description: Comprehensive patterns for building forms with validation in Rezi
+---
+
+# Form Handling & Validation
+
+Building forms with validation, error handling, and submission logic in Rezi applications.
+
+## Problem
+
+You need to create forms that:
+- Manage input state and validation
+- Display errors only after the user touches fields
+- Handle synchronous and asynchronous validation
+- Support dynamic field arrays
+- Implement multi-step wizard flows
+
+## Solution
+
+Rezi provides two approaches:
+1. **Manual controlled inputs** - Full control, more boilerplate
+2. **`useForm` hook** - Declarative, auto-wired, feature-rich
+
+## Manual Approach: Controlled Inputs
+
+For simple forms, use controlled inputs with validation in update handlers.
+
+```typescript
+import { ui, rgb } from "@rezi-ui/core";
+import { createNodeApp } from "@rezi-ui/node";
+
+type FormState = {
+  email: string;
+  password: string;
+  errors: { email?: string; password?: string };
+  touched: { email: boolean; password: boolean };
+};
+
+function validateEmail(email: string): string | undefined {
+  if (!email) return "Email is required";
+  if (!email.includes("@")) return "Invalid email format";
+  return undefined;
+}
+
+function validatePassword(password: string): string | undefined {
+  if (!password) return "Password is required";
+  if (password.length < 8) return "Password must be at least 8 characters";
+  return undefined;
+}
+
+const app = createNodeApp<FormState>({
+  initialState: {
+    email: "",
+    password: "",
+    errors: {},
+    touched: { email: false, password: false },
+  },
+});
+
+function validateAll(s: FormState): FormState["errors"] {
+  return {
+    email: validateEmail(s.email),
+    password: validatePassword(s.password),
+  };
+}
+
+app.view((state) => {
+  const errors = state.errors;
+  const touched = state.touched;
+  const canSubmit =
+    !errors.email &&
+    !errors.password &&
+    state.email.length > 0 &&
+    state.password.length > 0;
+
+  return ui.page({ p: 1 }, [
+    ui.panel("Sign Up", [
+      ui.form([
+        ui.field({
+          label: "Email",
+          required: true,
+          error: touched.email ? errors.email : undefined,
+          children: ui.input({
+            id: "email",
+            value: state.email,
+            onInput: (value) =>
+              app.update((s) => {
+                const next = { ...s, email: value };
+                return { ...next, errors: validateAll(next) };
+              }),
+            onBlur: () =>
+              app.update((s) => ({
+                ...s,
+                touched: { ...s.touched, email: true },
+              })),
+          }),
+        }),
+
+        ui.field({
+          label: "Password",
+          required: true,
+          hint: "At least 8 characters",
+          error: touched.password ? errors.password : undefined,
+          children: ui.input({
+            id: "password",
+            value: state.password,
+            onInput: (value) =>
+              app.update((s) => {
+                const next = { ...s, password: value };
+                return { ...next, errors: validateAll(next) };
+              }),
+            onBlur: () =>
+              app.update((s) => ({
+                ...s,
+                touched: { ...s.touched, password: true },
+              })),
+          }),
+        }),
+      ]),
+
+      ui.actions([
+        ui.button({
+          id: "submit",
+          label: "Create account",
+          intent: "primary",
+          disabled: !canSubmit,
+          onPress: () => {
+            // Handle form submission
+            console.log("Submit:", state);
+          },
+        }),
+      ]),
+
+      !canSubmit &&
+        ui.text("Fix validation errors to enable submission.", {
+          style: { fg: rgb(255, 110, 110) },
+        }),
+    ]),
+  ]);
+});
+
+app.keys({
+  "ctrl+c": () => app.stop(),
+  q: () => app.stop(),
+});
+
+await app.start();
+```
+
+**Key principles:**
+- Inputs are **controlled**: `value` comes from state, `onInput` updates state
+- Validation runs **inside update function** (deterministic, no render-time side effects)
+- `touched` is set on `onBlur` so errors display only after user leaves field
+- Use `ui.field()` wrapper for consistent label + error layout
+
+## useForm Hook: Declarative Form Management
+
+For complex forms, use the `useForm` hook from `@rezi-ui/core/forms`.
+
+### Basic Example
+
+```typescript
+import { defineWidget, ui, useForm } from "@rezi-ui/core";
+
+type LoginValues = {
+  email: string;
+  password: string;
+};
+
+const LoginForm = defineWidget<void>((ctx) => {
+  const form = useForm<LoginValues>(ctx, {
+    initialValues: { email: "", password: "" },
+    validate: (values) => ({
+      email: values.email.includes("@") ? undefined : "Enter a valid email",
+      password:
+        values.password.length >= 8 ? undefined : "Minimum 8 characters",
+    }),
+    onSubmit: async (values) => {
+      // Handle submission
+      console.log("Login:", values);
+    },
+  });
+
+  return ui.page({ p: 1 }, [
+    ui.panel("Sign In", [
+      ui.form([
+        form.field("email", { label: "Email", required: true }),
+        form.field("password", {
+          label: "Password",
+          required: true,
+          hint: "Minimum 8 characters",
+        }),
+      ]),
+      ui.actions([
+        ui.button({
+          id: "login",
+          label: "Sign in",
+          intent: "primary",
+          disabled: !form.isValid || !form.isDirty,
+          onPress: form.handleSubmit,
+        }),
+      ]),
+    ]),
+  ]);
+});
+```
+
+### Field Binding
+
+`form.field()` creates a complete field with label, input, and error. For custom layouts, use `form.bind()`:
+
+```typescript
+ui.column({ gap: 1 }, [
+  ui.text("Email", { variant: "label" }),
+  ui.input(form.bind("email")),
+]);
+```
+
+### Async Validation
+
+Debounced async validation (e.g., checking username availability):
+
+```typescript
+const form = useForm(ctx, {
+  initialValues: { username: "" },
+  validate: (values) => ({
+    username: values.username ? undefined : "Required",
+  }),
+  validateAsync: async (values) => {
+    // Debounced automatically (300ms default)
+    const available = await checkUsernameAvailability(values.username);
+    return {
+      username: available ? undefined : "Username already taken",
+    };
+  },
+  validateAsyncDebounce: 500, // Optional: custom debounce
+  validateOnChange: true, // Run validation on every keystroke
+});
+```
+
+### Dynamic Field Arrays
+
+Manage repeating fields (e.g., multiple email addresses):
+
+```typescript
+type ContactValues = {
+  name: string;
+  emails: string[];
+};
+
+const ContactForm = defineWidget<void>((ctx) => {
+  const form = useForm<ContactValues>(ctx, {
+    initialValues: { name: "", emails: [""] },
+    validate: (v) => ({
+      name: v.name ? undefined : "Required",
+      emails: v.emails.map((email) =>
+        email.includes("@") ? undefined : "Invalid email"
+      ),
+    }),
+    onSubmit: async (values) => {
+      console.log("Submit:", values);
+    },
+  });
+
+  const emails = form.useFieldArray("emails");
+
+  return ui.page({ p: 1 }, [
+    ui.panel("Contact Form", [
+      ui.form([
+        form.field("name", { label: "Name", required: true }),
+
+        ui.column({ gap: 1 }, [
+          ui.text("Email Addresses", { variant: "label" }),
+          ...emails.values.map((email, index) =>
+            ui.row({ gap: 1, key: emails.keys[index] }, [
+              ui.input({
+                id: ctx.id(`email-${index}`),
+                value: email,
+                onInput: (value) => {
+                  const next = [...emails.values];
+                  next[index] = value;
+                  form.setFieldValue("emails", next);
+                },
+              }),
+              ui.button({
+                id: ctx.id(`remove-${index}`),
+                label: "Remove",
+                intent: "danger",
+                onPress: () => emails.remove(index),
+              }),
+            ])
+          ),
+          ui.button({
+            id: "add-email",
+            label: "Add email",
+            intent: "secondary",
+            onPress: () => emails.append(""),
+          }),
+        ]),
+      ]),
+
+      ui.actions([
+        ui.button({
+          id: "submit",
+          label: "Save",
+          intent: "primary",
+          disabled: !form.isValid,
+          onPress: form.handleSubmit,
+        }),
+      ]),
+    ]),
+  ]);
+});
+```
+
+**Field array operations:**
+- `emails.append(item)` - Add item to end
+- `emails.remove(index)` - Remove item at index
+- `emails.move(from, to)` - Reorder items
+- `emails.keys` - Stable keys for React-style keyed rendering
+
+### Multi-Step Wizard
+
+Build multi-step forms with validation gates:
+
+```typescript
+type WizardValues = {
+  name: string;
+  email: string;
+  company: string;
+  role: string;
+};
+
+const WizardForm = defineWidget<void>((ctx) => {
+  const form = useForm<WizardValues>(ctx, {
+    initialValues: { name: "", email: "", company: "", role: "" },
+    validate: (v) => ({
+      name: v.name ? undefined : "Required",
+      email: v.email.includes("@") ? undefined : "Invalid email",
+      company: v.company ? undefined : "Required",
+      role: v.role ? undefined : "Required",
+    }),
+    wizard: {
+      steps: [
+        {
+          id: "personal",
+          fields: ["name", "email"],
+        },
+        {
+          id: "work",
+          fields: ["company", "role"],
+        },
+      ],
+    },
+    onSubmit: async (values) => {
+      console.log("Submit:", values);
+    },
+  });
+
+  const currentStepId =
+    form.hasWizard && form.currentStep < form.stepCount
+      ? ["personal", "work"][form.currentStep]
+      : null;
+
+  return ui.page({ p: 1 }, [
+    ui.panel(`Step ${form.currentStep + 1} of ${form.stepCount}`, [
+      currentStepId === "personal" &&
+        ui.form([
+          form.field("name", { label: "Full Name", required: true }),
+          form.field("email", { label: "Email", required: true }),
+        ]),
+
+      currentStepId === "work" &&
+        ui.form([
+          form.field("company", { label: "Company", required: true }),
+          form.field("role", { label: "Role", required: true }),
+        ]),
+
+      ui.actions([
+        !form.isFirstStep &&
+          ui.button({
+            id: "back",
+            label: "Back",
+            intent: "secondary",
+            onPress: form.previousStep,
+          }),
+        ui.button({
+          id: form.isLastStep ? "submit" : "next",
+          label: form.isLastStep ? "Submit" : "Next",
+          intent: "primary",
+          onPress: form.handleSubmit,
+        }),
+      ]),
+    ]),
+  ]);
+});
+```
+
+**Wizard navigation:**
+- `form.nextStep()` - Advance if current step validates
+- `form.previousStep()` - Go back without validation
+- `form.goToStep(index)` - Jump to step (validates forward moves)
+- `form.currentStep` - Current step index
+- `form.isFirstStep` / `form.isLastStep` - Boundary checks
+
+### Form-Level Disabled/ReadOnly
+
+Control editability at form or field level:
+
+```typescript
+const form = useForm(ctx, {
+  initialValues: { name: "", email: "" },
+  disabled: false, // Form-level disabled
+  readOnly: false, // Form-level read-only
+  fieldDisabled: { email: true }, // Per-field override
+  fieldReadOnly: { name: true }, // Per-field override
+  validate: (v) => ({
+    name: v.name ? undefined : "Required",
+  }),
+  onSubmit: async (values) => {},
+});
+
+// Dynamic control
+form.setDisabled(true); // Disable entire form
+form.setReadOnly(true); // Make entire form read-only
+form.setFieldDisabled("email", false); // Override for single field
+form.setFieldReadOnly("name", false); // Override for single field
+
+// Check status
+form.isFieldDisabled("email"); // boolean
+form.isFieldReadOnly("name"); // boolean
+```
+
+**Disabled vs ReadOnly:**
+- **Disabled**: Field is not editable and excluded from validation
+- **ReadOnly**: Field is not editable but still validated
+
+## Form State Management
+
+### Validation Timing
+
+```typescript
+const form = useForm(ctx, {
+  initialValues: { email: "" },
+  validate: (v) => ({ email: v.email ? undefined : "Required" }),
+  validateOnChange: true, // Run validation on every keystroke
+  validateOnBlur: true, // Run validation on blur (default)
+  onSubmit: async (values) => {},
+});
+```
+
+### Manual Validation
+
+```typescript
+// Validate entire form
+const errors = form.validateForm();
+
+// Validate single field
+const emailError = form.validateField("email");
+
+// Manually set errors
+form.setFieldError("email", "Server returned an error");
+
+// Mark field as touched
+form.setFieldTouched("email", true);
+```
+
+### Form State
+
+```typescript
+form.values; // Current values
+form.errors; // Validation errors
+form.touched; // Fields user has interacted with
+form.dirty; // Fields that differ from initial values
+form.isValid; // No validation errors
+form.isDirty; // Any field differs from initial
+form.isSubmitting; // Submission in progress
+form.submitCount; // Number of submission attempts
+```
+
+### Resetting
+
+```typescript
+// Reset to initial state
+form.reset();
+
+// Auto-reset after successful submission
+const form = useForm(ctx, {
+  initialValues: { email: "" },
+  resetOnSubmit: true, // Reset after onSubmit completes
+  onSubmit: async (values) => {},
+});
+```
+
+## Common Patterns
+
+### Dependent Field Validation
+
+```typescript
+const form = useForm(ctx, {
+  initialValues: { password: "", confirmPassword: "" },
+  validate: (v) => ({
+    password: v.password.length >= 8 ? undefined : "Minimum 8 characters",
+    confirmPassword:
+      v.confirmPassword === v.password ? undefined : "Passwords must match",
+  }),
+  onSubmit: async (values) => {},
+});
+```
+
+### Conditional Fields
+
+```typescript
+type FormValues = {
+  hasAddress: boolean;
+  address?: string;
+};
+
+const form = useForm<FormValues>(ctx, {
+  initialValues: { hasAddress: false },
+  validate: (v) => ({
+    address: v.hasAddress && !v.address ? "Required" : undefined,
+  }),
+  onSubmit: async (values) => {},
+});
+
+return ui.form([
+  ui.checkbox({
+    id: "has-address",
+    checked: form.values.hasAddress,
+    label: "Provide address",
+    onChange: (checked) => form.setFieldValue("hasAddress", checked),
+  }),
+  form.values.hasAddress && form.field("address", { label: "Address" }),
+]);
+```
+
+### Server-Side Validation
+
+```typescript
+const form = useForm(ctx, {
+  initialValues: { username: "" },
+  validate: (v) => ({ username: v.username ? undefined : "Required" }),
+  onSubmit: async (values) => {
+    try {
+      await api.createUser(values);
+    } catch (error) {
+      // Set server errors
+      if (error.field === "username") {
+        form.setFieldError("username", error.message);
+      }
+      throw error; // Prevent form reset
+    }
+  },
+});
+```
+
+## Best Practices
+
+1. **Use `ui.form()` wrapper** - Provides consistent spacing and semantics
+2. **Use `ui.field()` for labeled inputs** - Automatic label, hint, error layout
+3. **Validate in update handlers** - Keep validation deterministic
+4. **Only show errors after touch** - Use `touched` to gate error display
+5. **Disable submit during submission** - Prevent double-submit
+6. **Use `useForm` for complex forms** - Reduces boilerplate significantly
+7. **Prefer sync validation** - Async validation adds latency
+8. **Use field arrays for repeating fields** - Stable keys prevent state loss
+9. **Gate wizard steps with validation** - `nextStep()` only advances if valid
+
+## Related
+
+- [Input Widget](/widgets/input) - Text input component
+- [Field Widget](/widgets/field) - Form field wrapper
+- [Checkbox Widget](/widgets/checkbox) - Boolean input
+- [Select Widget](/widgets/select) - Dropdown selection
+- [Button Widget](/widgets/button) - Form actions

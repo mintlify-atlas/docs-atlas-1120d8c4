@@ -1,0 +1,418 @@
+---
+title: 'Theme System'
+description: 'Customize your app appearance with Rezi themes'
+---
+
+Rezi includes a powerful theme system with built-in presets and full customization support.
+
+## Built-in Themes
+
+Rezi ships with six production-ready themes:
+
+<Tabs>
+  <Tab title="Dark (Default)">
+    ```typescript
+    import { darkTheme } from "@rezi-ui/core";
+    
+    app.setTheme(darkTheme);
+    ```
+    
+    Ayu-inspired dark theme with orange accent, blue secondary, and teal tertiary colors.
+  </Tab>
+  
+  <Tab title="Light">
+    ```typescript
+    import { lightTheme } from "@rezi-ui/core";
+    
+    app.setTheme(lightTheme);
+    ```
+    
+    Clean bright theme with blue accent and purple secondary.
+  </Tab>
+  
+  <Tab title="Dimmed">
+    ```typescript
+    import { dimmedTheme } from "@rezi-ui/core";
+    
+    app.setTheme(dimmedTheme);
+    ```
+    
+    Lower contrast dark theme, easier on the eyes for extended use.
+  </Tab>
+  
+  <Tab title="High Contrast">
+    ```typescript
+    import { highContrastTheme } from "@rezi-ui/core";
+    
+    app.setTheme(highContrastTheme);
+    ```
+    
+    WCAG AAA compliant theme for maximum accessibility.
+  </Tab>
+  
+  <Tab title="Nord">
+    ```typescript
+    import { nordTheme } from "@rezi-ui/core";
+    
+    app.setTheme(nordTheme);
+    ```
+    
+    Popular Nord color palette with cool arctic tones.
+  </Tab>
+  
+  <Tab title="Dracula">
+    ```typescript
+    import { draculaTheme } from "@rezi-ui/core";
+    
+    app.setTheme(draculaTheme);
+    ```
+    
+    Vibrant Dracula theme with purple and pink accents.
+  </Tab>
+</Tabs>
+
+## Setting the Theme
+
+Set the active theme using `app.setTheme()`:
+
+```typescript
+import { createNodeApp } from "@rezi-ui/node";
+import { darkTheme, ui } from "@rezi-ui/core";
+
+const app = createNodeApp({ initialState: {} });
+
+// Set theme at startup
+app.setTheme(darkTheme);
+
+// Or switch themes dynamically
+app.on("event", (event, state) => {
+  if (event.action === "press" && event.id === "toggle-theme") {
+    app.setTheme(state.isDark ? lightTheme : darkTheme);
+    return { isDark: !state.isDark };
+  }
+});
+```
+
+## Theme Structure
+
+Themes use semantic color tokens:
+
+```typescript
+import { createThemeDefinition, color } from "@rezi-ui/core";
+
+const myTheme = createThemeDefinition("custom", {
+  bg: {
+    base: color(10, 14, 20),       // Primary background
+    elevated: color(15, 20, 25),   // Elevated surfaces
+    overlay: color(26, 31, 38),    // Modals, dropdowns
+    subtle: color(20, 25, 32),     // Subtle backgrounds
+  },
+  fg: {
+    primary: color(230, 225, 207),  // Primary text
+    secondary: color(92, 103, 115), // Secondary text
+    muted: color(62, 75, 89),       // Muted/disabled text
+    inverse: color(10, 14, 20),     // Text on accent backgrounds
+  },
+  accent: {
+    primary: color(255, 180, 84),   // Primary accent (orange)
+    secondary: color(89, 194, 255), // Secondary accent (blue)
+    tertiary: color(149, 230, 203), // Tertiary accent (teal)
+  },
+  success: color(170, 217, 76),     // Success states
+  warning: color(255, 180, 84),     // Warning states
+  error: color(240, 113, 120),      // Error states
+  info: color(89, 194, 255),        // Info states
+  focus: {
+    ring: color(255, 180, 84),      // Focus ring color
+    bg: color(26, 31, 38),          // Focus background
+  },
+  selected: {
+    bg: color(39, 55, 71),          // Selected item background
+    fg: color(230, 225, 207),       // Selected item text
+  },
+  disabled: {
+    fg: color(62, 75, 89),          // Disabled text
+    bg: color(15, 20, 25),          // Disabled background
+  },
+  diagnostic: {
+    error: color(240, 113, 120),
+    warning: color(255, 180, 84),
+    info: color(89, 194, 255),
+    hint: color(149, 230, 203),
+  },
+  border: {
+    subtle: color(26, 31, 38),      // Subtle borders
+    default: color(62, 75, 89),     // Default borders
+    strong: color(92, 103, 115),    // Strong borders
+  },
+});
+```
+
+## Extending Themes
+
+Extend existing themes with overrides:
+
+```typescript
+import { extendTheme, darkTheme } from "@rezi-ui/core";
+
+const customDark = extendTheme(darkTheme, {
+  colors: {
+    accent: {
+      primary: { r: 255, g: 100, b: 100 },  // Red accent instead of orange
+    },
+  },
+});
+
+app.setTheme(customDark);
+```
+
+## Scoped Theme Overrides
+
+Apply theme overrides to specific subtrees:
+
+```typescript
+ui.box({
+  theme: {
+    colors: {
+      fg: { primary: { r: 255, g: 255, b: 255 } },  // White text in this box
+    },
+  },
+  border: "single",
+}, [
+  ui.text("White text"),  // Uses overridden color
+  ui.text("Also white"),
+])
+```
+
+## Using Theme Colors
+
+Reference theme colors in style props:
+
+```typescript
+ui.text("Primary text", {
+  style: { fg: "fg.primary" }  // References theme.colors.fg.primary
+})
+
+ui.box({
+  style: { 
+    fg: "fg.secondary",
+    bg: "bg.elevated",
+  },
+  border: "single",
+  borderStyle: {
+    fg: "border.default",
+  },
+}, children)
+```
+
+**Common color paths:**
+- `"fg.primary"`, `"fg.secondary"`, `"fg.muted"`, `"fg.inverse"`
+- `"bg.base"`, `"bg.elevated"`, `"bg.overlay"`, `"bg.subtle"`
+- `"accent.primary"`, `"accent.secondary"`, `"accent.tertiary"`
+- `"success"`, `"warning"`, `"error"`, `"info"`
+- `"border.subtle"`, `"border.default"`, `"border.strong"`
+
+## Theme Transitions
+
+Animate theme changes smoothly:
+
+```typescript
+const app = createNodeApp({ 
+  initialState: {},
+  config: {
+    themeTransitionFrames: 8,  // Blend over 8 frames (~130ms at 60fps)
+  },
+});
+```
+
+When you call `app.setTheme()`, colors interpolate smoothly instead of changing instantly.
+
+## Spacing Tokens
+
+Themes also define spacing scales:
+
+```typescript
+import { createThemeDefinition, DEFAULT_THEME_SPACING } from "@rezi-ui/core";
+
+const myTheme = createThemeDefinition("custom", {
+  // ... color tokens ...
+}, {
+  spacing: {
+    ...DEFAULT_THEME_SPACING,
+    base: 1,    // Base unit in cells
+    scale: 1.5, // Scale factor between steps
+  },
+});
+```
+
+## Focus Indicators
+
+Customize focus ring appearance:
+
+```typescript
+import { createThemeDefinition, DEFAULT_FOCUS_INDICATOR } from "@rezi-ui/core";
+
+const myTheme = createThemeDefinition("custom", {
+  // ... color tokens ...
+}, {
+  focus: {
+    ...DEFAULT_FOCUS_INDICATOR,
+    indicator: "ring",        // "ring" | "bracket" | "arrow" | "dot" | "caret"
+    ringVariant: "double",    // "single" | "double" | "rounded" | "heavy" | "dashed" | "dotted"
+  },
+});
+```
+
+## Design System Integration
+
+Themes power the design system recipes. When widgets use `intent` or design system props, they automatically use theme colors:
+
+```typescript
+// Button automatically uses theme.colors.accent.primary for "primary" intent
+ui.button({ 
+  id: "save",
+  label: "Save",
+  intent: "primary",  // Uses accent.primary from theme
+})
+
+// Manual recipe usage
+import { buttonRecipe } from "@rezi-ui/core";
+
+const style = buttonRecipe({
+  variant: "solid",
+  tone: "primary",
+  size: "md",
+  state: "default",
+  theme: app.getTheme(),  // Current theme
+  caps: app.getCaps(),
+});
+```
+
+## Accessibility
+
+Ensure sufficient contrast ratios:
+
+```typescript
+import { contrastRatio } from "@rezi-ui/core";
+
+const fgColor = { r: 230, g: 225, b: 207 };
+const bgColor = { r: 10, g: 14, b: 20 };
+
+const ratio = contrastRatio(fgColor, bgColor);
+console.log(`Contrast ratio: ${ratio.toFixed(2)}:1`);
+
+// WCAG requirements:
+// - AA normal text: 4.5:1 minimum
+// - AA large text: 3:1 minimum
+// - AAA normal text: 7:1 minimum
+// - AAA large text: 4.5:1 minimum
+```
+
+The `highContrastTheme` meets WCAG AAA standards.
+
+## Theme Presets Registry
+
+Access all built-in themes:
+
+```typescript
+import { themePresets } from "@rezi-ui/core";
+
+const allThemes = Object.entries(themePresets);
+// [['dark', darkTheme], ['light', lightTheme], ...]
+
+// Let users choose
+ui.select({
+  id: "theme",
+  value: state.selectedTheme,
+  options: allThemes.map(([name, _]) => ({ 
+    value: name, 
+    label: name.charAt(0).toUpperCase() + name.slice(1)
+  })),
+})
+```
+
+## Custom Color Palettes
+
+Create a theme from scratch:
+
+```typescript
+import { createThemeDefinition, color } from "@rezi-ui/core";
+
+const solarizedDark = createThemeDefinition("solarized-dark", {
+  bg: {
+    base: color(0, 43, 54),
+    elevated: color(7, 54, 66),
+    overlay: color(88, 110, 117),
+    subtle: color(0, 43, 54),
+  },
+  fg: {
+    primary: color(131, 148, 150),
+    secondary: color(147, 161, 161),
+    muted: color(88, 110, 117),
+    inverse: color(0, 43, 54),
+  },
+  accent: {
+    primary: color(38, 139, 210),   // Blue
+    secondary: color(42, 161, 152), // Cyan
+    tertiary: color(133, 153, 0),   // Green
+  },
+  success: color(133, 153, 0),
+  warning: color(181, 137, 0),
+  error: color(220, 50, 47),
+  info: color(38, 139, 210),
+  focus: {
+    ring: color(38, 139, 210),
+    bg: color(7, 54, 66),
+  },
+  selected: {
+    bg: color(7, 54, 66),
+    fg: color(147, 161, 161),
+  },
+  disabled: {
+    fg: color(88, 110, 117),
+    bg: color(0, 43, 54),
+  },
+  diagnostic: {
+    error: color(220, 50, 47),
+    warning: color(181, 137, 0),
+    info: color(38, 139, 210),
+    hint: color(42, 161, 152),
+  },
+  border: {
+    subtle: color(7, 54, 66),
+    default: color(88, 110, 117),
+    strong: color(147, 161, 161),
+  },
+});
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Semantic Tokens" icon="tags">
+    Use semantic color tokens (`"fg.primary"`, `"accent.primary"`) instead of hardcoded RGB values. This makes your UI automatically adapt to theme changes.
+  </Card>
+  
+  <Card title="Extend, Don't Fork" icon="code-branch">
+    Start with a built-in theme and extend it with `extendTheme()` instead of creating themes from scratch.
+  </Card>
+  
+  <Card title="Test Accessibility" icon="universal-access">
+    Use `contrastRatio()` to verify your custom colors meet WCAG standards. Aim for at least 4.5:1 for normal text.
+  </Card>
+  
+  <Card title="Scoped Overrides" icon="layer-group">
+    Use scoped theme overrides on containers when you need localized color changes without creating a full theme.
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Styling" icon="palette" href="/guides/styling">
+    Learn about text styles and design system integration
+  </Card>
+  <Card title="Input & Focus" icon="keyboard" href="/guides/input-focus">
+    Handle keyboard input and focus management
+  </Card>
+</CardGroup>

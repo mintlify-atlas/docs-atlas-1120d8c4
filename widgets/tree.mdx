@@ -1,0 +1,449 @@
+---
+title: "Tree"
+description: "Hierarchical data display with expand/collapse and lazy loading"
+---
+
+# Tree Widget
+
+The tree widget displays hierarchical data structures with expand/collapse functionality, keyboard navigation, and support for lazy loading children.
+
+## Basic Usage
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+interface FileNode {
+  name: string;
+  type: "file" | "folder";
+  children?: FileNode[];
+}
+
+const fileTree: FileNode = {
+  name: "src",
+  type: "folder",
+  children: [
+    {
+      name: "components",
+      type: "folder",
+      children: [
+        { name: "Button.tsx", type: "file" },
+        { name: "Input.tsx", type: "file" },
+      ],
+    },
+    { name: "App.tsx", type: "file" },
+    { name: "main.tsx", type: "file" },
+  ],
+};
+
+ui.tree({
+  id: "file-tree",
+  data: fileTree,
+  getKey: (node) => node.name,
+  getChildren: (node) => node.children,
+  expanded: [],
+  onToggle: (node, expanded) => {
+    console.log(`${node.name} ${expanded ? "expanded" : "collapsed"}`);
+  },
+  renderNode: (node, depth, state) => {
+    const icon = node.type === "folder" ? (state.expanded ? "📂" : "📁") : "📄";
+    return ui.text(`${icon} ${node.name}`);
+  },
+});
+```
+
+## Expand/Collapse State
+
+### Controlled State
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+const FileExplorer = defineWidget((ctx) => {
+  const [expanded, setExpanded] = ctx.useState<readonly string[]>([]);
+
+  const handleToggle = (node: FileNode, isExpanded: boolean) => {
+    if (isExpanded) {
+      setExpanded([...expanded, node.name]);
+    } else {
+      setExpanded(expanded.filter((key) => key !== node.name));
+    }
+  };
+
+  return ui.tree({
+    id: "file-tree",
+    data: fileTree,
+    getKey: (node) => node.name,
+    getChildren: (node) => node.children,
+    expanded,
+    onToggle: handleToggle,
+    renderNode: (node, depth, state) => {
+      const icon = node.type === "folder" ? (state.expanded ? "📂" : "📁") : "📄";
+      return ui.text(`${icon} ${node.name}`);
+    },
+  });
+});
+```
+
+## Node Rendering
+
+### NodeState
+
+The `renderNode` function receives a `NodeState` object with:
+
+```typescript
+interface NodeState {
+  expanded: boolean;     // Whether node is expanded
+  selected: boolean;     // Whether node is selected
+  focused: boolean;      // Whether node is keyboard focused
+  loading: boolean;      // Whether node is loading children
+  depth: number;         // Nesting level (0 = root)
+  isFirst: boolean;      // First sibling?
+  isLast: boolean;       // Last sibling?
+  hasChildren: boolean;  // Has or could have children
+}
+```
+
+### Custom Rendering
+
+```typescript
+interface TaskNode {
+  id: string;
+  title: string;
+  completed: boolean;
+  subtasks?: TaskNode[];
+}
+
+ui.tree({
+  id: "task-tree",
+  data: tasks,
+  getKey: (node) => node.id,
+  getChildren: (node) => node.subtasks,
+  expanded,
+  onToggle: handleToggle,
+  renderNode: (node, depth, state) => {
+    const checkbox = node.completed ? "☑" : "☐";
+    const indicator = state.hasChildren
+      ? state.expanded
+        ? "▼"
+        : "▶"
+      : " ";
+
+    return ui.row({ gap: 1 }, [
+      ui.text(indicator),
+      ui.text(checkbox, {
+        style: { fg: node.completed ? { r: 100, g: 200, b: 100 } : undefined },
+      }),
+      ui.text(node.title, {
+        style: {
+          dim: node.completed,
+          bg: state.focused ? { r: 50, g: 100, b: 150 } : undefined,
+        },
+      }),
+    ]);
+  },
+});
+```
+
+## Selection Handling
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+const SelectableTree = defineWidget((ctx) => {
+  const [expanded, setExpanded] = ctx.useState<readonly string[]>([]);
+  const [selected, setSelected] = ctx.useState<string | undefined>(undefined);
+
+  return ui.tree({
+    id: "selectable-tree",
+    data: fileTree,
+    getKey: (node) => node.name,
+    getChildren: (node) => node.children,
+    expanded,
+    selected,
+    onToggle: (node, isExpanded) => {
+      if (isExpanded) {
+        setExpanded([...expanded, node.name]);
+      } else {
+        setExpanded(expanded.filter((key) => key !== node.name));
+      }
+    },
+    onSelect: (node) => {
+      setSelected(node.name);
+    },
+    onActivate: (node) => {
+      console.log("Activated:", node);
+      // Open file, navigate, etc.
+    },
+    renderNode: (node, depth, state) => {
+      const icon = node.type === "folder" ? (state.expanded ? "📂" : "📁") : "📄";
+      return ui.text(`${icon} ${node.name}`, {
+        style: {
+          bg: state.selected
+            ? { r: 70, g: 130, b: 180 }
+            : state.focused
+              ? { r: 50, g: 50, b: 70 }
+              : undefined,
+        },
+      });
+    },
+  });
+});
+```
+
+## Lazy Loading
+
+For trees where children are loaded asynchronously:
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+interface ApiNode {
+  id: string;
+  name: string;
+  hasChildren: boolean;
+  children?: ApiNode[];
+}
+
+const LazyTree = defineWidget((ctx) => {
+  const [nodes, setNodes] = ctx.useState<Map<string, ApiNode>>(new Map());
+  const [expanded, setExpanded] = ctx.useState<readonly string[]>([]);
+
+  const loadChildren = async (node: ApiNode): Promise<readonly ApiNode[]> => {
+    // Fetch from API
+    const response = await fetch(`/api/nodes/${node.id}/children`);
+    const children = await response.json();
+    
+    // Update local cache
+    setNodes((prev) => {
+      const next = new Map(prev);
+      next.set(node.id, { ...node, children });
+      return next;
+    });
+
+    return children;
+  };
+
+  return ui.tree({
+    id: "lazy-tree",
+    data: rootNodes,
+    getKey: (node) => node.id,
+    getChildren: (node) => node.children,
+    hasChildren: (node) => node.hasChildren,
+    expanded,
+    onToggle: (node, isExpanded) => {
+      if (isExpanded) {
+        setExpanded([...expanded, node.id]);
+      } else {
+        setExpanded(expanded.filter((key) => key !== node.id));
+      }
+    },
+    loadChildren,
+    renderNode: (node, depth, state) => {
+      if (state.loading) {
+        return ui.row({ gap: 1 }, [
+          ui.spinner({ variant: "dots" }),
+          ui.text(node.name),
+        ]);
+      }
+
+      const icon = state.hasChildren ? (state.expanded ? "▼" : "▶") : " ";
+      return ui.row({ gap: 1 }, [ui.text(icon), ui.text(node.name)]);
+    },
+  });
+});
+```
+
+## Tree Lines
+
+Display visual tree structure:
+
+```typescript
+ui.tree({
+  id: "lined-tree",
+  data: fileTree,
+  getKey: (node) => node.name,
+  getChildren: (node) => node.children,
+  expanded,
+  onToggle: handleToggle,
+  showLines: true,
+  renderNode: (node) => ui.text(node.name),
+});
+```
+
+Output:
+```
++-- components
+|   +-- Button.tsx
+|   \-- Input.tsx
++-- App.tsx
+\-- main.tsx
+```
+
+## Indentation
+
+Control indentation per depth level:
+
+```typescript
+ui.tree({
+  id: "indented-tree",
+  data: fileTree,
+  getKey: (node) => node.name,
+  getChildren: (node) => node.children,
+  expanded,
+  onToggle: handleToggle,
+  indentSize: 4, // 4 spaces per level (default: 2)
+  renderNode: (node) => ui.text(node.name),
+});
+```
+
+## Multiple Root Nodes
+
+Pass an array for multiple top-level nodes:
+
+```typescript
+const roots: FileNode[] = [
+  { name: "src", type: "folder", children: [...] },
+  { name: "tests", type: "folder", children: [...] },
+  { name: "package.json", type: "file" },
+];
+
+ui.tree({
+  id: "multi-root-tree",
+  data: roots, // Array of roots
+  getKey: (node) => node.name,
+  getChildren: (node) => node.children,
+  expanded,
+  onToggle: handleToggle,
+  renderNode: (node) => ui.text(node.name),
+});
+```
+
+## Keyboard Navigation
+
+Built-in keyboard shortcuts:
+
+- **Arrow Up/Down**: Navigate nodes
+- **Arrow Right**: Expand node
+- **Arrow Left**: Collapse node (or go to parent)
+- **Enter**: Activate node (calls `onActivate`)
+- **Space**: Toggle expand/collapse
+
+## Git-Style File Tree
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+interface GitNode {
+  name: string;
+  path: string;
+  type: "file" | "folder";
+  status?: "modified" | "staged" | "untracked";
+  children?: GitNode[];
+}
+
+const GitTree = defineWidget((ctx) => {
+  const [expanded, setExpanded] = ctx.useState<readonly string[]>([]);
+
+  const getStatusIcon = (status?: GitNode["status"]) => {
+    switch (status) {
+      case "modified":
+        return "M";
+      case "staged":
+        return "A";
+      case "untracked":
+        return "?";
+      default:
+        return " ";
+    }
+  };
+
+  const getStatusColor = (status?: GitNode["status"]) => {
+    switch (status) {
+      case "modified":
+        return { r: 255, g: 200, b: 50 };
+      case "staged":
+        return { r: 100, g: 200, b: 100 };
+      case "untracked":
+        return { r: 150, g: 150, b: 150 };
+      default:
+        return undefined;
+    }
+  };
+
+  return ui.tree({
+    id: "git-tree",
+    data: gitRoot,
+    getKey: (node) => node.path,
+    getChildren: (node) => node.children,
+    expanded,
+    onToggle: (node, isExpanded) => {
+      if (isExpanded) {
+        setExpanded([...expanded, node.path]);
+      } else {
+        setExpanded(expanded.filter((key) => key !== node.path));
+      }
+    },
+    showLines: true,
+    renderNode: (node, depth, state) => {
+      const icon = node.type === "folder" ? (state.expanded ? "▼" : "▶") : " ";
+      const statusIcon = getStatusIcon(node.status);
+      const statusColor = getStatusColor(node.status);
+
+      return ui.row({ gap: 1 }, [
+        ui.text(icon),
+        ui.text(statusIcon, { style: { fg: statusColor } }),
+        ui.text(node.name, {
+          style: {
+            fg: statusColor,
+            bg: state.focused ? { r: 50, g: 50, b: 70 } : undefined,
+          },
+        }),
+      ]);
+    },
+  });
+});
+```
+
+## Performance
+
+- **Flattening**: O(visible nodes) - only expands visible branches
+- **Rendering**: O(visible nodes) - virtualization compatible
+- **Navigation**: O(log n) for balanced trees with efficient traversal
+- **Memory**: O(visible nodes) - collapsed branches don't consume memory
+
+## Props Reference
+
+### TreeProps
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `id` | `string` | **Required** | Widget identifier |
+| `data` | `T \| readonly T[]` | **Required** | Root node(s) |
+| `getKey` | `(node: T) => string` | **Required** | Node key extractor |
+| `getChildren` | `(node: T) => readonly T[] \| undefined` | — | Children extractor |
+| `hasChildren` | `(node: T) => boolean` | — | Children predicate (for lazy loading) |
+| `expanded` | `readonly string[]` | **Required** | Expanded node keys |
+| `selected` | `string` | — | Selected node key |
+| `onToggle` | `(node: T, expanded: boolean) => void` | **Required** | Expand/collapse callback |
+| `onSelect` | `(node: T) => void` | — | Selection callback |
+| `onActivate` | `(node: T) => void` | — | Activation callback (Enter key) |
+| `renderNode` | `(node: T, depth: number, state: NodeState) => VNode` | **Required** | Node renderer |
+| `loadChildren` | `(node: T) => Promise<readonly T[]>` | — | Async children loader |
+| `indentSize` | `number` | `2` | Indent per depth level |
+| `showLines` | `boolean` | `false` | Show tree lines |
+| `focusable` | `boolean` | `true` | Include in tab order |
+| `accessibleLabel` | `string` | — | Accessibility label |
+| `dsVariant` | `WidgetVariant` | — | Design system variant |
+| `dsTone` | `WidgetTone` | — | Design system tone |
+| `dsSize` | `WidgetSize` | — | Design system size |
+
+## Related Widgets
+
+- [Virtual List](/widgets/virtual-list) - Flat list virtualization
+- [Table](/widgets/table) - Tabular data display
+
+## Location in Source
+
+- Implementation: `packages/core/src/widgets/tree.ts`
+- Types: `packages/core/src/widgets/types.ts:2298-2360`
+- Factory: `packages/core/src/widgets/ui.ts:tree()`

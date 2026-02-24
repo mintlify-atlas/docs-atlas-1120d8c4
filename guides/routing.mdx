@@ -1,0 +1,424 @@
+---
+title: 'Router and Navigation'
+description: 'Implement page-based navigation with the Rezi router'
+---
+
+Rezi includes a built-in router for page-based navigation with history management, guards, and nested routes.
+
+## Creating a Router
+
+Define routes and create a router integration:
+
+```typescript
+import { createNodeApp } from "@rezi-ui/node";
+import { createRouter, ui } from "@rezi-ui/core";
+import type { RouteDefinition } from "@rezi-ui/core";
+
+type AppState = {
+  router: RouterState;
+  // ... other state
+};
+
+const routes: RouteDefinition<AppState>[] = [
+  {
+    id: "home",
+    title: "Home",
+    screen: (params, ctx) => ui.column({ gap: 1, p: 1 }, [
+      ui.text("Home Screen", { variant: "heading" }),
+      ui.button({ 
+        id: "go-settings", 
+        label: "Go to Settings",
+      }),
+    ]),
+  },
+  {
+    id: "settings",
+    title: "Settings",
+    screen: (params, ctx) => ui.column({ gap: 1, p: 1 }, [
+      ui.text("Settings Screen", { variant: "heading" }),
+      ui.button({ 
+        id: "go-back", 
+        label: "Back",
+      }),
+    ]),
+  },
+];
+
+const app = createNodeApp({ 
+  initialState: { 
+    router: createRouter(routes).getState() 
+  } 
+});
+```
+
+## Router Integration
+
+Integrate the router with your app:
+
+```typescript
+import { createRouterIntegration } from "@rezi-ui/core";
+
+const router = createRouterIntegration(routes, {
+  maxDepth: 50,  // History depth limit (default: 10)
+});
+
+// Initial route
+const initialState = {
+  router: router.navigate("home", {}),
+};
+
+const app = createNodeApp({ initialState });
+
+// Navigation event handling
+app.on("event", (event, state) => {
+  if (event.action === "press" && event.id === "go-settings") {
+    return { router: router.navigate("settings", {}, state.router) };
+  }
+  
+  if (event.action === "press" && event.id === "go-back") {
+    return { router: router.back(state.router) };
+  }
+});
+
+// Render current route
+app.view((state) => {
+  const screen = router.render(state.router, state, (updater) => {
+    app.update(s => ({ router: updater(s.router) }));
+  });
+  
+  return ui.page({ p: 1 }, [screen]);
+});
+```
+
+## Route Definitions
+
+### Basic Route
+
+```typescript
+const route: RouteDefinition = {
+  id: "home",
+  title: "Home",
+  screen: (params, ctx) => {
+    return ui.text("Home Screen");
+  },
+};
+```
+
+### Route with Parameters
+
+```typescript
+const route: RouteDefinition = {
+  id: "user-detail",
+  title: "User Details",
+  screen: (params, ctx) => {
+    const userId = params.id || "unknown";
+    
+    return ui.column({ gap: 1, p: 1 }, [
+      ui.text(`User ID: ${userId}`, { variant: "heading" }),
+      ui.text("User details here..."),
+    ]);
+  },
+};
+
+// Navigate with params
+router.navigate("user-detail", { id: "123" }, state.router);
+```
+
+### Route with Guard
+
+```typescript
+const route: RouteDefinition<AppState> = {
+  id: "admin",
+  title: "Admin Panel",
+  guard: (params, state, context) => {
+    if (!state.user.isAdmin) {
+      // Redirect to home if not admin
+      return { redirect: "home", params: {} };
+    }
+    return true;  // Allow navigation
+  },
+  screen: (params, ctx) => {
+    return ui.text("Admin Panel");
+  },
+};
+```
+
+### Nested Routes
+
+```typescript
+const routes: RouteDefinition[] = [
+  {
+    id: "settings",
+    title: "Settings",
+    screen: (params, ctx) => ui.column({ gap: 1 }, [
+      ui.text("Settings", { variant: "heading" }),
+      ui.tabs({
+        id: "settings-tabs",
+        items: [
+          { id: "general", label: "General" },
+          { id: "account", label: "Account" },
+        ],
+      }),
+      ctx.outlet,  // Child route renders here
+    ]),
+    children: [
+      {
+        id: "settings.general",
+        title: "General Settings",
+        screen: (params, ctx) => ui.text("General settings content"),
+      },
+      {
+        id: "settings.account",
+        title: "Account Settings",
+        screen: (params, ctx) => ui.text("Account settings content"),
+      },
+    ],
+  },
+];
+```
+
+## Navigation API
+
+<Tabs>
+  <Tab title="navigate()">
+    Push a new route onto the history stack:
+    
+    ```typescript
+    const newState = router.navigate("user-detail", { id: "123" }, state.router);
+    ```
+  </Tab>
+  
+  <Tab title="replace()">
+    Replace the current route without growing history:
+    
+    ```typescript
+    const newState = router.replace("login", {}, state.router);
+    ```
+  </Tab>
+  
+  <Tab title="back()">
+    Pop the current route and return to previous:
+    
+    ```typescript
+    const newState = router.back(state.router);
+    ```
+  </Tab>
+  
+  <Tab title="currentRoute()">
+    Get the current route location:
+    
+    ```typescript
+    const location = router.currentRoute(state.router);
+    console.log(`Current route: ${location.id}`);
+    console.log(`Params:`, location.params);
+    ```
+  </Tab>
+  
+  <Tab title="canGoBack()">
+    Check if back navigation is possible:
+    
+    ```typescript
+    if (router.canGoBack(state.router)) {
+      ui.button({ id: "back", label: "Back" });
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Router Context
+
+Screens receive a context object:
+
+```typescript
+type RouteRenderContext<S> = {
+  router: RouterApi;        // Navigation methods
+  state: Readonly<S>;       // App state
+  update: (updater) => void; // State updater
+  outlet: VNode | null;     // Child route content (for nested routes)
+};
+
+const screen = (params, ctx) => {
+  // Navigate imperatively
+  ctx.router.navigate("other-route", {});
+  
+  // Access app state
+  const user = ctx.state.user;
+  
+  // Update app state
+  ctx.update(s => ({ ...s, counter: s.counter + 1 }));
+  
+  // Render nested routes
+  return ui.column([ui.text("Parent"), ctx.outlet]);
+};
+```
+
+## Router Components
+
+### Breadcrumb Navigation
+
+```typescript
+import { routerBreadcrumb } from "@rezi-ui/core";
+
+app.view((state) => {
+  return ui.column({ gap: 1 }, [
+    routerBreadcrumb(router, state.router),  // Auto-generated breadcrumbs
+    router.render(state.router, state, update),
+  ]);
+});
+```
+
+### Tab Navigation
+
+```typescript
+import { routerTabs } from "@rezi-ui/core";
+
+app.view((state) => {
+  return ui.column({ gap: 1 }, [
+    routerTabs(router, state.router, ["home", "settings", "about"]),
+    router.render(state.router, state, update),
+  ]);
+});
+```
+
+## Keybinding Integration
+
+Bind routes to global shortcuts:
+
+```typescript
+const routes: RouteDefinition[] = [
+  {
+    id: "home",
+    title: "Home",
+    keybinding: "ctrl+1",  // Ctrl+1 navigates to home
+    screen: homeScreen,
+  },
+  {
+    id: "settings",
+    title: "Settings",
+    keybinding: "ctrl+2",  // Ctrl+2 navigates to settings
+    screen: settingsScreen,
+  },
+];
+
+// Router automatically registers keybindings
+router.registerKeybindings(app);
+```
+
+## History Management
+
+```typescript
+// Get full history
+const history = router.history(state.router);
+// Returns: [{ id: "home", params: {} }, { id: "settings", params: {} }]
+
+// Limit history depth
+const router = createRouterIntegration(routes, {
+  maxDepth: 20,  // Keep last 20 entries
+});
+```
+
+## Route Guards
+
+Implement authentication and authorization:
+
+```typescript
+const adminRoute: RouteDefinition<AppState> = {
+  id: "admin",
+  guard: (params, state, context) => {
+    // Check authentication
+    if (!state.user) {
+      return { redirect: "login", params: {} };
+    }
+    
+    // Check authorization
+    if (!state.user.isAdmin) {
+      return { redirect: "unauthorized", params: {} };
+    }
+    
+    // Allow navigation
+    return true;
+  },
+  screen: adminScreen,
+};
+```
+
+Guards receive:
+- `params` — Route parameters
+- `state` — Current app state
+- `context` — Navigation context (from, to, action)
+
+Return values:
+- `true` — Allow navigation
+- `false` — Block navigation
+- `{ redirect, params }` — Redirect to different route
+
+## Programmatic Navigation
+
+Navigate from event handlers:
+
+```typescript
+app.on("event", (event, state) => {
+  if (event.action === "press" && event.id === "save") {
+    // Save data...
+    
+    // Navigate after save
+    return { 
+      router: router.navigate("success", {}, state.router),
+      saved: true,
+    };
+  }
+});
+```
+
+## Animated Route Transitions
+
+Combine router with animations:
+
+```typescript
+import { defineWidget, useTransition } from "@rezi-ui/core";
+
+const AnimatedRouter = defineWidget<{ routerState: RouterState }>((props, ctx) => {
+  const opacity = useTransition(ctx, 1, { duration: 200 });
+  
+  ctx.useEffect(() => {
+    // Fade out and in on route change
+    opacity.start(0);
+    setTimeout(() => opacity.start(1), 200);
+  }, [props.routerState.entries[props.routerState.entries.length - 1]?.id]);
+  
+  return ui.box({ opacity: opacity.value }, [
+    router.render(props.routerState, ctx.state, ctx.update),
+  ]);
+});
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Unique Route IDs" icon="fingerprint">
+    Use descriptive, unique route IDs. Avoid generic names like "detail" or "edit". Prefer "user-detail" or "user-edit".
+  </Card>
+  
+  <Card title="Route Guards" icon="shield-check">
+    Implement guards for authentication and authorization. Guards run before navigation, preventing unauthorized access.
+  </Card>
+  
+  <Card title="History Depth" icon="clock-rotate-left">
+    Set reasonable `maxDepth` limits (10-50 entries). Unbounded history can consume memory in long-running apps.
+  </Card>
+  
+  <Card title="Nested Routes" icon="sitemap">
+    Use nested routes for tabbed interfaces and multi-level navigation. The `outlet` pattern keeps layouts clean.
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Graphics" icon="image" href="/guides/graphics">
+    Draw charts, images, and custom graphics
+  </Card>
+  <Card title="Performance" icon="gauge-high" href="/guides/performance">
+    Optimize your app for maximum speed
+  </Card>
+</CardGroup>

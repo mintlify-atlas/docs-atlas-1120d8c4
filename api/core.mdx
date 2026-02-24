@@ -1,0 +1,315 @@
+---
+title: "@rezi-ui/core"
+description: "Runtime-agnostic TypeScript core for Rezi framework"
+---
+
+## Installation
+
+```bash
+npm install @rezi-ui/core
+```
+
+## Overview
+
+`@rezi-ui/core` is the runtime-agnostic heart of the Rezi framework. It provides:
+
+- Widget system (60+ built-in widgets)
+- Layout engine with flexbox and grid
+- Composition API with hooks
+- Theme system with semantic tokens
+- Animation primitives
+- Router and state management
+- Drawlist generation (ZRDL protocol)
+
+**Important**: This package is runtime-agnostic and contains NO Node.js-specific code. For Node/Bun applications, use [@rezi-ui/node](/api/node) instead.
+
+## Key Exports
+
+### Widget Factories
+
+All widgets are accessed through the `ui` namespace:
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+const view = ui.column({ p: 1 }, [
+  ui.text("Hello, Rezi!"),
+  ui.button({ id: "btn", label: "Click me" }),
+]);
+```
+
+<Card title="Widget Reference" icon="grid" href="/widgets/overview">
+  See complete widget catalog with examples
+</Card>
+
+### App Creation
+
+<CodeGroup>
+```typescript createApp
+import { createApp } from "@rezi-ui/core";
+import { createNodeBackend } from "@rezi-ui/node";
+
+const app = createApp({
+  backend: createNodeBackend(),
+  initialState: { count: 0 },
+});
+
+app.view((state) => ui.text(`Count: ${state.count}`));
+await app.run();
+```
+
+```typescript Preferred: createNodeApp
+// For Node/Bun, use @rezi-ui/node instead:
+import { createNodeApp } from "@rezi-ui/node";
+
+const app = createNodeApp({ initialState: { count: 0 } });
+```
+</CodeGroup>
+
+### Composition API
+
+<ParamField path="defineWidget" type="function">
+  Create reusable widgets with local state and lifecycle.
+</ParamField>
+
+```typescript
+import { defineWidget, ui } from "@rezi-ui/core";
+
+const Counter = defineWidget<{ initial: number }>((props, ctx) => {
+  const [count, setCount] = ctx.useState(props.initial);
+
+  return ui.row([
+    ui.text(`Count: ${count}`),
+    ui.button({
+      id: ctx.id("inc"),
+      label: "+",
+      onPress: () => setCount((c) => c + 1),
+    }),
+  ]);
+});
+
+// Usage
+ui.column([Counter({ initial: 0 })]);
+```
+
+<Card title="Widget Authoring" icon="wrench" href="/api/widget-authoring">
+  Learn how to build custom widgets with defineWidget
+</Card>
+
+### Theme System
+
+<CodeGroup>
+```typescript Built-in Themes
+import {
+  darkTheme,
+  lightTheme,
+  nordTheme,
+  draculaTheme,
+  highContrastTheme,
+} from "@rezi-ui/core";
+
+const app = createNodeApp({
+  initialState: {},
+  theme: darkTheme,
+});
+```
+
+```typescript Custom Theme
+import { createThemeDefinition, color } from "@rezi-ui/core";
+
+const myTheme = createThemeDefinition({
+  colors: {
+    fg: color(220, 220, 220),
+    bg: color(20, 20, 30),
+    accent: {
+      base: color(100, 150, 255),
+      subtle: color(80, 120, 200),
+      emphasis: color(120, 170, 255),
+    },
+    // ... more tokens
+  },
+});
+```
+</CodeGroup>
+
+### Animation Hooks
+
+All animation hooks are available from `@rezi-ui/core`:
+
+<CardGroup cols={2}>
+  <Card title="useTransition" icon="play" href="/api/hooks/animation#usetransition">
+    Tween between numeric values
+  </Card>
+  <Card title="useSpring" icon="wave-pulse" href="/api/hooks/animation#usespring">
+    Physics-based spring animations
+  </Card>
+  <Card title="useSequence" icon="list-timeline" href="/api/hooks/animation#usesequence">
+    Keyframe-based sequences
+  </Card>
+  <Card title="useStagger" icon="layer-group" href="/api/hooks/animation#usestagger">
+    Stagger animations across items
+  </Card>
+</CardGroup>
+
+### Control Flow Utilities
+
+<ParamField path="each" type="function">
+  Map over arrays to generate widget children with keying.
+</ParamField>
+
+<ParamField path="show" type="function">
+  Conditionally render a widget when condition is true.
+</ParamField>
+
+<ParamField path="when" type="function">
+  Render one of two branches based on condition.
+</ParamField>
+
+<ParamField path="match" type="function">
+  Pattern matching for conditional rendering.
+</ParamField>
+
+```typescript
+import { each, show, when, match, ui } from "@rezi-ui/core";
+
+const items = ["Apple", "Banana", "Cherry"];
+
+ui.column([
+  ...each(items, (item) => ui.text(item)),
+  show(items.length === 0, () => ui.text("No items")),
+  when(
+    items.length > 5,
+    () => ui.text("Many items"),
+    () => ui.text("Few items")
+  ),
+]);
+```
+
+## Advanced Exports
+
+### Layout Engine
+
+<ResponseField name="fluid" type="function">
+  Create responsive values that interpolate based on viewport width.
+</ResponseField>
+
+```typescript
+import { fluid, ui } from "@rezi-ui/core";
+
+ui.box({
+  p: fluid({ min: 1, max: 4, minWidth: 40, maxWidth: 120 }),
+});
+```
+
+### Drawlist Builders
+
+<ResponseField name="createDrawlistBuilderV1" type="function">
+  Create ZRDL v1 drawlist builder (legacy).
+</ResponseField>
+
+<ResponseField name="createDrawlistBuilderV3" type="function">
+  Create ZRDL v3 drawlist builder (current stable).
+</ResponseField>
+
+<ResponseField name="createDrawlistBuilderV5" type="function">
+  Create ZRDL v5 drawlist builder (latest).
+</ResponseField>
+
+### Testing
+
+```typescript
+import { createTestRenderer } from "@rezi-ui/core";
+
+const renderer = createTestRenderer({ width: 80, height: 24 });
+const tree = ui.text("Hello");
+const result = renderer.render(tree);
+console.log(result.text); // Rendered output
+```
+
+### Debug Tools
+
+<ResponseField name="debug" type="function">
+  Log widget tree structure for debugging.
+</ResponseField>
+
+<ResponseField name="inspect" type="function">
+  Deep inspection of widget properties.
+</ResponseField>
+
+<ResponseField name="debugPanel" type="function">
+  Visual debug overlay with FPS counter and error display.
+</ResponseField>
+
+```typescript
+import { debugPanel, ui } from "@rezi-ui/core";
+
+ui.layers([
+  ui.layer({ id: "main" }, myAppContent),
+  ui.layer({ id: "debug", zIndex: 1000 }, debugPanel({ position: "top-right" })),
+]);
+```
+
+## Type Exports
+
+The package exports comprehensive TypeScript types:
+
+- `VNode` - Virtual node type
+- `App<S>` - App instance type
+- `WidgetContext<S>` - Widget composition context
+- `Theme` - Theme type
+- `TextStyle` - Text styling
+- `Rgb` - Color type
+- All widget prop types: `BoxProps`, `ButtonProps`, `TextProps`, etc.
+
+## Module Boundaries
+
+**Critical Rules**:
+
+<Warning>
+  `@rezi-ui/core` MUST NOT import from `@rezi-ui/node`, `@rezi-ui/jsx`, or `@rezi-ui/native`.
+  It is runtime-agnostic by design.
+</Warning>
+
+- `@rezi-ui/node` → imports `@rezi-ui/core` ✅
+- `@rezi-ui/jsx` → imports `@rezi-ui/core` ✅
+- `@rezi-ui/core` → imports from node packages ❌
+
+## Package Structure
+
+The package provides multiple entry points:
+
+```typescript
+import * as core from "@rezi-ui/core"; // Main entry
+import * as widgets from "@rezi-ui/core/widgets"; // Widget types only
+import * as theme from "@rezi-ui/core/theme"; // Theme system
+import * as layout from "@rezi-ui/core/layout"; // Layout utilities
+import * as forms from "@rezi-ui/core/forms"; // Form utilities
+import * as router from "@rezi-ui/core/router"; // Router
+```
+
+## Version & ABI
+
+```typescript
+import {
+  ZR_ENGINE_ABI,
+  ZR_UNICODE_VERSION,
+  ZR_DRAWLIST_VERSION,
+} from "@rezi-ui/core";
+
+console.log(ZR_ENGINE_ABI); // { major: 0, minor: 1, patch: 0 }
+console.log(ZR_DRAWLIST_VERSION); // 5
+```
+
+## Related Packages
+
+<CardGroup cols={3}>
+  <Card title="@rezi-ui/node" icon="node-js" href="/api/node">
+    Node.js/Bun backend
+  </Card>
+  <Card title="@rezi-ui/jsx" icon="react" href="/api/jsx">
+    JSX runtime
+  </Card>
+  <Card title="@rezi-ui/native" icon="rust" href="/api/native">
+    Native engine bindings
+  </Card>
+</CardGroup>

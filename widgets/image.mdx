@@ -1,0 +1,470 @@
+---
+title: Image
+description: Display images using terminal graphics protocols
+---
+
+The Image widget renders images in the terminal using native graphics protocols (Kitty, Sixel, iTerm2) or canvas-based fallback. Supports PNG and raw RGBA formats.
+
+## Basic Usage
+
+```typescript
+import { ui } from "@rezi-ui/core";
+import { readFile } from "fs/promises";
+
+const imageData = await readFile("logo.png");
+
+ui.image({
+  id: "logo",
+  src: new Uint8Array(imageData),
+  width: 40,
+  height: 20,
+  alt: "Company Logo",
+});
+```
+
+## Props
+
+<ParamField path="id" type="string">
+  Widget identifier for debugging.
+</ParamField>
+
+<ParamField path="src" type="Uint8Array" required>
+  Image bytes. Supports:
+  - PNG format (detected via signature)
+  - Raw RGBA pixel data (requires sourceWidth/sourceHeight)
+</ParamField>
+
+<ParamField path="width" type="number" required>
+  Display width in terminal columns.
+</ParamField>
+
+<ParamField path="height" type="number" required>
+  Display height in terminal rows.
+</ParamField>
+
+<ParamField path="sourceWidth" type="number">
+  Source image width in pixels. Required for RGBA format. Optional for PNG (auto-detected).
+</ParamField>
+
+<ParamField path="sourceHeight" type="number">
+  Source image height in pixels. Required for RGBA format. Optional for PNG (auto-detected).
+</ParamField>
+
+<ParamField path="fit" type="ImageFit" default="contain">
+  How the image fits the display area:
+  - `"contain"` - Scale to fit within bounds, preserving aspect ratio
+  - `"cover"` - Scale to cover bounds, cropping if needed
+  - `"fill"` - Stretch to fill bounds, ignoring aspect ratio
+</ParamField>
+
+<ParamField path="alt" type="string">
+  Alt text displayed when:
+  - Terminal does not support graphics
+  - Image fails to decode
+  - Fallback mode is active
+</ParamField>
+
+<ParamField path="protocol" type="ImageProtocol" default="auto">
+  Graphics protocol to use:
+  - `"auto"` - Auto-detect best available protocol
+  - `"kitty"` - Kitty graphics protocol
+  - `"sixel"` - Sixel graphics protocol
+  - `"iterm2"` - iTerm2 inline images protocol
+  - `"blitter"` - Canvas-based fallback
+</ParamField>
+
+<ParamField path="zLayer" type="-1 | 0 | 1" default="0">
+  Z-layer for compositing:
+  - `-1` - Behind text
+  - `0` - Normal layer
+  - `1` - Above text
+</ParamField>
+
+<ParamField path="imageId" type="number">
+  Stable ID for protocol-level caching. Use when the same image appears multiple times.
+</ParamField>
+
+## Image Formats
+
+### PNG
+
+Preferred format. Automatically detected and decoded.
+
+```typescript
+import { readFile } from "fs/promises";
+
+const pngData = await readFile("chart.png");
+
+ui.image({
+  id: "chart",
+  src: new Uint8Array(pngData),
+  width: 50,
+  height: 25,
+  // Dimensions auto-detected from PNG header
+});
+```
+
+### Raw RGBA
+
+Raw pixel data in RGBA format (4 bytes per pixel). Must specify dimensions.
+
+```typescript
+const width = 100;
+const height = 50;
+const rgba = new Uint8Array(width * height * 4);
+
+// Fill with gradient
+for (let y = 0; y < height; y++) {
+  for (let x = 0; x < width; x++) {
+    const i = (y * width + x) * 4;
+    rgba[i] = (x / width) * 255;     // Red
+    rgba[i + 1] = (y / height) * 255; // Green
+    rgba[i + 2] = 128;                // Blue
+    rgba[i + 3] = 255;                // Alpha
+  }
+}
+
+ui.image({
+  id: "gradient",
+  src: rgba,
+  sourceWidth: width,
+  sourceHeight: height,
+  width: 40,
+  height: 20,
+});
+```
+
+## Graphics Protocols
+
+### Kitty Graphics Protocol
+
+High-performance protocol with the best quality and features.
+
+**Terminals:** Kitty, Ghostty  
+**Features:** Transparency, compositing, caching  
+**Quality:** Excellent
+
+```typescript
+ui.image({
+  id: "photo",
+  src: imageData,
+  width: 60,
+  height: 30,
+  protocol: "kitty",
+  zLayer: 0, // Kitty supports z-layering
+});
+```
+
+### Sixel
+
+Wide compatibility, good quality.
+
+**Terminals:** WezTerm, xterm, mlterm, foot  
+**Features:** 256 colors, dithering  
+**Quality:** Good
+
+```typescript
+ui.image({
+  id: "chart",
+  src: imageData,
+  width: 50,
+  height: 25,
+  protocol: "sixel",
+});
+```
+
+### iTerm2 Inline Images
+
+iTerm2-specific protocol.
+
+**Terminals:** iTerm2  
+**Features:** Transparency, inline images  
+**Quality:** Excellent
+
+```typescript
+ui.image({
+  id: "screenshot",
+  src: imageData,
+  width: 80,
+  height: 40,
+  protocol: "iterm2",
+});
+```
+
+### Canvas Blitter (Fallback)
+
+Renders image using canvas with block characters. Works everywhere.
+
+**Terminals:** All  
+**Features:** Universal compatibility  
+**Quality:** Lower resolution
+
+```typescript
+ui.image({
+  id: "icon",
+  src: imageData,
+  width: 10,
+  height: 10,
+  protocol: "blitter", // Force fallback mode
+});
+```
+
+## Terminal Detection
+
+Rezi automatically detects terminal capabilities:
+
+```typescript
+import { createNodeApp } from "@rezi-ui/node";
+
+const app = createNodeApp({
+  // Terminal profile detected from environment:
+  // - TERM, TERM_PROGRAM
+  // - KITTY_WINDOW_ID
+  // - ITERM_SESSION_ID
+  // - Manual overrides via REZI_TERMINAL_SUPPORTS_*
+});
+
+// Access detected capabilities
+const profile = app.backend.profile;
+console.log("Kitty graphics:", profile.supportsKittyGraphics);
+console.log("Sixel:", profile.supportsSixel);
+console.log("iTerm2:", profile.supportsITerm2);
+```
+
+### Manual Override
+
+Force protocol support via environment variables:
+
+```bash
+# Enable Kitty graphics protocol
+export REZI_TERMINAL_SUPPORTS_KITTY=1
+
+# Enable Sixel
+export REZI_TERMINAL_SUPPORTS_SIXEL=1
+
+# Disable graphics (force fallback)
+export REZI_TERMINAL_SUPPORTS_KITTY=0
+export REZI_TERMINAL_SUPPORTS_SIXEL=0
+```
+
+## Fit Modes
+
+### Contain (Default)
+
+Scale image to fit within bounds, preserving aspect ratio. Adds letterboxing if needed.
+
+```typescript
+ui.image({
+  src: imageData,
+  width: 40,
+  height: 20,
+  fit: "contain", // Default
+});
+```
+
+### Cover
+
+Scale image to cover entire area, cropping if needed. No letterboxing.
+
+```typescript
+ui.image({
+  src: imageData,
+  width: 40,
+  height: 20,
+  fit: "cover",
+});
+```
+
+### Fill
+
+Stretch image to fill area, ignoring aspect ratio.
+
+```typescript
+ui.image({
+  src: imageData,
+  width: 40,
+  height: 20,
+  fit: "fill",
+});
+```
+
+## Examples
+
+### Responsive Image Card
+
+```typescript
+function imageCard(src: Uint8Array, title: string): VNode {
+  return ui.box({ border: "rounded", p: 1, gap: 1 }, [
+    ui.text(title, { style: { bold: true } }),
+    ui.image({
+      id: `img-${title}`,
+      src,
+      width: 40,
+      height: 20,
+      fit: "cover",
+      alt: title,
+    }),
+  ]);
+}
+```
+
+### Image Gallery
+
+```typescript
+function imageGallery(images: Array<{ src: Uint8Array; caption: string }>): VNode {
+  return ui.column({ gap: 2, p: 1 }, [
+    ui.text("Gallery", { variant: "heading" }),
+    ui.row({ gap: 2, wrap: true }, [
+      ...images.map((img, i) =>
+        ui.column({ gap: 0, key: `img-${i}` }, [
+          ui.image({
+            id: `gallery-${i}`,
+            src: img.src,
+            width: 30,
+            height: 15,
+            fit: "cover",
+            alt: img.caption,
+            imageId: i, // Cache hint
+          }),
+          ui.text(img.caption, { style: { dim: true } }),
+        ])
+      ),
+    ]),
+  ]);
+}
+```
+
+### Fallback Behavior
+
+```typescript
+function safeImage(src: Uint8Array, alt: string): VNode {
+  return ui.column({ gap: 0 }, [
+    ui.image({
+      id: "safe-img",
+      src,
+      width: 40,
+      height: 20,
+      protocol: "auto", // Try best protocol
+      alt, // Shown on fallback
+    }),
+    // Always show caption for context
+    ui.text(alt, { style: { dim: true } }),
+  ]);
+}
+```
+
+### Dynamic Protocol Selection
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+const DynamicImage = defineWidget<{
+  src: Uint8Array;
+  preferQuality: boolean;
+}>((ctx, props) => {
+  // Check terminal capabilities
+  const hasKitty = ctx.backend.profile.supportsKittyGraphics;
+  const hasSixel = ctx.backend.profile.supportsSixel;
+  
+  const protocol = props.preferQuality && hasKitty
+    ? "kitty"
+    : hasSixel
+    ? "sixel"
+    : "blitter";
+  
+  return ui.image({
+    id: ctx.id(),
+    src: props.src,
+    width: 50,
+    height: 25,
+    protocol,
+    alt: "Dynamic image",
+  });
+});
+```
+
+## Performance
+
+### Caching
+
+Use `imageId` to cache images at the protocol level:
+
+```typescript
+const LOGO_ID = 1;
+
+function header(): VNode {
+  return ui.row({ gap: 2 }, [
+    ui.image({
+      id: "logo-1",
+      src: logoData,
+      width: 10,
+      height: 5,
+      imageId: LOGO_ID, // Shared cache ID
+    }),
+    ui.text("My App"),
+    ui.spacer({ flex: 1 }),
+    ui.image({
+      id: "logo-2",
+      src: logoData,
+      width: 10,
+      height: 5,
+      imageId: LOGO_ID, // Reuses cached data
+    }),
+  ]);
+}
+```
+
+### Lazy Loading
+
+Load images on demand:
+
+```typescript
+import { defineWidget, useAsync } from "@rezi-ui/core";
+import { readFile } from "fs/promises";
+
+const LazyImage = defineWidget<{ path: string }>((ctx, props) => {
+  const { data, loading, error } = useAsync(
+    () => readFile(props.path).then((buf) => new Uint8Array(buf)),
+    [props.path]
+  );
+  
+  if (loading) {
+    return ui.text("Loading image...", { style: { dim: true } });
+  }
+  
+  if (error || !data) {
+    return ui.text(`Failed to load: ${props.path}`, {
+      style: { fg: "#ef4444" },
+    });
+  }
+  
+  return ui.image({
+    id: ctx.id(),
+    src: data,
+    width: 40,
+    height: 20,
+    alt: props.path,
+  });
+});
+```
+
+## Terminal Compatibility
+
+| Terminal | Kitty | Sixel | iTerm2 | Fallback |
+|----------|-------|-------|--------|----------|
+| Kitty | ✓ | - | - | ✓ |
+| Ghostty | ✓ | - | - | ✓ |
+| WezTerm | - | ✓ | - | ✓ |
+| iTerm2 | - | - | ✓ | ✓ |
+| Windows Terminal | - | - | - | ✓ |
+| xterm | - | ✓ | - | ✓ |
+| Alacritty | - | - | - | ✓ |
+| Basic TTY | - | - | - | ✓ |
+
+Use `protocol: "auto"` for automatic detection and best-effort rendering.
+
+## See Also
+
+- [Canvas](/widgets/canvas) - Custom 2D graphics
+- [Terminal Detection](/guides/terminal-detection) - Capability detection
+- [Kitty Graphics Protocol](https://sw.kovidgoyal.net/kitty/graphics-protocol/) - External docs

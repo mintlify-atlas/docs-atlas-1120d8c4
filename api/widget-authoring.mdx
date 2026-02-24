@@ -1,0 +1,301 @@
+---
+title: "Widget Authoring"
+description: "Creating reusable widgets with defineWidget"
+---
+
+## Overview
+
+`defineWidget` enables building reusable, stateful components with hooks. Each widget instance maintains its own state that persists across renders.
+
+```typescript
+import { defineWidget, ui } from "@rezi-ui/core";
+
+type CounterProps = {
+  initial: number;
+  key?: string; // Required for keying
+};
+
+const Counter = defineWidget<CounterProps>((props, ctx) => {
+  const [count, setCount] = ctx.useState(props.initial);
+
+  return ui.row([
+    ui.text(`Count: ${count}`),
+    ui.button({
+      id: ctx.id("inc"),
+      label: "+",
+      onPress: () => setCount(c => c + 1),
+    }),
+  ]);
+});
+
+// Usage
+ui.column([Counter({ initial: 0 }), Counter({ initial: 10, key: "c2" })]);
+```
+
+## API
+
+### defineWidget
+
+<ParamField path="render" type="(props: Props, ctx: WidgetContext) => VNode" required>
+  Render function receiving props and context.
+</ParamField>
+
+<ParamField path="options" type="DefineWidgetOptions">
+  Optional configuration.
+</ParamField>
+
+<ParamField path="options.name" type="string">
+  Display name for debugging.
+</ParamField>
+
+<ParamField path="options.wrapper" type="'column' | 'row'">
+  Container wrapper kind (default: `'column'`).
+</ParamField>
+
+**Returns**: Widget factory function
+
+### WidgetContext
+
+The context provides these APIs:
+
+<ResponseField name="ctx.id" type="(suffix: string) => string">
+  Generate scoped ID unique to this widget instance.
+</ResponseField>
+
+<ResponseField name="ctx.useState" type="<T>(initial: T | (() => T)) => [T, (v: T | ((prev: T) => T)) => void]">
+  Local state that persists across renders.
+</ResponseField>
+
+<ResponseField name="ctx.useRef" type="<T>(initial: T) => { current: T }">
+  Mutable ref that doesn't trigger re-renders.
+</ResponseField>
+
+<ResponseField name="ctx.useEffect" type="(effect: () => void | (() => void), deps?) => void">
+  Side effects with cleanup.
+</ResponseField>
+
+<ResponseField name="ctx.useMemo" type="<T>(factory: () => T, deps?) => T">
+  Memoized computed value.
+</ResponseField>
+
+<ResponseField name="ctx.useCallback" type="<T>(callback: T, deps?) => T">
+  Memoized callback reference.
+</ResponseField>
+
+<ResponseField name="ctx.useAppState" type="<T>(selector: (s: S) => T) => T">
+  Select app state slice.
+</ResponseField>
+
+<ResponseField name="ctx.useTheme" type="() => ColorTokens | null">
+  Access semantic color tokens.
+</ResponseField>
+
+<ResponseField name="ctx.useViewport" type="() => ResponsiveViewportSnapshot">
+  Current viewport dimensions.
+</ResponseField>
+
+<ResponseField name="ctx.invalidate" type="() => void">
+  Request widget re-render.
+</ResponseField>
+
+## Props Best Practices
+
+### Always Include `key` Prop
+
+```typescript
+type MyWidgetProps = {
+  data: string;
+  key?: string; // Required for reconciliation
+};
+
+const MyWidget = defineWidget<MyWidgetProps>((props, ctx) => {
+  return ui.text(props.data);
+});
+```
+
+### Use Readonly Props
+
+```typescript
+type ReadonlyProps = Readonly<{
+  count: number;
+  items: readonly string[];
+}>;
+
+const Widget = defineWidget<ReadonlyProps>((props, ctx) => {
+  // props is immutable
+  return ui.text(`${props.count}`);
+});
+```
+
+## State Management
+
+### Local State
+
+Use `ctx.useState` for widget-local state:
+
+```typescript
+const TodoList = defineWidget((props, ctx) => {
+  const [todos, setTodos] = ctx.useState<string[]>([]);
+  const [input, setInput] = ctx.useState("");
+
+  const addTodo = () => {
+    if (input.trim()) {
+      setTodos(prev => [...prev, input]);
+      setInput("");
+    }
+  };
+
+  return ui.column([
+    ui.input({ id: ctx.id("input"), value: input, onChange: setInput }),
+    ui.button({ id: ctx.id("add"), label: "Add", onPress: addTodo }),
+    ...todos.map((todo, i) => ui.text(`${i + 1}. ${todo}`)),
+  ]);
+});
+```
+
+### App State Access
+
+```typescript
+type AppState = { user: { name: string }; theme: string };
+
+const UserBadge = defineWidget<{}, AppState>((props, ctx) => {
+  const userName = ctx.useAppState(s => s.user.name);
+  const theme = ctx.useAppState(s => s.theme);
+
+  return ui.badge({ label: userName, variant: theme === "dark" ? "solid" : "outline" });
+});
+```
+
+## Scoped IDs
+
+Use `ctx.id()` for unique IDs:
+
+```typescript
+const Form = defineWidget((props, ctx) => {
+  const [name, setName] = ctx.useState("");
+  const [email, setEmail] = ctx.useState("");
+
+  return ui.column([
+    ui.input({ id: ctx.id("name"), value: name, onChange: setName }),
+    ui.input({ id: ctx.id("email"), value: email, onChange: setEmail }),
+    ui.button({ id: ctx.id("submit"), label: "Submit" }),
+  ]);
+});
+
+// Generated IDs: "Form_0_name", "Form_0_email", "Form_0_submit"
+// Second instance: "Form_1_name", "Form_1_email", "Form_1_submit"
+```
+
+## Effects and Lifecycle
+
+```typescript
+const DataFetcher = defineWidget<{ url: string }>((props, ctx) => {
+  const [data, setData] = ctx.useState(null);
+
+  ctx.useEffect(() => {
+    let cancelled = false;
+
+    fetch(props.url)
+      .then(res => res.json())
+      .then(data => {
+        if (!cancelled) setData(data);
+      });
+
+    return () => { cancelled = true; }; // Cleanup
+  }, [props.url]);
+
+  return ui.text(data ? JSON.stringify(data) : "Loading...");
+});
+```
+
+## Animation
+
+```typescript
+import { defineWidget, useTransition, ui } from "@rezi-ui/core";
+
+const FadeIn = defineWidget<{ visible: boolean }>((props, ctx) => {
+  const opacity = useTransition(ctx, props.visible ? 1 : 0, {
+    duration: 300,
+  });
+
+  return ui.box({ opacity }, [ui.text("Fading content")]);
+});
+```
+
+## Composition
+
+```typescript
+const Panel = defineWidget<{ title: string; children: VNode[] }>((props, ctx) => {
+  const [collapsed, setCollapsed] = ctx.useState(false);
+
+  return ui.column([
+    ui.row([
+      ui.text(props.title, { variant: "heading" }),
+      ui.button({
+        id: ctx.id("toggle"),
+        label: collapsed ? "Expand" : "Collapse",
+        onPress: () => setCollapsed(!collapsed),
+      }),
+    ]),
+    ...(!collapsed ? props.children : []),
+  ]);
+});
+
+// Usage
+Panel({ title: "Details", children: [ui.text("Content")] });
+```
+
+## Testing
+
+```typescript
+import { createTestRenderer, ui } from "@rezi-ui/core";
+import { describe, test, assert } from "@rezi-ui/testkit";
+
+const MyWidget = defineWidget<{ value: number }>((props, ctx) => {
+  return ui.text(`Value: ${props.value}`);
+});
+
+describe("MyWidget", () => {
+  test("renders value", () => {
+    const renderer = createTestRenderer({ width: 80, height: 24 });
+    const tree = MyWidget({ value: 42 });
+    const result = renderer.render(tree);
+
+    assert(result.text.includes("Value: 42"));
+  });
+});
+```
+
+## Hook Rules
+
+<Warning>
+  All hooks must be called in the same order every render. No conditional hook calls.
+</Warning>
+
+```typescript
+// Bad
+if (props.enabled) {
+  const [count, setCount] = ctx.useState(0); // Error!
+}
+
+// Good
+const [count, setCount] = ctx.useState(0);
+if (!props.enabled) return ui.empty();
+```
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="State Hooks" href="/api/hooks/state">
+    useState, useRef, useMemo
+  </Card>
+  <Card title="Lifecycle" href="/api/hooks/lifecycle">
+    useEffect
+  </Card>
+  <Card title="Animation" href="/api/hooks/animation">
+    useTransition, useSpring
+  </Card>
+  <Card title="Widget Catalog" href="/widgets/overview">
+    Built-in widgets
+  </Card>
+</CardGroup>

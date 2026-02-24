@@ -1,0 +1,348 @@
+---
+title: "Checkbox"
+description: "Boolean toggle widget with checked state and change events"
+---
+
+## Overview
+
+The `checkbox` widget creates a focusable, toggleable checkbox for boolean input. It displays `[x]` when checked and `[ ]` when unchecked.
+
+## Basic Usage
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+// Simple checkbox
+ui.checkbox({
+  id: "accept-terms",
+  checked: state.acceptTerms
+})
+
+// Checkbox with label and change handler
+ui.checkbox({
+  id: "accept-terms",
+  checked: state.acceptTerms,
+  label: "I accept the terms and conditions",
+  onChange: (checked) => app.update({ acceptTerms: checked })
+})
+```
+
+## Props
+
+<ParamField path="id" type="string" required>
+  Unique identifier for focus routing. Required for all checkboxes.
+</ParamField>
+
+<ParamField path="checked" type="boolean" required>
+  Current checked state. Must be controlled by your application state.
+</ParamField>
+
+<ParamField path="label" type="string">
+  Label displayed next to the checkbox indicator.
+</ParamField>
+
+<ParamField path="onChange" type="(checked: boolean) => void">
+  Callback invoked when the checked state changes (Space key or click).
+</ParamField>
+
+<ParamField path="disabled" type="boolean" default="false">
+  When true, checkbox cannot be focused or toggled. Shows `[-]` indicator.
+</ParamField>
+
+<ParamField path="focusable" type="boolean" default="true">
+  When false, opt out of Tab focus order while keeping id-based routing available.
+</ParamField>
+
+<ParamField path="accessibleLabel" type="string">
+  Optional semantic label for accessibility and debug announcements.
+</ParamField>
+
+### Styling Props
+
+<ParamField path="dsTone" type="WidgetTone" default="default">
+  Design system color tone for checked/focus rendering: `"default"`, `"primary"`, `"success"`, `"warning"`, `"danger"`.
+</ParamField>
+
+<ParamField path="dsSize" type="WidgetSize" default="md">
+  Design system size preset: `"xs"`, `"sm"`, `"md"`, `"lg"`, `"xl"`.
+</ParamField>
+
+<ParamField path="focusConfig" type="FocusConfig">
+  Optional focus appearance configuration for custom focus indicators.
+</ParamField>
+
+## Event Handling
+
+Checkboxes use a controlled pattern. You must manage the state:
+
+```typescript
+ui.checkbox({
+  id: "remember-me",
+  checked: state.rememberMe,
+  label: "Remember me",
+  onChange: (checked) => {
+    app.update({ rememberMe: checked });
+    
+    // Optionally persist to storage
+    if (checked) {
+      localStorage.setItem('rememberMe', 'true');
+    } else {
+      localStorage.removeItem('rememberMe');
+    }
+  }
+})
+```
+
+## Design System Integration
+
+Checkboxes automatically use design system recipes when the active theme provides semantic color tokens:
+
+```typescript
+// Default checkbox (uses recipe if theme supports it)
+ui.checkbox({
+  id: "agree",
+  checked: state.agreed,
+  label: "I agree"
+})
+
+// Primary tone checkbox
+ui.checkbox({
+  id: "primary",
+  checked: state.checked,
+  label: "Primary",
+  dsTone: "primary"
+})
+
+// Success tone checkbox
+ui.checkbox({
+  id: "success",
+  checked: state.completed,
+  label: "Task completed",
+  dsTone: "success"
+})
+
+// Danger tone checkbox
+ui.checkbox({
+  id: "danger",
+  checked: state.deleteConfirm,
+  label: "Confirm deletion",
+  dsTone: "danger"
+})
+```
+
+## Form Integration
+
+Checkboxes are commonly used in forms:
+
+```typescript
+ui.form([
+  ui.field({
+    label: "Account Settings",
+    children: ui.column({ gap: 1 }, [
+      ui.checkbox({
+        id: "email-notifications",
+        checked: state.emailNotifications,
+        label: "Email notifications",
+        onChange: (checked) => app.update({ emailNotifications: checked })
+      }),
+      ui.checkbox({
+        id: "push-notifications",
+        checked: state.pushNotifications,
+        label: "Push notifications",
+        onChange: (checked) => app.update({ pushNotifications: checked })
+      }),
+      ui.checkbox({
+        id: "sms-notifications",
+        checked: state.smsNotifications,
+        label: "SMS notifications",
+        onChange: (checked) => app.update({ smsNotifications: checked })
+      })
+    ])
+  }),
+  ui.actions([
+    ui.button("save", "Save Settings", { intent: "primary" })
+  ])
+])
+```
+
+## Validation States
+
+### Required Checkbox
+
+```typescript
+ui.column({ gap: 1 }, [
+  ui.checkbox({
+    id: "terms",
+    checked: state.acceptedTerms,
+    label: "I accept the terms and conditions *",
+    onChange: (checked) => app.update({ acceptedTerms: checked })
+  }),
+  state.submitted && !state.acceptedTerms
+    ? ui.text("You must accept the terms to continue", {
+        style: { fg: { r: 255, g: 0, b: 0 } }
+      })
+    : null
+])
+```
+
+### Disabled Checkbox
+
+```typescript
+ui.checkbox({
+  id: "readonly",
+  checked: true,
+  label: "This option is always enabled",
+  disabled: true
+})
+```
+
+## Examples
+
+### Todo Item
+
+```typescript
+ui.row({ gap: 1, items: "center" }, [
+  ui.checkbox({
+    id: `todo-${item.id}`,
+    checked: item.completed,
+    onChange: (checked) => toggleTodo(item.id, checked)
+  }),
+  ui.text(item.title, {
+    style: item.completed ? { dim: true, strikethrough: true } : undefined
+  })
+])
+```
+
+### Settings Panel
+
+```typescript
+ui.panel("Preferences", [
+  ui.column({ gap: 1 }, [
+    ui.text("Editor", { variant: "caption" }),
+    ui.checkbox({
+      id: "line-numbers",
+      checked: state.lineNumbers,
+      label: "Show line numbers",
+      onChange: (checked) => app.update({ lineNumbers: checked })
+    }),
+    ui.checkbox({
+      id: "word-wrap",
+      checked: state.wordWrap,
+      label: "Word wrap",
+      onChange: (checked) => app.update({ wordWrap: checked })
+    }),
+    ui.checkbox({
+      id: "minimap",
+      checked: state.minimap,
+      label: "Show minimap",
+      onChange: (checked) => app.update({ minimap: checked })
+    }),
+    ui.divider(),
+    ui.text("Appearance", { variant: "caption" }),
+    ui.checkbox({
+      id: "dark-mode",
+      checked: state.darkMode,
+      label: "Dark mode",
+      onChange: (checked) => {
+        app.update({ darkMode: checked });
+        applyTheme(checked ? 'dark' : 'light');
+      }
+    })
+  ])
+])
+```
+
+### Bulk Selection
+
+```typescript
+ui.column({ gap: 1 }, [
+  ui.checkbox({
+    id: "select-all",
+    checked: state.selectedIds.length === state.items.length,
+    label: "Select All",
+    onChange: (checked) => {
+      app.update({
+        selectedIds: checked ? state.items.map(i => i.id) : []
+      });
+    }
+  }),
+  ui.divider(),
+  ...state.items.map((item) =>
+    ui.checkbox({
+      id: `item-${item.id}`,
+      checked: state.selectedIds.includes(item.id),
+      label: item.name,
+      onChange: (checked) => {
+        const newIds = checked
+          ? [...state.selectedIds, item.id]
+          : state.selectedIds.filter(id => id !== item.id);
+        app.update({ selectedIds: newIds });
+      }
+    })
+  )
+])
+```
+
+### Confirmation Dialog
+
+```typescript
+ui.dialog({
+  id: "delete-confirm",
+  title: "Delete Account",
+  message: ui.column({ gap: 1 }, [
+    ui.text("This action cannot be undone. All your data will be permanently deleted."),
+    ui.checkbox({
+      id: "understand",
+      checked: state.understoodConsequences,
+      label: "I understand the consequences",
+      dsTone: "danger",
+      onChange: (checked) => app.update({ understoodConsequences: checked })
+    })
+  ]),
+  actions: [
+    {
+      label: "Cancel",
+      onPress: () => app.update({ showDeleteDialog: false })
+    },
+    {
+      label: "Delete Account",
+      intent: "danger",
+      disabled: !state.understoodConsequences,
+      onPress: () => deleteAccount()
+    }
+  ]
+})
+```
+
+## Keyboard Interaction
+
+When focused, checkboxes support:
+- **Space** - Toggle checked state
+- **Enter** - Toggle checked state (optional)
+- **Tab** - Move to next focusable element
+- **Shift+Tab** - Move to previous focusable element
+
+## Visual States
+
+| State | Indicator | Description |
+|-------|-----------|-------------|
+| Unchecked | `[ ]` | Default unchecked state |
+| Checked | `[x]` | Checked state |
+| Disabled unchecked | `[-]` | Cannot be interacted with |
+| Disabled checked | `[x]` | Checked but cannot be changed |
+
+## Accessibility
+
+- Checkboxes require a unique `id` for focus routing
+- Use `accessibleLabel` for descriptive announcements
+- Always provide a `label` prop for clarity
+- Use `ui.field()` to group related checkboxes with a group label
+- Disabled checkboxes are not focusable or toggleable
+- Focus indicators are shown when navigating with keyboard
+
+## Related Widgets
+
+- [Radio Group](/widgets/radio-group) - For mutually exclusive options
+- [Field](/widgets/field) - For wrapping inputs with labels
+- [Button](/widgets/button) - For action buttons
+- [Select](/widgets/select) - For dropdown selection

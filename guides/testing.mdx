@@ -1,0 +1,482 @@
+---
+title: 'Testing TUI Applications'
+description: 'Write reliable tests for your Rezi TUI components and applications'
+---
+
+Rezi provides comprehensive testing utilities for unit tests, integration tests, and snapshot tests.
+
+## Test Renderer
+
+Render widgets in a test environment:
+
+```typescript
+import { createTestRenderer, ui } from "@rezi-ui/core";
+import { test, assert } from "node:test";
+
+test("renders button correctly", () => {
+  const renderer = createTestRenderer({ width: 80, height: 24 });
+  
+  const tree = ui.button({ id: "save", label: "Save" });
+  const result = renderer.render(tree);
+  
+  assert(result.output.includes("Save"));
+  assert.strictEqual(result.widgets.length, 1);
+});
+```
+
+### Test Renderer Options
+
+```typescript
+const renderer = createTestRenderer({
+  width: 80,         // Terminal width in cells
+  height: 24,        // Terminal height in cells
+  colorMode: "rgb",  // "16" | "256" | "rgb"
+  mouse: true,       // Enable mouse support
+  subcell: true,     // Enable Unicode sub-cell rendering
+});
+```
+
+## @rezi-ui/testkit
+
+Use the dedicated test utilities package:
+
+```typescript
+import { describe, test, assert } from "@rezi-ui/testkit";
+import { matchesSnapshot } from "@rezi-ui/testkit";
+
+describe("MyWidget", () => {
+  test("renders with default props", () => {
+    const renderer = createTestRenderer({ width: 40, height: 10 });
+    const tree = MyWidget({ value: 42 });
+    const result = renderer.render(tree);
+    
+    assert(result.output.includes("42"));
+  });
+  
+  test("matches snapshot", () => {
+    const renderer = createTestRenderer({ width: 40, height: 10 });
+    const tree = MyWidget({ value: 42 });
+    const result = renderer.render(tree);
+    
+    matchesSnapshot(result.output, "MyWidget-default");
+  });
+});
+```
+
+## Snapshot Testing
+
+Capture and compare rendered output:
+
+```typescript
+import { captureSnapshot, serializeSnapshot, diffSnapshots } from "@rezi-ui/core";
+
+test("widget snapshot", () => {
+  const tree = ui.column({ gap: 1, p: 1 }, [
+    ui.text("Title", { variant: "heading" }),
+    ui.text("Content here"),
+    ui.button({ id: "action", label: "Click me" }),
+  ]);
+  
+  const snapshot = captureSnapshot(tree, { width: 40, height: 10 });
+  const serialized = serializeSnapshot(snapshot);
+  
+  // Compare with golden snapshot
+  const golden = readGoldenSnapshot("widget.snap");
+  const diff = diffSnapshots(golden, snapshot);
+  
+  assert(diff.identical, `Snapshot mismatch: ${diff.changes.length} changes`);
+});
+```
+
+### Golden Files
+
+```typescript
+import { readFixture, assertBytesEqual } from "@rezi-ui/testkit";
+
+test("matches golden output", () => {
+  const renderer = createTestRenderer({ width: 80, height: 24 });
+  const tree = myView({ count: 42 });
+  const result = renderer.render(tree);
+  
+  const golden = readFixture("view-count-42.txt");
+  assertBytesEqual(result.outputBytes, golden);
+});
+```
+
+## Testing Interactive Widgets
+
+### Simulating Key Events
+
+```typescript
+import { TestEventBuilder } from "@rezi-ui/core";
+
+test("button responds to enter key", () => {
+  const events = new TestEventBuilder();
+  let pressed = false;
+  
+  const app = createTestApp({
+    initialState: {},
+    view: () => ui.button({ id: "save", label: "Save" }),
+  });
+  
+  app.on("event", (event, state) => {
+    if (event.action === "press" && event.id === "save") {
+      pressed = true;
+    }
+  });
+  
+  // Simulate Enter key on focused button
+  app.handleEvent(events.key("enter"));
+  
+  assert(pressed, "Button was not pressed");
+});
+```
+
+### Simulating Mouse Events
+
+```typescript
+test("button responds to mouse click", () => {
+  const events = new TestEventBuilder();
+  let clicked = false;
+  
+  const app = createTestApp({
+    initialState: {},
+    view: () => ui.button({ id: "save", label: "Save" }),
+  });
+  
+  app.on("event", (event, state) => {
+    if (event.action === "press" && event.id === "save") {
+      clicked = true;
+    }
+  });
+  
+  // Simulate mouse click at button position
+  app.handleEvent(events.mouse({
+    kind: "down",
+    button: 0,
+    col: 5,
+    row: 1,
+  }));
+  
+  assert(clicked, "Button was not clicked");
+});
+```
+
+## Testing State Updates
+
+```typescript
+test("counter increments on button press", () => {
+  const app = createTestApp({
+    initialState: { count: 0 },
+    view: (state) => ui.column({ gap: 1 }, [
+      ui.text(`Count: ${state.count}`),
+      ui.button({ id: "inc", label: "+1" }),
+    ]),
+  });
+  
+  app.on("event", (event, state) => {
+    if (event.action === "press" && event.id === "inc") {
+      return { count: state.count + 1 };
+    }
+  });
+  
+  // Initial state
+  assert.strictEqual(app.getState().count, 0);
+  
+  // Trigger increment
+  const events = new TestEventBuilder();
+  app.handleEvent(events.press("inc"));
+  
+  // Verify state updated
+  assert.strictEqual(app.getState().count, 1);
+});
+```
+
+## Testing Reducers
+
+Test state logic independently:
+
+```typescript
+import { describe, test, assert } from "node:test";
+
+function reducer(state: State, action: Action): State {
+  switch (action.type) {
+    case "increment":
+      return { ...state, count: state.count + 1 };
+    case "decrement":
+      return { ...state, count: state.count - 1 };
+    case "reset":
+      return { ...state, count: 0 };
+    default:
+      return state;
+  }
+}
+
+describe("counter reducer", () => {
+  test("increments count", () => {
+    const state = { count: 5 };
+    const next = reducer(state, { type: "increment" });
+    assert.strictEqual(next.count, 6);
+  });
+  
+  test("decrements count", () => {
+    const state = { count: 5 };
+    const next = reducer(state, { type: "decrement" });
+    assert.strictEqual(next.count, 4);
+  });
+  
+  test("resets to zero", () => {
+    const state = { count: 42 };
+    const next = reducer(state, { type: "reset" });
+    assert.strictEqual(next.count, 0);
+  });
+});
+```
+
+## Testing Custom Widgets
+
+```typescript
+import { defineWidget, ui } from "@rezi-ui/core";
+import { createTestRenderer } from "@rezi-ui/core";
+
+const Counter = defineWidget<{ initial: number }>((props, ctx) => {
+  const [count, setCount] = ctx.useState(props.initial);
+  
+  return ui.column({ gap: 1 }, [
+    ui.text(`Count: ${count}`),
+    ui.button({ id: ctx.id("inc"), label: "+1" }),
+  ]);
+});
+
+test("Counter widget renders with initial value", () => {
+  const renderer = createTestRenderer({ width: 40, height: 10 });
+  const tree = Counter({ initial: 10 });
+  const result = renderer.render(tree);
+  
+  assert(result.output.includes("Count: 10"));
+});
+```
+
+## Testing Animations
+
+```typescript
+import { defineWidget, useTransition } from "@rezi-ui/core";
+
+const FadeIn = defineWidget<{ visible: boolean }>((props, ctx) => {
+  const opacity = useTransition(ctx, props.visible ? 1 : 0, { duration: 200 });
+  return ui.box({ opacity: opacity.value }, [ui.text("Content")]);
+});
+
+test("animation starts at 0 opacity", () => {
+  const renderer = createTestRenderer({ width: 40, height: 10 });
+  const tree = FadeIn({ visible: false });
+  const result = renderer.render(tree);
+  
+  // Check initial opacity is 0
+  assert.strictEqual(result.widgets[0].opacity, 0);
+});
+
+test("animation targets 1 opacity when visible", async () => {
+  const renderer = createTestRenderer({ width: 40, height: 10 });
+  const tree = FadeIn({ visible: true });
+  
+  // Wait for animation to complete
+  await new Promise(resolve => setTimeout(resolve, 250));
+  
+  const result = renderer.render(tree);
+  assert.strictEqual(result.widgets[0].opacity, 1);
+});
+```
+
+## Testing Forms
+
+```typescript
+import { useForm, ui } from "@rezi-ui/core";
+
+test("form validation", () => {
+  const form = useForm({
+    initialValues: { email: "" },
+    validate: (values) => {
+      if (!values.email.includes("@")) {
+        return { email: "Invalid email" };
+      }
+      return {};
+    },
+  });
+  
+  // Initially valid (empty)
+  assert.strictEqual(form.errors.email, undefined);
+  
+  // Set invalid value
+  form.setValue("email", "invalid");
+  assert.strictEqual(form.errors.email, "Invalid email");
+  
+  // Set valid value
+  form.setValue("email", "user@example.com");
+  assert.strictEqual(form.errors.email, undefined);
+});
+```
+
+## Integration Tests
+
+Test full app workflows:
+
+```typescript
+import { createTestApp } from "@rezi-ui/testkit";
+
+test("complete user workflow", async () => {
+  const app = createTestApp({
+    initialState: { username: "", loggedIn: false },
+    view: myAppView,
+  });
+  
+  // User enters username
+  app.handleEvent(events.input("username", "alice"));
+  assert.strictEqual(app.getState().username, "alice");
+  
+  // User clicks login button
+  app.handleEvent(events.press("login"));
+  
+  // Wait for async login
+  await app.waitForUpdate();
+  
+  // Verify logged in
+  assert(app.getState().loggedIn);
+});
+```
+
+## Testing Async Behavior
+
+```typescript
+import { defineWidget, useAsync } from "@rezi-ui/core";
+
+const DataFetcher = defineWidget((props, ctx) => {
+  const data = useAsync(ctx, async () => {
+    const response = await fetch("/api/data");
+    return response.json();
+  }, []);
+  
+  if (data.loading) return ui.text("Loading...");
+  if (data.error) return ui.text(`Error: ${data.error.message}`);
+  return ui.text(`Data: ${JSON.stringify(data.value)}`);
+});
+
+test("shows loading state", () => {
+  const renderer = createTestRenderer({ width: 40, height: 10 });
+  const tree = DataFetcher({});
+  const result = renderer.render(tree);
+  
+  assert(result.output.includes("Loading..."));
+});
+
+test("shows data after loading", async () => {
+  // Mock fetch
+  global.fetch = async () => ({ json: async () => ({ value: 42 }) });
+  
+  const renderer = createTestRenderer({ width: 40, height: 10 });
+  const tree = DataFetcher({});
+  
+  // Wait for async
+  await new Promise(resolve => setTimeout(resolve, 100));
+  
+  const result = renderer.render(tree);
+  assert(result.output.includes("Data: {\"value\":42}"));
+});
+```
+
+## Testing Repro Bundles
+
+Test recorded sessions:
+
+```typescript
+import { parseReproBundleBytes, runReproReplayHarness } from "@rezi-ui/core";
+
+test("repro bundle replays correctly", async () => {
+  const bytes = await readFile("test-fixtures/session.repro");
+  const bundle = parseReproBundleBytes(bytes);
+  
+  assert(bundle.ok, "Failed to parse repro bundle");
+  
+  const result = await runReproReplayHarness({
+    bundle: bundle.bundle,
+    view: myViewFunction,
+  });
+  
+  assert(result.ok, "Replay failed");
+  assert(result.frameCount > 0, "No frames replayed");
+});
+```
+
+## Test Utilities
+
+### Random Number Generation
+
+```typescript
+import { createRng } from "@rezi-ui/testkit";
+
+test("deterministic random", () => {
+  const rng = createRng("test-seed");
+  
+  const value1 = rng.next();
+  const value2 = rng.next();
+  
+  // Create new RNG with same seed
+  const rng2 = createRng("test-seed");
+  
+  // Same sequence
+  assert.strictEqual(rng2.next(), value1);
+  assert.strictEqual(rng2.next(), value2);
+});
+```
+
+### Binary Comparison
+
+```typescript
+import { assertBytesEqual, hexdump } from "@rezi-ui/testkit";
+
+test("drawlist bytes match", () => {
+  const actual = builder.build();
+  const expected = readFixture("expected.zrdl");
+  
+  try {
+    assertBytesEqual(actual, expected);
+  } catch (error) {
+    console.log("Actual:");
+    console.log(hexdump(actual));
+    console.log("Expected:");
+    console.log(hexdump(expected));
+    throw error;
+  }
+});
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Test Reducers" icon="code">
+    Test state logic separately from UI. Pure reducer functions are easy to test and catch business logic bugs.
+  </Card>
+  
+  <Card title="Snapshot Tests" icon="camera">
+    Use snapshot tests for visual regression. Catch unintended layout changes and style drift.
+  </Card>
+  
+  <Card title="Integration Tests" icon="sitemap">
+    Write integration tests for critical user workflows. Test complete interactions from input to state change.
+  </Card>
+  
+  <Card title="Deterministic Tests" icon="seedling">
+    Use deterministic RNG and mock timers. Tests should be repeatable and not depend on system time or randomness.
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="API Reference" icon="book" href="/api/core">
+    Explore the complete API documentation
+  </Card>
+  <Card title="Examples" icon="code" href="/examples">
+    See example applications and patterns
+  </Card>
+</CardGroup>

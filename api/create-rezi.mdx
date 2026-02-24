@@ -1,0 +1,384 @@
+---
+title: "create-rezi"
+description: "CLI tool for scaffolding new Rezi projects"
+---
+
+## Installation
+
+No installation required. Use with npm/pnpm/yarn/bun:
+
+```bash
+npm create rezi my-app
+pnpm create rezi my-app
+yarn create rezi my-app
+bun create rezi my-app
+```
+
+## Usage
+
+### Interactive Mode
+
+Run without arguments for interactive prompts:
+
+```bash
+npm create rezi
+```
+
+You'll be prompted for:
+
+1. **Project name** - Directory name for your project
+2. **Template** - Choose from available templates
+3. **Package manager** - npm, pnpm, yarn, or bun
+
+### Command-Line Mode
+
+Provide options directly:
+
+```bash
+npm create rezi my-app --template dashboard
+```
+
+## CLI Options
+
+<ParamField path="target-dir" type="string">
+  Project directory name (positional argument).
+</ParamField>
+
+<ParamField path="--template" type="string" shorthand="-t">
+  Template to use. Options: `minimal`, `dashboard`, `cli-tool`, `animation-lab`, `stress-test`, `starship`.
+</ParamField>
+
+<ParamField path="--pm" type="string">
+  Package manager to use. Options: `npm`, `pnpm`, `yarn`, `bun`.
+</ParamField>
+
+<ParamField path="--no-install" type="boolean">
+  Skip dependency installation.
+</ParamField>
+
+<ParamField path="--list-templates" type="boolean">
+  Show available templates and exit.
+</ParamField>
+
+<ParamField path="--help" type="boolean" shorthand="-h">
+  Show help message.
+</ParamField>
+
+## Templates
+
+### minimal
+
+Barebones starter with just the essentials.
+
+**Features**:
+- Single-file app
+- Basic counter example
+- Minimal dependencies
+- No routing
+
+**Best for**: Learning Rezi basics, small scripts
+
+```bash
+npm create rezi my-app --template minimal
+```
+
+### dashboard
+
+Production-ready dashboard template with routing and data visualization.
+
+**Features**:
+- Multi-page routing
+- Table with sorting/filtering
+- Charts (bar, line, sparkline)
+- Modal dialogs
+- Form validation
+- Theme switcher
+
+**Best for**: Admin panels, monitoring dashboards, data apps
+
+```bash
+npm create rezi my-app --template dashboard
+```
+
+### cli-tool
+
+Interactive CLI tool template with command pattern.
+
+**Features**:
+- Command palette
+- File tree explorer
+- Code editor with syntax highlighting
+- Status bar
+- Keybindings help
+
+**Best for**: Developer tools, file managers, interactive CLIs
+
+```bash
+npm create rezi my-app --template cli-tool
+```
+
+### animation-lab
+
+Showcase of animation hooks and transitions.
+
+**Features**:
+- `useTransition` examples
+- `useSpring` physics
+- `useSequence` keyframes
+- `useStagger` effects
+- Container transitions
+- Interactive controls
+
+**Best for**: Learning animations, prototyping UI effects
+
+```bash
+npm create rezi my-app --template animation-lab
+```
+
+### stress-test
+
+Performance testing template with large datasets.
+
+**Features**:
+- 10,000+ row virtual list
+- Real-time updates
+- FPS counter
+- Memory profiling
+- Benchmark utilities
+
+**Best for**: Performance testing, profiling, optimization
+
+```bash
+npm create rezi my-app --template stress-test
+```
+
+### starship
+
+Advanced template inspired by Starship prompt.
+
+**Features**:
+- Git status display
+- Directory breadcrumbs
+- System info widgets
+- Custom icons
+- Modular widget architecture
+
+**Best for**: System monitoring, prompt-like TUIs, advanced layouts
+
+```bash
+npm create rezi my-app --template starship
+```
+
+## List All Templates
+
+```bash
+npm create rezi --list-templates
+```
+
+Output:
+
+```
+Available templates (--template <name>):
+
+  minimal         Minimal starter (single file, counter)
+  dashboard       Dashboard with routing, tables, charts
+  cli-tool        Interactive CLI tool (editor, file tree)
+  animation-lab   Animation showcase (hooks, transitions)
+  stress-test     Performance testing (10k+ rows)
+  starship        Starship-inspired status display
+```
+
+## Project Structure
+
+All templates follow a standard structure:
+
+```
+my-app/
+├── src/
+│   ├── main.ts              # App entry point
+│   ├── types.ts             # State and action types
+│   ├── theme.ts             # Theme configuration
+│   ├── helpers/
+│   │   ├── state.ts         # State reducer
+│   │   └── keybindings.ts   # Keybinding handlers
+│   ├── screens/
+│   │   ├── home.ts          # Home screen
+│   │   └── index.ts         # Screen exports
+│   └── __tests__/
+│       ├── reducer.test.ts
+│       └── render.test.ts
+├── package.json
+├── tsconfig.json
+└── README.md
+```
+
+## Generated Scripts
+
+All templates include these npm scripts:
+
+```json package.json
+{
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "build": "tsc",
+    "start": "node dist/main.js",
+    "test": "node --test"
+  }
+}
+```
+
+**Usage**:
+
+```bash
+# Development with hot reload
+npm run dev
+
+# Production build
+npm run build
+npm start
+
+# Run tests
+npm test
+```
+
+## Examples
+
+### Create with Specific Template
+
+```bash
+npm create rezi dashboard-app --template dashboard --pm npm
+```
+
+### Skip Install (CI)
+
+```bash
+npm create rezi my-app --no-install
+cd my-app
+npm install
+```
+
+### Non-Interactive
+
+```bash
+npm create rezi my-app --template minimal --pm bun --no-install
+```
+
+## Customization
+
+After scaffolding, customize your project:
+
+### Change Theme
+
+Edit `src/theme.ts`:
+
+```typescript
+import { darkTheme, nordTheme, draculaTheme } from "@rezi-ui/core";
+
+export const theme = nordTheme; // Change theme here
+```
+
+### Add Dependencies
+
+```bash
+npm install date-fns zod
+```
+
+### Configure FPS Cap
+
+Edit `src/main.ts`:
+
+```typescript
+const app = createNodeApp({
+  initialState,
+  config: {
+    fpsCap: 30, // Lower for production
+  },
+});
+```
+
+## Template Development
+
+Templates are located in `packages/create-rezi/templates/`.
+
+### Adding a New Template
+
+1. Create directory: `packages/create-rezi/templates/my-template/`
+2. Add `template.json` with metadata
+3. Add template files
+4. Update `TEMPLATE_DEFINITIONS` in `scaffold.ts`
+5. Test: `npm run build && npm link`
+
+### Template Metadata
+
+```json template.json
+{
+  "name": "my-template",
+  "description": "My custom template",
+  "dependencies": {
+    "@rezi-ui/core": "^0.1.0",
+    "@rezi-ui/node": "^0.1.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.0"
+  }
+}
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Error: Directory already exists">
+    The target directory is not empty.
+
+    **Solution**: Choose a different name or delete the existing directory.
+
+    ```bash
+    rm -rf my-app
+    npm create rezi my-app
+    ```
+  </Accordion>
+
+  <Accordion title="Error: Invalid package name">
+    Project name contains invalid characters.
+
+    **Solution**: Use lowercase letters, numbers, hyphens, and underscores only.
+
+    ```bash
+    # Invalid
+    npm create rezi "My App"
+
+    # Valid
+    npm create rezi my-app
+    ```
+  </Accordion>
+
+  <Accordion title="npm install fails">
+    Dependency installation error.
+
+    **Solution**: Try a different package manager or install manually:
+
+    ```bash
+    npm create rezi my-app --no-install
+    cd my-app
+    npm install
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Related Documentation
+
+<CardGroup cols={2}>
+  <Card title="Getting Started" icon="rocket" href="/getting-started/installation">
+    Installation and first app
+  </Card>
+  <Card title="Templates Guide" icon="folder-tree" href="/templates/overview">
+    Detailed template comparison
+  </Card>
+  <Card title="Project Structure" icon="folder" href="/guide/project-structure">
+    Organizing your Rezi app
+  </Card>
+  <Card title="@rezi-ui/node" icon="node-js" href="/api/node">
+    Node.js backend API
+  </Card>
+</CardGroup>

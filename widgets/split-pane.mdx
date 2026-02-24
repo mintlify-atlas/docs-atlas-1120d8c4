@@ -1,0 +1,435 @@
+---
+title: Split Pane
+description: Draggable divider for resizable panels
+---
+
+The Split Pane widget creates resizable panels separated by draggable dividers, perfect for multi-pane layouts like editors and dashboards.
+
+## Basic Usage
+
+```typescript
+import { ui } from "@rezi-ui/core";
+import { defineWidget, useState } from "@rezi-ui/core";
+
+const MySplitPane = defineWidget((ctx) => {
+  const [sizes, setSizes] = useState([50, 50]);
+  
+  return ui.splitPane({
+    id: ctx.id("split"),
+    direction: "horizontal",
+    sizes,
+    onResize: setSizes,
+  }, [
+    ui.panel("Left Panel", [ui.text("Left content")]),
+    ui.panel("Right Panel", [ui.text("Right content")]),
+  ]);
+});
+```
+
+## Props
+
+<ParamField path="id" type="string" required>
+  Widget identifier. Required for interaction.
+</ParamField>
+
+<ParamField path="direction" type="horizontal | vertical" required>
+  Split direction:
+  - `"horizontal"` - Left/right panels with vertical divider
+  - `"vertical"` - Top/bottom panels with horizontal divider
+</ParamField>
+
+<ParamField path="sizes" type="number[]" required>
+  Panel sizes as percentages (0-100) or absolute cells, depending on `sizeMode`.
+</ParamField>
+
+<ParamField path="sizeMode" type="percent | absolute" default="percent">
+  Size interpretation:
+  - `"percent"` - Sizes are percentages (0-100)
+  - `"absolute"` - Sizes are fixed cell counts
+</ParamField>
+
+<ParamField path="onResize" type="(sizes: number[]) => void" required>
+  Callback invoked when divider is dragged. Update state with new sizes.
+</ParamField>
+
+<ParamField path="minSizes" type="number[]">
+  Minimum panel sizes (cells). Prevents panels from shrinking below these values.
+</ParamField>
+
+<ParamField path="maxSizes" type="number[]">
+  Maximum panel sizes (cells). Prevents panels from growing beyond these values.
+</ParamField>
+
+<ParamField path="dividerSize" type="number" default="1">
+  Divider width/height in cells.
+</ParamField>
+
+<ParamField path="collapsible" type="boolean" default="false">
+  Allow panels to collapse to minimum size.
+</ParamField>
+
+<ParamField path="collapsed" type="number[]">
+  Array of collapsed panel indices.
+</ParamField>
+
+<ParamField path="onCollapse" type="(index: number, collapsed: boolean) => void">
+  Callback when panel collapse state changes.
+</ParamField>
+
+## Directions
+
+### Horizontal Split
+
+Left and right panels with vertical divider:
+
+```typescript
+ui.splitPane({
+  id: "hsplit",
+  direction: "horizontal",
+  sizes: [40, 60],
+  onResize: (sizes) => setState({ sizes }),
+}, [
+  ui.box({ border: "single" }, [ui.text("Left")]),
+  ui.box({ border: "single" }, [ui.text("Right")]),
+]);
+```
+
+### Vertical Split
+
+Top and bottom panels with horizontal divider:
+
+```typescript
+ui.splitPane({
+  id: "vsplit",
+  direction: "vertical",
+  sizes: [50, 50],
+  onResize: (sizes) => setState({ sizes }),
+}, [
+  ui.box({ border: "single" }, [ui.text("Top")]),
+  ui.box({ border: "single" }, [ui.text("Bottom")]),
+]);
+```
+
+## Size Modes
+
+### Percentage (Default)
+
+Sizes are percentages of available space:
+
+```typescript
+ui.splitPane({
+  id: "split",
+  direction: "horizontal",
+  sizes: [25, 75], // 25% / 75%
+  sizeMode: "percent",
+  onResize: (sizes) => setState({ sizes }),
+}, panels);
+```
+
+### Absolute
+
+Sizes are fixed cell counts:
+
+```typescript
+ui.splitPane({
+  id: "split",
+  direction: "horizontal",
+  sizes: [20, 60], // 20 cells / 60 cells
+  sizeMode: "absolute",
+  onResize: (sizes) => setState({ sizes }),
+}, panels);
+```
+
+## Size Constraints
+
+### Minimum Sizes
+
+Prevent panels from shrinking too small:
+
+```typescript
+ui.splitPane({
+  id: "split",
+  direction: "horizontal",
+  sizes: [50, 50],
+  minSizes: [20, 30], // Left ≥20 cells, Right ≥30 cells
+  onResize: (sizes) => setState({ sizes }),
+}, panels);
+```
+
+### Maximum Sizes
+
+Prevent panels from growing too large:
+
+```typescript
+ui.splitPane({
+  id: "split",
+  direction: "horizontal",
+  sizes: [50, 50],
+  minSizes: [10, 10],
+  maxSizes: [80, 80],
+  onResize: (sizes) => setState({ sizes }),
+}, panels);
+```
+
+## Collapsible Panels
+
+Allow panels to collapse:
+
+```typescript
+import { defineWidget, useState } from "@rezi-ui/core";
+
+const CollapsibleSplit = defineWidget((ctx) => {
+  const [sizes, setSizes] = useState([30, 70]);
+  const [collapsed, setCollapsed] = useState<number[]>([]);
+  
+  return ui.splitPane({
+    id: ctx.id("split"),
+    direction: "horizontal",
+    sizes,
+    collapsible: true,
+    collapsed,
+    onResize: setSizes,
+    onCollapse: (index, isCollapsed) => {
+      setCollapsed(isCollapsed ? [index] : []);
+    },
+  }, [
+    ui.panel("Sidebar", [ui.text("Sidebar content")]),
+    ui.panel("Main", [ui.text("Main content")]),
+  ]);
+});
+```
+
+## Examples
+
+### Editor Layout
+
+```typescript
+import { defineWidget, useState } from "@rezi-ui/core";
+
+const EditorLayout = defineWidget((ctx) => {
+  const [sizes, setSizes] = useState([20, 80]);
+  
+  return ui.splitPane({
+    id: ctx.id("editor-split"),
+    direction: "horizontal",
+    sizes,
+    minSizes: [15, 40],
+    onResize: setSizes,
+  }, [
+    // File tree
+    ui.box({ border: "single", p: 1 }, [
+      ui.text("Files", { variant: "heading" }),
+      ui.text("src/"),
+      ui.text("  index.ts"),
+      ui.text("  app.ts"),
+    ]),
+    
+    // Editor pane
+    ui.box({ border: "single", p: 1 }, [
+      ui.text("Editor", { variant: "heading" }),
+      ui.text("// Code here"),
+    ]),
+  ]);
+});
+```
+
+### Dashboard with Sidebar
+
+```typescript
+const Dashboard = defineWidget((ctx) => {
+  const [sizes, setSizes] = useState([25, 75]);
+  const [collapsed, setCollapsed] = useState<number[]>([]);
+  
+  return ui.splitPane({
+    id: ctx.id("dashboard-split"),
+    direction: "horizontal",
+    sizes,
+    collapsible: true,
+    collapsed,
+    minSizes: [15, 30],
+    onResize: setSizes,
+    onCollapse: (idx, isCollapsed) => {
+      setCollapsed(isCollapsed ? [idx] : []);
+    },
+  }, [
+    // Sidebar
+    ui.column({ gap: 1, p: 1 }, [
+      ui.text("Navigation", { variant: "heading" }),
+      ui.button({ id: "nav-1", label: "Overview" }),
+      ui.button({ id: "nav-2", label: "Metrics" }),
+      ui.button({ id: "nav-3", label: "Logs" }),
+    ]),
+    
+    // Main content
+    ui.column({ gap: 2, p: 1 }, [
+      ui.text("Dashboard", { variant: "heading" }),
+      ui.text("Main content area"),
+    ]),
+  ]);
+});
+```
+
+### Log Viewer
+
+```typescript
+const LogViewer = defineWidget((ctx) => {
+  const [sizes, setSizes] = useState([70, 30]);
+  
+  return ui.splitPane({
+    id: ctx.id("log-split"),
+    direction: "vertical",
+    sizes,
+    minSizes: [20, 10],
+    onResize: setSizes,
+  }, [
+    // Log output
+    ui.box({ border: "single", overflow: "scroll", scrollY: 0 }, [
+      ui.text("[INFO] Application started"),
+      ui.text("[DEBUG] Loading configuration"),
+      ui.text("[INFO] Server listening on port 3000"),
+    ]),
+    
+    // Details panel
+    ui.box({ border: "single", p: 1 }, [
+      ui.text("Details", { variant: "heading" }),
+      ui.text("Selected log entry details appear here"),
+    ]),
+  ]);
+});
+```
+
+### Nested Split Panes
+
+```typescript
+const NestedSplit = defineWidget((ctx) => {
+  const [outerSizes, setOuterSizes] = useState([25, 75]);
+  const [innerSizes, setInnerSizes] = useState([60, 40]);
+  
+  return ui.splitPane({
+    id: ctx.id("outer"),
+    direction: "horizontal",
+    sizes: outerSizes,
+    onResize: setOuterSizes,
+  }, [
+    // Left sidebar
+    ui.panel("Sidebar", [ui.text("Navigation")]),
+    
+    // Right side: nested vertical split
+    ui.splitPane({
+      id: ctx.id("inner"),
+      direction: "vertical",
+      sizes: innerSizes,
+      onResize: setInnerSizes,
+    }, [
+      ui.panel("Main", [ui.text("Main content")]),
+      ui.panel("Console", [ui.text("Console output")]),
+    ]),
+  ]);
+});
+```
+
+### Three-Panel Layout
+
+```typescript
+const ThreePanel = defineWidget((ctx) => {
+  const [sizes, setSizes] = useState([25, 50, 25]);
+  
+  return ui.splitPane({
+    id: ctx.id("three-panel"),
+    direction: "horizontal",
+    sizes,
+    minSizes: [15, 30, 15],
+    onResize: setSizes,
+  }, [
+    ui.panel("Left", [ui.text("Left panel")]),
+    ui.panel("Center", [ui.text("Center panel")]),
+    ui.panel("Right", [ui.text("Right panel")]),
+  ]);
+});
+```
+
+### Responsive Split
+
+```typescript
+import { useTerminalSize } from "@rezi-ui/core";
+
+const ResponsiveSplit = defineWidget((ctx) => {
+  const size = useTerminalSize();
+  const [sizes, setSizes] = useState([30, 70]);
+  
+  // Switch to vertical layout on narrow terminals
+  const direction = size.cols < 80 ? "vertical" : "horizontal";
+  
+  return ui.splitPane({
+    id: ctx.id("responsive"),
+    direction,
+    sizes,
+    onResize: setSizes,
+  }, [
+    ui.panel("Panel 1", [ui.text("Content 1")]),
+    ui.panel("Panel 2", [ui.text("Content 2")]),
+  ]);
+});
+```
+
+## Divider Interaction
+
+### Mouse Drag
+
+Click and drag divider to resize panels. The `onResize` callback receives updated sizes.
+
+### Size Clamping
+
+Sizes are automatically clamped to respect:
+- Minimum panel sizes
+- Maximum panel sizes
+- Available space
+
+### Deterministic Distribution
+
+Rezi uses weighted integer distribution for stable, deterministic sizing:
+
+```typescript
+// sizes: [33.33, 33.33, 33.34] percentages
+// Available: 100 cells
+// Result: [33, 33, 34] cells (no rounding errors)
+```
+
+## Persistence
+
+### Save/Restore Sizes
+
+```typescript
+import { defineWidget, useState, useEffect } from "@rezi-ui/core";
+
+const PersistentSplit = defineWidget((ctx) => {
+  const [sizes, setSizes] = useState(() => {
+    const saved = localStorage.getItem("split-sizes");
+    return saved ? JSON.parse(saved) : [50, 50];
+  });
+  
+  useEffect(() => {
+    localStorage.setItem("split-sizes", JSON.stringify(sizes));
+  }, [sizes]);
+  
+  return ui.splitPane({
+    id: ctx.id("split"),
+    direction: "horizontal",
+    sizes,
+    onResize: setSizes,
+  }, panels);
+});
+```
+
+## Performance
+
+- Resize events are throttled for smooth dragging
+- Layout computation is O(n) where n = number of panels
+- Divider hit testing uses expanded hit area for easy grabbing
+
+## See Also
+
+- [Panel Group](/widgets/panel-group) - Container for resizable panels
+- [Grid](/widgets/grid) - 2D grid layout
+- [Row](/widgets/row) - Horizontal stack
+- [Column](/widgets/column) - Vertical stack

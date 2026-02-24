@@ -1,0 +1,391 @@
+---
+title: 'Styling and Theming'
+description: 'Style your TUI with colors, typography, and design system integration'
+---
+
+Rezi provides a comprehensive styling system with color management, typography variants, and seamless theme integration.
+
+## Text Styles
+
+The `TextStyle` type controls visual appearance of text and borders.
+
+### Basic Style Props
+
+```typescript
+ui.text("Hello", {
+  style: {
+    fg: { r: 255, g: 180, b: 84 },  // Foreground color (orange)
+    bg: { r: 10, g: 14, b: 20 },     // Background color (dark)
+    bold: true,
+    italic: false,
+    underline: false,
+    dim: false,
+    inverse: false,
+    strikethrough: false,
+  }
+})
+```
+
+### Color Helpers
+
+Use the `rgb()` helper for cleaner syntax:
+
+```typescript
+import { rgb } from "@rezi-ui/core";
+
+ui.text("Styled text", {
+  style: {
+    fg: rgb(255, 180, 84),  // Orange
+    bg: rgb(10, 14, 20),     // Dark background
+    bold: true,
+  }
+})
+```
+
+### Theme Color References
+
+Reference theme colors using string paths:
+
+```typescript
+ui.text("Primary text", {
+  style: {
+    fg: "fg.primary",        // References theme.colors.fg.primary
+    bg: "bg.elevated",       // References theme.colors.bg.elevated
+  }
+})
+```
+
+## Typography Variants
+
+Use predefined text variants for consistent hierarchy:
+
+```typescript
+// Heading (bold, primary color)
+ui.text("Section Title", { variant: "heading" })
+
+// Body (default)
+ui.text("Regular paragraph text", { variant: "body" })
+
+// Caption (dimmed, smaller)
+ui.text("Secondary information", { variant: "caption" })
+
+// Code (monospace)
+ui.text("const x = 42;", { variant: "code" })
+
+// Label (for form fields)
+ui.text("Username:", { variant: "label" })
+```
+
+## Style Inheritance
+
+Styles cascade from parents to children:
+
+```typescript
+ui.box({
+  inheritStyle: { fg: rgb(173, 186, 199) },  // All children inherit this color
+  border: "single",
+}, [
+  ui.text("Inherits gray color"),
+  ui.text("Also gray", { style: { bold: true } }),
+  ui.text("Override", { style: { fg: rgb(255, 180, 84) } }),
+])
+```
+
+<Note>
+`inheritStyle` cascades to descendants without forcing a background fill. Use `style` on the container when you want an explicit background.
+</Note>
+
+## Style Utilities
+
+### Merging Styles
+
+```typescript
+import { mergeStyles } from "@rezi-ui/core";
+
+const baseStyle = { fg: rgb(230, 225, 207) };
+const emphasisStyle = { bold: true };
+
+ui.text("Bold primary text", {
+  style: mergeStyles(baseStyle, emphasisStyle)
+})
+```
+
+### Conditional Styles
+
+```typescript
+import { styleWhen } from "@rezi-ui/core";
+
+ui.text("Status", {
+  style: mergeStyles(
+    { fg: "fg.primary" },
+    styleWhen(isError, { fg: "error", bold: true }),
+    styleWhen(isSuccess, { fg: "success" })
+  )
+})
+```
+
+### Styled Wrapper
+
+```typescript
+import { styled } from "@rezi-ui/core";
+
+const Heading = styled(ui.text, {
+  variant: "heading",
+  style: { fg: "accent.primary" },
+});
+
+const view = (state) => ui.column({ gap: 1 }, [
+  Heading("My Title"),
+  ui.text("Content..."),
+]);
+```
+
+## Design System Integration
+
+Rezi includes a design system with semantic recipes for interactive widgets.
+
+### Button Recipes
+
+```typescript
+// Primary call-to-action
+ui.button({ 
+  id: "save",
+  label: "Save Changes",
+  intent: "primary",  // Solid blue button
+})
+
+// Secondary action
+ui.button({ 
+  id: "cancel",
+  label: "Cancel",
+  intent: "secondary",  // Soft gray button
+})
+
+// Destructive action
+ui.button({ 
+  id: "delete",
+  label: "Delete",
+  intent: "danger",  // Red outline button
+})
+```
+
+**Available intents:**
+- `"primary"` — Main call-to-action (solid + primary color)
+- `"secondary"` — Secondary actions (soft + default color)
+- `"danger"` — Destructive actions (outline + danger color)
+- `"success"` — Positive confirmations (soft + success color)
+- `"warning"` — Caution actions (soft + warning color)
+- `"link"` — Minimal/link-style (ghost + small)
+
+### Input Recipes
+
+```typescript
+ui.input({
+  id: "username",
+  value: state.username,
+  placeholder: "Enter username",
+  // Auto-styled with border + elevated background
+})
+```
+
+Inputs automatically receive design system styling when the active theme provides semantic tokens.
+
+### Manual Design System
+
+For custom widgets, use recipe functions:
+
+```typescript
+import { buttonRecipe, inputRecipe } from "@rezi-ui/core";
+
+const buttonStyle = buttonRecipe({
+  variant: "solid",
+  tone: "primary",
+  size: "md",
+  state: "default",
+  theme,
+  caps,
+});
+
+ui.box({ style: buttonStyle.surface }, [ui.text("Button")]);
+```
+
+## Color Management
+
+### RGB Colors
+
+```typescript
+import { rgb } from "@rezi-ui/core";
+
+const orange = rgb(255, 180, 84);
+const dark = rgb(10, 14, 20);
+```
+
+### Theme Color Tokens
+
+```typescript
+// Reference theme colors by path
+ui.text("Primary", { style: { fg: "fg.primary" } })
+ui.text("Success", { style: { fg: "success" } })
+ui.text("Error", { style: { fg: "error" } })
+```
+
+### Color Resolution
+
+```typescript
+import { resolveColorToken } from "@rezi-ui/core";
+
+const resolved = resolveColorToken("accent.primary", theme);
+// Returns: { ok: true, rgb: { r: 255, g: 180, b: 84 } }
+```
+
+## Text Attributes
+
+<Tabs>
+  <Tab title="Decoration">
+    ```typescript
+    ui.text("Bold", { style: { bold: true } })
+    ui.text("Italic", { style: { italic: true } })
+    ui.text("Underline", { style: { underline: true } })
+    ui.text("Strikethrough", { style: { strikethrough: true } })
+    ```
+  </Tab>
+  
+  <Tab title="Emphasis">
+    ```typescript
+    ui.text("Dimmed", { style: { dim: true } })
+    ui.text("Inverse", { style: { inverse: true } })
+    ```
+  </Tab>
+  
+  <Tab title="Overflow">
+    ```typescript
+    ui.text(longText, { 
+      textOverflow: "ellipsis",  // Truncate with ...
+      maxWidth: 40,
+    })
+    
+    ui.text(longText, { 
+      textOverflow: "middle",  // Ellipsis in middle
+      maxWidth: 40,
+    })
+    
+    ui.text(longText, { 
+      wrap: true,  // Multi-line wrapping
+    })
+    ```
+  </Tab>
+</Tabs>
+
+## Border Styles
+
+Borders use the same `TextStyle` system:
+
+```typescript
+ui.box({
+  border: "single",
+  borderStyle: {
+    fg: rgb(62, 75, 89),  // Border color
+  },
+  style: {
+    bg: rgb(15, 20, 25),  // Box background
+  },
+}, children)
+```
+
+**Available border types:**
+- `"single"` — Standard single-line box
+- `"double"` — Double-line box
+- `"rounded"` — Rounded corners
+- `"heavy"` — Thick lines
+- `"dashed"` — Dashed lines
+- `"heavy-dashed"` — Thick dashed lines
+- `"none"` — No border
+
+### Per-Side Borders
+
+```typescript
+ui.box({
+  border: "single",
+  borderTop: true,
+  borderBottom: true,
+  borderLeft: false,
+  borderRight: false,
+}, [ui.text("Horizontal divider")])
+```
+
+## Shadows
+
+Add depth with shadow effects:
+
+```typescript
+ui.box({
+  border: "single",
+  shadow: true,  // Default shadow
+}, children)
+
+ui.box({
+  border: "single",
+  shadow: {
+    offsetX: 2,
+    offsetY: 1,
+    density: "medium",  // "light" | "medium" | "dense"
+  },
+}, children)
+```
+
+## Scrollbars
+
+Customize scrollbar appearance:
+
+```typescript
+ui.box({
+  overflow: "scroll",
+  scrollY: state.scrollPos,
+  scrollbarVariant: "modern",  // "minimal" | "classic" | "modern" | "dots" | "thin"
+  scrollbarStyle: {
+    fg: rgb(92, 103, 115),  // Scrollbar color
+  },
+}, content)
+```
+
+## Opacity
+
+Control container transparency:
+
+```typescript
+ui.box({
+  opacity: 0.8,  // 0.0 (transparent) to 1.0 (opaque)
+  style: { bg: rgb(10, 14, 20) },
+}, children)
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use Theme Colors" icon="palette">
+    Reference theme colors by path (e.g., `"fg.primary"`) instead of hardcoding RGB values. This makes your UI theme-aware.
+  </Card>
+  
+  <Card title="Typography Variants" icon="text">
+    Use text variants (`"heading"`, `"caption"`, etc.) for consistent hierarchy instead of manual styling.
+  </Card>
+  
+  <Card title="Design System" icon="sparkles">
+    Let button/input recipes handle styling automatically. Override only when you need custom behavior.
+  </Card>
+  
+  <Card title="Style Utilities" icon="wrench">
+    Use `mergeStyles()` and `styleWhen()` for composable, conditional styling logic.
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Theming" icon="paintbrush" href="/guides/theming">
+    Customize your app's theme and color palette
+  </Card>
+  <Card title="Layout" icon="layout" href="/guides/layout">
+    Master flexbox and grid layout systems
+  </Card>
+</CardGroup>

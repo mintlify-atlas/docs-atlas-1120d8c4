@@ -1,0 +1,438 @@
+---
+title: "Select"
+description: "Dropdown selection widget with keyboard navigation and design system integration"
+---
+
+## Overview
+
+The `select` widget creates a focusable dropdown for selecting from a list of options. It displays the current selection and opens a menu when activated with keyboard (Arrow Down/Up, Enter) or mouse.
+
+## Basic Usage
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.select({
+  id: "country",
+  value: state.country,
+  options: [
+    { value: "us", label: "United States" },
+    { value: "uk", label: "United Kingdom" },
+    { value: "ca", label: "Canada" }
+  ],
+  onChange: (value) => app.update({ country: value })
+})
+```
+
+## Props
+
+<ParamField path="id" type="string" required>
+  Unique identifier for focus routing. Required for all selects.
+</ParamField>
+
+<ParamField path="value" type="string" required>
+  Currently selected value. Must be controlled by your application state.
+</ParamField>
+
+<ParamField path="options" type="readonly SelectOption[]" required>
+  Available options. Each option has:
+  - `value: string` - Option value used in form state
+  - `label: string` - Display label for the option
+  - `disabled?: boolean` - Whether this option is disabled
+</ParamField>
+
+<ParamField path="onChange" type="(value: string) => void">
+  Callback invoked when selection changes.
+</ParamField>
+
+<ParamField path="placeholder" type="string" default="Select...">
+  Placeholder text when no value is selected (empty string).
+</ParamField>
+
+<ParamField path="disabled" type="boolean" default="false">
+  When true, select cannot be focused or changed.
+</ParamField>
+
+<ParamField path="error" type="boolean" default="false">
+  When true, shows select in error state.
+</ParamField>
+
+<ParamField path="focusable" type="boolean" default="true">
+  When false, opt out of Tab focus order while keeping id-based routing available.
+</ParamField>
+
+<ParamField path="accessibleLabel" type="string">
+  Optional semantic label for accessibility and debug announcements.
+</ParamField>
+
+### Styling Props
+
+<ParamField path="dsVariant" type="WidgetVariant">
+  Design system visual variant (reserved for future select recipes).
+</ParamField>
+
+<ParamField path="dsTone" type="WidgetTone">
+  Design system color tone (reserved for future select recipes).
+</ParamField>
+
+<ParamField path="dsSize" type="WidgetSize" default="md">
+  Design system size preset: `"xs"`, `"sm"`, `"md"`, `"lg"`, `"xl"`.
+</ParamField>
+
+<ParamField path="focusConfig" type="FocusConfig">
+  Optional focus appearance configuration for custom focus indicators.
+</ParamField>
+
+## Event Handling
+
+Selects use a controlled pattern. You must manage the selected value in state:
+
+```typescript
+ui.select({
+  id: "language",
+  value: state.language,
+  options: [
+    { value: "en", label: "English" },
+    { value: "es", label: "Spanish" },
+    { value: "fr", label: "French" },
+    { value: "de", label: "German" }
+  ],
+  onChange: (value) => {
+    app.update({ language: value });
+    
+    // Optionally trigger side effects
+    loadTranslations(value);
+  }
+})
+```
+
+## Design System Integration
+
+When the active theme provides semantic color tokens, selects automatically use design system recipes with:
+- Border styling
+- Elevated background
+- Focus state colors
+- Size-based padding
+
+**Note**: A framed border requires at least 3 rows of height. At 1 row, recipe text/background styling is still applied but without a box border.
+
+```typescript
+// Standard select (uses recipe if theme supports it)
+ui.select({
+  id: "size",
+  value: state.size,
+  options: [
+    { value: "small", label: "Small" },
+    { value: "medium", label: "Medium" },
+    { value: "large", label: "Large" }
+  ]
+})
+
+// Large select
+ui.select({
+  id: "priority",
+  value: state.priority,
+  dsSize: "lg",
+  options: [
+    { value: "low", label: "Low" },
+    { value: "high", label: "High" }
+  ]
+})
+```
+
+## Form Integration
+
+Selects are typically wrapped with `ui.field()` for labels and error messages:
+
+```typescript
+ui.form([
+  ui.field({
+    label: "Country",
+    required: true,
+    error: state.errors.country,
+    children: ui.select({
+      id: "country",
+      value: state.country,
+      placeholder: "Select a country",
+      options: [
+        { value: "us", label: "United States" },
+        { value: "uk", label: "United Kingdom" },
+        { value: "ca", label: "Canada" },
+        { value: "au", label: "Australia" }
+      ],
+      onChange: (value) => app.update({ country: value }),
+      error: Boolean(state.errors.country)
+    })
+  }),
+  ui.actions([
+    ui.button("submit", "Submit", { intent: "primary" })
+  ])
+])
+```
+
+## Validation States
+
+### Error State
+
+```typescript
+ui.field({
+  label: "Category",
+  required: true,
+  error: state.submitted && !state.category
+    ? "Please select a category"
+    : undefined,
+  children: ui.select({
+    id: "category",
+    value: state.category,
+    placeholder: "Choose category",
+    options: [
+      { value: "tech", label: "Technology" },
+      { value: "business", label: "Business" },
+      { value: "science", label: "Science" }
+    ],
+    onChange: (value) => app.update({ category: value }),
+    error: state.submitted && !state.category
+  })
+})
+```
+
+### Disabled Options
+
+```typescript
+ui.select({
+  id: "tier",
+  value: state.tier,
+  options: [
+    { value: "free", label: "Free" },
+    { value: "pro", label: "Pro" },
+    { value: "enterprise", label: "Enterprise (Contact Sales)", disabled: true }
+  ]
+})
+```
+
+### Disabled Select
+
+```typescript
+ui.select({
+  id: "locked",
+  value: state.value,
+  disabled: true,
+  options: [
+    { value: "a", label: "Option A" },
+    { value: "b", label: "Option B" }
+  ]
+})
+```
+
+## Examples
+
+### User Preferences
+
+```typescript
+ui.panel("Settings", [
+  ui.field({
+    label: "Theme",
+    children: ui.select({
+      id: "theme",
+      value: state.theme,
+      options: [
+        { value: "light", label: "Light" },
+        { value: "dark", label: "Dark" },
+        { value: "auto", label: "Auto (System)" }
+      ],
+      onChange: (value) => {
+        app.update({ theme: value });
+        applyTheme(value);
+      }
+    })
+  }),
+  ui.field({
+    label: "Language",
+    children: ui.select({
+      id: "language",
+      value: state.language,
+      options: [
+        { value: "en", label: "English" },
+        { value: "es", label: "Español" },
+        { value: "fr", label: "Français" },
+        { value: "de", label: "Deutsch" },
+        { value: "ja", label: "日本語" }
+      ],
+      onChange: (value) => {
+        app.update({ language: value });
+        loadTranslations(value);
+      }
+    })
+  })
+])
+```
+
+### Dependent Selects
+
+```typescript
+ui.form([
+  ui.field({
+    label: "Country",
+    children: ui.select({
+      id: "country",
+      value: state.country,
+      options: [
+        { value: "us", label: "United States" },
+        { value: "uk", label: "United Kingdom" },
+        { value: "ca", label: "Canada" }
+      ],
+      onChange: (value) => {
+        app.update({
+          country: value,
+          state: "", // Reset dependent field
+          states: getStatesForCountry(value)
+        });
+      }
+    })
+  }),
+  ui.field({
+    label: "State/Province",
+    children: ui.select({
+      id: "state",
+      value: state.state,
+      disabled: !state.country,
+      placeholder: state.country ? "Select state" : "Select country first",
+      options: state.states,
+      onChange: (value) => app.update({ state: value })
+    })
+  })
+])
+```
+
+### Filter Dropdown
+
+```typescript
+ui.row({ gap: 1, items: "center" }, [
+  ui.text("Show:"),
+  ui.select({
+    id: "filter",
+    value: state.filter,
+    dsSize: "sm",
+    options: [
+      { value: "all", label: "All Items" },
+      { value: "active", label: "Active" },
+      { value: "completed", label: "Completed" },
+      { value: "archived", label: "Archived" }
+    ],
+    onChange: (value) => {
+      app.update({ filter: value });
+      refreshList(value);
+    }
+  }),
+  ui.spacer({ flex: 1 }),
+  ui.text(`${state.filteredItems.length} items`)
+])
+```
+
+### Sort Control
+
+```typescript
+ui.row({ gap: 1, items: "center", justify: "end" }, [
+  ui.text("Sort by:", { dim: true }),
+  ui.select({
+    id: "sort",
+    value: state.sortBy,
+    dsSize: "sm",
+    options: [
+      { value: "date-desc", label: "Newest First" },
+      { value: "date-asc", label: "Oldest First" },
+      { value: "name-asc", label: "Name (A-Z)" },
+      { value: "name-desc", label: "Name (Z-A)" },
+      { value: "size-desc", label: "Largest First" },
+      { value: "size-asc", label: "Smallest First" }
+    ],
+    onChange: (value) => {
+      app.update({ sortBy: value });
+      sortItems(value);
+    }
+  })
+])
+```
+
+### Quantity Selector
+
+```typescript
+ui.row({ gap: 1, items: "center" }, [
+  ui.text("Quantity:"),
+  ui.select({
+    id: "quantity",
+    value: String(state.quantity),
+    options: [
+      { value: "1", label: "1" },
+      { value: "2", label: "2" },
+      { value: "3", label: "3" },
+      { value: "5", label: "5" },
+      { value: "10", label: "10" }
+    ],
+    onChange: (value) => {
+      const qty = Number.parseInt(value, 10);
+      app.update({ quantity: qty });
+    }
+  }),
+  ui.spacer({ flex: 1 }),
+  ui.text(`Total: $${(state.price * state.quantity).toFixed(2)}`)
+])
+```
+
+## Keyboard Navigation
+
+When focused, selects support:
+- **Arrow Down** - Open dropdown and navigate to next option
+- **Arrow Up** - Open dropdown and navigate to previous option
+- **Enter/Space** - Toggle dropdown open/closed
+- **Escape** - Close dropdown
+- **Home** - Jump to first option (when open)
+- **End** - Jump to last option (when open)
+- **Tab** - Close dropdown and move to next focusable element
+- **Shift+Tab** - Close dropdown and move to previous focusable element
+
+Navigation automatically skips disabled options.
+
+## Visual States
+
+| State | Description |
+|-------|-------------|
+| Closed | Shows selected value or placeholder with `▼` indicator |
+| Open | Shows dropdown menu with options |
+| Selected | Current option highlighted in menu |
+| Disabled | Cannot be interacted with |
+| Error | Shows error styling (if theme supports it) |
+
+## Empty Value
+
+To allow "no selection", include an empty value option:
+
+```typescript
+ui.select({
+  id: "optional",
+  value: state.value,
+  placeholder: "None",
+  options: [
+    { value: "", label: "None" },
+    { value: "a", label: "Option A" },
+    { value: "b", label: "Option B" }
+  ]
+})
+```
+
+## Accessibility
+
+- Selects require a unique `id` for focus routing
+- Use `accessibleLabel` for descriptive announcements
+- Wrap with `ui.field()` to associate labels with selects
+- Provide clear option labels
+- Use `placeholder` for empty state guidance
+- Disabled selects are not focusable or changeable
+- Focus indicators are shown when navigating with keyboard
+
+## Related Widgets
+
+- [Radio Group](/widgets/radio-group) - For visible mutually exclusive options
+- [Input](/widgets/input) - For text input
+- [Field](/widgets/field) - For wrapping form inputs with labels
+- [Checkbox](/widgets/checkbox) - For boolean inputs

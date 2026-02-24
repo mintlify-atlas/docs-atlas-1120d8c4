@@ -1,0 +1,252 @@
+---
+title: "@rezi-ui/native"
+description: "Native addon for Rezi (Rust + napi-rs)"
+---
+
+## Overview
+
+`@rezi-ui/native` is the native addon layer that provides Rust-based rendering engine bindings for Rezi. It uses:
+
+- **napi-rs** for Node.js N-API bindings
+- **Zireael engine** for high-performance terminal rendering
+- Pre-built binaries for major platforms
+
+<Warning>
+  This package is an internal dependency of `@rezi-ui/node`. You typically don't need to install or import it directly.
+</Warning>
+
+## Installation
+
+```bash
+npm install @rezi-ui/native
+```
+
+Pre-built binaries are automatically downloaded for:
+
+- **Linux**: x64, arm64, armv7
+- **macOS**: x64 (Intel), arm64 (Apple Silicon)
+- **Windows**: x64
+
+## What It Provides
+
+The native addon exposes low-level engine functions:
+
+### Engine Initialization
+
+- Terminal capability detection
+- Raw mode entry/exit
+- Viewport size queries
+
+### Frame Rendering
+
+- ZRDL (Zireael Drawlist) binary protocol parsing
+- SGR sequence generation
+- Cursor positioning
+- Synchronized output (DEC SM 2026)
+
+### Event Handling
+
+- Key event parsing (ANSI escape sequences)
+- Mouse event parsing (SGR 1006 protocol)
+- ZREV (Zireael Event) binary batch encoding
+
+### Platform I/O
+
+- Non-blocking terminal reads
+- Signal handling (SIGWINCH for resize)
+- Output backpressure management
+
+## Architecture
+
+The native addon is used by `@rezi-ui/node` in a worker thread architecture:
+
+```
+[Main Thread]              [Worker Thread]
+  App Runtime      <---->    Native Engine
+  (TypeScript)               (Rust + napi-rs)
+       |                            |
+       | ZRDL frames                | Terminal I/O
+       | ZREV events                | (stdin/stdout)
+       |                            |
+    Drawlist                   Zireael
+    Builder                    Engine
+```
+
+## Building from Source
+
+<Note>
+  Only needed if pre-built binaries aren't available for your platform.
+</Note>
+
+### Prerequisites
+
+- **Rust**: 1.70 or higher
+- **Node.js**: 18 or higher
+- **Build tools**:
+  - Linux: `gcc`, `make`
+  - macOS: Xcode Command Line Tools
+  - Windows: Visual Studio Build Tools
+
+### Build Steps
+
+```bash
+cd packages/native
+npm run build:native
+```
+
+This runs:
+
+1. `cargo build --release` for the Rust addon
+2. `napi-rs` to generate Node.js bindings
+3. Copies `.node` binary to package root
+
+## Platform Support
+
+### Tier 1 (Pre-built + Tested)
+
+- Linux x64
+- macOS x64 (Intel)
+- macOS arm64 (Apple Silicon)
+
+### Tier 2 (Pre-built)
+
+- Linux arm64
+- Linux armv7
+- Windows x64
+
+### Tier 3 (Build from Source)
+
+- FreeBSD
+- Other Unix-like systems
+
+## Version Compatibility
+
+The native addon exposes an ABI (Application Binary Interface) version:
+
+```typescript
+import { ZR_ENGINE_ABI } from "@rezi-ui/core";
+
+console.log(ZR_ENGINE_ABI);
+// { major: 0, minor: 1, patch: 0 }
+```
+
+**Compatibility rules**:
+
+- **Major version mismatch**: Fatal error, cannot run
+- **Minor version mismatch**: Warning, may have missing features
+- **Patch version mismatch**: No warning, fully compatible
+
+## Debugging
+
+### Enable Native Logs
+
+```bash
+RUST_LOG=rezi_ui_native=debug node dist/main.js
+```
+
+### Check Binary Loading
+
+```typescript
+import { createNodeBackend } from "@rezi-ui/node";
+
+try {
+  const backend = createNodeBackend();
+  console.log("Native addon loaded successfully");
+} catch (err) {
+  console.error("Failed to load native addon:", err);
+}
+```
+
+### Smoke Test
+
+```bash
+cd packages/native
+node scripts/smoke.mjs
+```
+
+## Engine Capabilities
+
+The Zireael engine provides:
+
+### ZRDL Protocol
+
+- **v1**: Legacy protocol (deprecated)
+- **v3**: Stable protocol with shadow and scrollbar support
+- **v5**: Latest protocol with additional optimizations
+
+### Terminal Features
+
+- **Color modes**: 16-color, 256-color, 24-bit RGB
+- **Mouse protocols**: SGR 1006, UTF-8 extended
+- **Cursor shapes**: Block, underline, bar
+- **Synchronized output**: DEC SM 2026 for flicker-free rendering
+- **Hyperlinks**: OSC 8 terminal hyperlinks
+- **Clipboard**: OSC 52 clipboard access
+
+### Performance
+
+- Zero-copy frame submission via SharedArrayBuffer (optional)
+- Vectorized text measurement
+- Incremental damage tracking
+- Backpressure-aware output
+
+## Security
+
+The native addon is sandboxed by Node.js N-API:
+
+- No direct file system access (except stdin/stdout/stderr)
+- No network access
+- No arbitrary code execution
+- Memory-safe Rust implementation
+
+## Troubleshooting
+
+### "Cannot find module '@rezi-ui/native'"
+
+**Cause**: Pre-built binary not available for your platform.
+
+**Solution**: Build from source:
+
+```bash
+cd node_modules/@rezi-ui/native
+npm run build:native
+```
+
+### "Engine ABI version mismatch"
+
+**Cause**: `@rezi-ui/core` and `@rezi-ui/native` versions don't match.
+
+**Solution**: Ensure all `@rezi-ui/*` packages have the same version:
+
+```bash
+npm ls @rezi-ui/core @rezi-ui/node @rezi-ui/native
+```
+
+### "Symbol not found" on macOS
+
+**Cause**: Binary built for wrong architecture.
+
+**Solution**: Rebuild for your architecture:
+
+```bash
+cd node_modules/@rezi-ui/native
+rm *.node
+npm run build:native
+```
+
+## Related Documentation
+
+<CardGroup cols={2}>
+  <Card title="@rezi-ui/node" icon="node-js" href="/api/node">
+    Node.js backend using native addon
+  </Card>
+  <Card title="Custom Backends" icon="gears" href="/api/custom-backends">
+    Implementing custom backends
+  </Card>
+  <Card title="Architecture" icon="diagram-project" href="/advanced/architecture">
+    Worker thread architecture
+  </Card>
+  <Card title="ZRDL Protocol" icon="file-code" href="/protocol/zrdl">
+    Drawlist binary format
+  </Card>
+</CardGroup>

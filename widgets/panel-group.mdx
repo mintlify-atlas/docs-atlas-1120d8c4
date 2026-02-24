@@ -1,0 +1,379 @@
+---
+title: Panel Group
+description: Container for resizable panels
+---
+
+The Panel Group widget is a container for resizable panels, working together with the Split Pane widget to create flexible multi-pane layouts.
+
+## Basic Usage
+
+```typescript
+import { ui } from "@rezi-ui/core";
+import { defineWidget } from "@rezi-ui/core";
+
+const MyPanelGroup = defineWidget((ctx) => {
+  return ui.panelGroup(
+    {
+      id: ctx.id("panels"),
+      direction: "horizontal",
+    },
+    [
+      ui.resizablePanel({ defaultSize: 30, minSize: 20 }, [
+        ui.text("Left panel"),
+      ]),
+      ui.resizablePanel({ defaultSize: 70, minSize: 40 }, [
+        ui.text("Right panel"),
+      ]),
+    ]
+  );
+});
+```
+
+## Props
+
+<ParamField path="id" type="string" required>
+  Widget identifier. Required for interaction.
+</ParamField>
+
+<ParamField path="direction" type="horizontal | vertical" required>
+  Layout direction:
+  - `"horizontal"` - Panels arranged left to right
+  - `"vertical"` - Panels arranged top to bottom
+</ParamField>
+
+<ParamField path="key" type="string">
+  Reconciliation key.
+</ParamField>
+
+<ParamField path="accessibleLabel" type="string">
+  Accessibility label for screen readers.
+</ParamField>
+
+## Resizable Panel Props
+
+Child panels created with `ui.resizablePanel()` support:
+
+<ParamField path="defaultSize" type="number">
+  Initial size (percentage or cells, depending on parent).
+</ParamField>
+
+<ParamField path="minSize" type="number">
+  Minimum panel size in cells.
+</ParamField>
+
+<ParamField path="maxSize" type="number">
+  Maximum panel size in cells.
+</ParamField>
+
+<ParamField path="collapsible" type="boolean" default="false">
+  Whether panel can collapse to minimum size.
+</ParamField>
+
+## Examples
+
+### Two-Panel Layout
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+const TwoPanelLayout = defineWidget((ctx) => {
+  return ui.panelGroup(
+    {
+      id: ctx.id("panels"),
+      direction: "horizontal",
+    },
+    [
+      ui.resizablePanel({ defaultSize: 25, minSize: 15 }, [
+        ui.box({ border: "single", p: 1 }, [
+          ui.text("Sidebar", { variant: "heading" }),
+          ui.text("Navigation content"),
+        ]),
+      ]),
+      
+      ui.resizablePanel({ defaultSize: 75, minSize: 40 }, [
+        ui.box({ border: "single", p: 1 }, [
+          ui.text("Main Content", { variant: "heading" }),
+          ui.text("Primary content area"),
+        ]),
+      ]),
+    ]
+  );
+});
+```
+
+### Three-Panel Layout
+
+```typescript
+const ThreePanelLayout = defineWidget((ctx) => {
+  return ui.panelGroup(
+    {
+      id: ctx.id("panels"),
+      direction: "horizontal",
+    },
+    [
+      // Left sidebar
+      ui.resizablePanel({ defaultSize: 20, minSize: 15 }, [
+        ui.panel("Files", [ui.text("File tree")]),
+      ]),
+      
+      // Main content
+      ui.resizablePanel({ defaultSize: 60, minSize: 30 }, [
+        ui.panel("Editor", [ui.text("Code editor")]),
+      ]),
+      
+      // Right sidebar
+      ui.resizablePanel({ defaultSize: 20, minSize: 15 }, [
+        ui.panel("Info", [ui.text("Properties")]),
+      ]),
+    ]
+  );
+});
+```
+
+### Vertical Split
+
+```typescript
+const VerticalPanels = defineWidget((ctx) => {
+  return ui.panelGroup(
+    {
+      id: ctx.id("vertical"),
+      direction: "vertical",
+    },
+    [
+      ui.resizablePanel({ defaultSize: 60, minSize: 20 }, [
+        ui.box({ border: "single" }, [ui.text("Top panel")]),
+      ]),
+      
+      ui.resizablePanel({ defaultSize: 40, minSize: 10 }, [
+        ui.box({ border: "single" }, [ui.text("Bottom panel")]),
+      ]),
+    ]
+  );
+});
+```
+
+### Collapsible Sidebar
+
+```typescript
+const CollapsibleSidebar = defineWidget((ctx) => {
+  return ui.panelGroup(
+    {
+      id: ctx.id("collapsible"),
+      direction: "horizontal",
+    },
+    [
+      ui.resizablePanel({
+        defaultSize: 25,
+        minSize: 5,
+        collapsible: true,
+      }, [
+        ui.column({ gap: 1, p: 1 }, [
+          ui.text("Sidebar", { variant: "heading" }),
+          ui.button({ id: "btn-1", label: "Option 1" }),
+          ui.button({ id: "btn-2", label: "Option 2" }),
+        ]),
+      ]),
+      
+      ui.resizablePanel({ defaultSize: 75, minSize: 40 }, [
+        ui.box({ border: "single", p: 1 }, [
+          ui.text("Main content area"),
+        ]),
+      ]),
+    ]
+  );
+});
+```
+
+### Nested Panel Groups
+
+```typescript
+const NestedPanels = defineWidget((ctx) => {
+  return ui.panelGroup(
+    {
+      id: ctx.id("outer"),
+      direction: "horizontal",
+    },
+    [
+      // Left sidebar
+      ui.resizablePanel({ defaultSize: 20, minSize: 15 }, [
+        ui.panel("Sidebar", [ui.text("Navigation")]),
+      ]),
+      
+      // Right side: nested vertical panels
+      ui.resizablePanel({ defaultSize: 80, minSize: 40 }, [
+        ui.panelGroup(
+          {
+            id: ctx.id("inner"),
+            direction: "vertical",
+          },
+          [
+            ui.resizablePanel({ defaultSize: 70, minSize: 30 }, [
+              ui.panel("Main", [ui.text("Editor")]),
+            ]),
+            
+            ui.resizablePanel({ defaultSize: 30, minSize: 10 }, [
+              ui.panel("Console", [ui.text("Output")]),
+            ]),
+          ]
+        ),
+      ]),
+    ]
+  );
+});
+```
+
+### IDE-Style Layout
+
+```typescript
+const IDELayout = defineWidget((ctx) => {
+  return ui.column({ gap: 0 }, [
+    // Top bar
+    ui.box({ border: "single", p: 1 }, [
+      ui.text("Project Explorer", { variant: "heading" }),
+    ]),
+    
+    // Main panel group
+    ui.panelGroup(
+      {
+        id: ctx.id("main"),
+        direction: "horizontal",
+      },
+      [
+        // Left: File tree
+        ui.resizablePanel({ defaultSize: 20, minSize: 15, collapsible: true }, [
+          ui.column({ gap: 0, p: 1 }, [
+            ui.text("Files", { style: { bold: true } }),
+            ui.text("src/"),
+            ui.text("  index.ts"),
+            ui.text("  app.ts"),
+          ]),
+        ]),
+        
+        // Center: Editor + console
+        ui.resizablePanel({ defaultSize: 60, minSize: 40 }, [
+          ui.panelGroup(
+            {
+              id: ctx.id("center"),
+              direction: "vertical",
+            },
+            [
+              ui.resizablePanel({ defaultSize: 70, minSize: 30 }, [
+                ui.box({ border: "single", p: 1 }, [
+                  ui.text("index.ts", { style: { bold: true } }),
+                  ui.text("// Code editor"),
+                ]),
+              ]),
+              
+              ui.resizablePanel({ defaultSize: 30, minSize: 10 }, [
+                ui.box({ border: "single", p: 1 }, [
+                  ui.text("Console", { style: { bold: true } }),
+                  ui.text("> Ready"),
+                ]),
+              ]),
+            ]
+          ),
+        ]),
+        
+        // Right: Properties
+        ui.resizablePanel({ defaultSize: 20, minSize: 15, collapsible: true }, [
+          ui.column({ gap: 1, p: 1 }, [
+            ui.text("Properties", { style: { bold: true } }),
+            ui.text("File: index.ts"),
+            ui.text("Lines: 42"),
+          ]),
+        ]),
+      ]
+    ),
+  ]);
+});
+```
+
+### Dashboard with Collapsible Panels
+
+```typescript
+const DashboardPanels = defineWidget((ctx) => {
+  return ui.panelGroup(
+    {
+      id: ctx.id("dashboard"),
+      direction: "horizontal",
+    },
+    [
+      // Metrics sidebar
+      ui.resizablePanel({
+        defaultSize: 25,
+        minSize: 10,
+        maxSize: 40,
+        collapsible: true,
+      }, [
+        ui.column({ gap: 1, p: 1 }, [
+          ui.text("Metrics", { variant: "heading" }),
+          ui.gauge(0.75, { label: "CPU" }),
+          ui.gauge(0.45, { label: "Memory" }),
+          ui.gauge(0.60, { label: "Disk" }),
+        ]),
+      ]),
+      
+      // Main charts
+      ui.resizablePanel({ defaultSize: 75, minSize: 50 }, [
+        ui.column({ gap: 2, p: 1 }, [
+          ui.text("Dashboard", { variant: "heading" }),
+          ui.lineChart({
+            id: "chart",
+            width: 60,
+            height: 20,
+            series: [{
+              data: [10, 20, 15, 30, 25],
+              color: "#3b82f6",
+              label: "Requests",
+            }],
+          }),
+        ]),
+      ]),
+    ]
+  );
+});
+```
+
+## Panel Group vs Split Pane
+
+| Feature | Panel Group | Split Pane |
+|---------|-------------|------------|
+| State management | Automatic | Manual (controlled) |
+| Child API | `ui.resizablePanel()` | Direct children |
+| Nesting | Easy | Requires state |
+| Flexibility | Declarative | Full control |
+
+**Use Panel Group when:**
+- You want automatic state management
+- Building declarative layouts
+- Nesting multiple resizable sections
+
+**Use Split Pane when:**
+- You need precise control over sizes
+- Persisting layout state
+- Custom resize logic
+
+## Size Constraints
+
+Panels respect constraints during resize:
+
+```typescript
+ui.resizablePanel({
+  defaultSize: 30,
+  minSize: 15,  // Won't shrink below 15 cells
+  maxSize: 60,  // Won't grow beyond 60 cells
+}, [content]);
+```
+
+## Performance
+
+- Layout is computed once per resize
+- Divider dragging is smooth and responsive
+- Nested panel groups perform well (tested up to 4 levels)
+
+## See Also
+
+- [Split Pane](/widgets/split-pane) - Manual resizable panels
+- [Grid](/widgets/grid) - 2D grid layout
+- [Row](/widgets/row) - Horizontal stack
+- [Column](/widgets/column) - Vertical stack

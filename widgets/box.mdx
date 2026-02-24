@@ -1,0 +1,436 @@
+---
+title: "Box"
+description: "Container widget with borders, padding, and layout control"
+---
+
+## Overview
+
+The Box widget is a versatile container that provides borders, padding, shadows, and layout control. It's the primary building block for creating structured layouts.
+
+## Basic Usage
+
+<CodeGroup>
+```typescript ui.box() API
+import { ui } from '@rezi-ui/core';
+
+// Simple box with border
+ui.box({ border: 'rounded' }, [
+  ui.text('Content inside box')
+])
+
+// Box with padding and title
+ui.box({ border: 'single', title: 'Settings', p: 1 }, [
+  ui.text('Configuration options')
+])
+
+// Elevated card
+ui.box({ preset: 'elevated' }, [
+  ui.text('Card content')
+])
+```
+
+```tsx JSX
+import { Box, Text } from '@rezi-ui/jsx';
+
+// Simple box with border
+<Box border="rounded">
+  <Text>Content inside box</Text>
+</Box>
+
+// Box with padding and title
+<Box border="single" title="Settings" p={1}>
+  <Text>Configuration options</Text>
+</Box>
+
+// Elevated card
+<Box preset="elevated">
+  <Text>Card content</Text>
+</Box>
+```
+</CodeGroup>
+
+## Props
+
+<ParamField path="border" type="BorderStyle" default="'none'">
+  Border style for the box.
+  
+  - `"none"` - No border
+  - `"single"` - Single-line border
+  - `"double"` - Double-line border
+  - `"rounded"` - Rounded corners
+  - `"heavy"` - Heavy/thick border
+  - `"dashed"` - Dashed border
+  - `"heavy-dashed"` - Heavy dashed border
+</ParamField>
+
+<ParamField path="preset" type="BoxPreset">
+  Style preset applied before explicit props.
+  
+  - `"card"` - Rounded border with padding
+  - `"surface"` - Padding only, no border
+  - `"well"` - Single border with padding
+  - `"elevated"` - Rounded border with shadow and padding
+</ParamField>
+
+<ParamField path="title" type="string">
+  Optional title rendered in the top border.
+</ParamField>
+
+<ParamField path="titleAlign" type="'left' | 'center' | 'right'" default="'left'">
+  Alignment of title within the top border.
+</ParamField>
+
+<ParamField path="p" type="SpacingValue">
+  Padding on all sides. Accepts number (cells) or spacing key (`"xs"`, `"sm"`, `"md"`, `"lg"`, `"xl"`, `"2xl"`).
+</ParamField>
+
+<ParamField path="px" type="SpacingValue">
+  Horizontal padding (left and right).
+</ParamField>
+
+<ParamField path="py" type="SpacingValue">
+  Vertical padding (top and bottom).
+</ParamField>
+
+<ParamField path="pt" type="SpacingValue">
+  Top padding.
+</ParamField>
+
+<ParamField path="pr" type="SpacingValue">
+  Right padding.
+</ParamField>
+
+<ParamField path="pb" type="SpacingValue">
+  Bottom padding.
+</ParamField>
+
+<ParamField path="pl" type="SpacingValue">
+  Left padding.
+</ParamField>
+
+<ParamField path="gap" type="SpacingValue">
+  Gap between box children when laid out by the synthetic inner column.
+</ParamField>
+
+<ParamField path="shadow" type="boolean | BoxShadow">
+  Enable shadow effect for depth. Pass `true` for default shadow, or an object for custom configuration.
+  
+  <Expandable title="BoxShadow Properties">
+    - `offsetX` - Horizontal offset (default: 1)
+    - `offsetY` - Vertical offset (default: 1)
+    - `density` - Shadow density: `"light"`, `"medium"`, `"dense"` (default: `"light"`)
+  </Expandable>
+</ParamField>
+
+<ParamField path="style" type="TextStyle">
+  Style applied to the box surface (for borders and background fill). When `bg` is provided, the renderer fills the box rect.
+</ParamField>
+
+<ParamField path="borderStyle" type="TextStyle">
+  Style applied only to the box border and title. When set, decouples border appearance from child content.
+</ParamField>
+
+<ParamField path="inheritStyle" type="TextStyle">
+  Style inherited by descendants when they do not override their own style. Unlike `style`, this does not force container background fill.
+</ParamField>
+
+<ParamField path="borderTop" type="boolean">
+  Render top border side.
+</ParamField>
+
+<ParamField path="borderRight" type="boolean">
+  Render right border side.
+</ParamField>
+
+<ParamField path="borderBottom" type="boolean">
+  Render bottom border side.
+</ParamField>
+
+<ParamField path="borderLeft" type="boolean">
+  Render left border side.
+</ParamField>
+
+<ParamField path="overflow" type="'visible' | 'hidden' | 'scroll'" default="'visible'">
+  Child overflow behavior.
+</ParamField>
+
+<ParamField path="scrollX" type="number">
+  Horizontal scroll offset in cells (when overflow is `"scroll"`).
+</ParamField>
+
+<ParamField path="scrollY" type="number">
+  Vertical scroll offset in cells (when overflow is `"scroll"`).
+</ParamField>
+
+<ParamField path="scrollbarVariant" type="'minimal' | 'classic' | 'modern' | 'dots' | 'thin'" default="'minimal'">
+  Scrollbar glyph variant for overflow: `"scroll"`.
+</ParamField>
+
+<ParamField path="scrollbarStyle" type="TextStyle">
+  Optional style override for rendered scrollbars.
+</ParamField>
+
+<ParamField path="opacity" type="number" default="1">
+  Surface opacity in [0..1].
+</ParamField>
+
+<ParamField path="theme" type="ScopedThemeOverride">
+  Optional scoped theme override for this container subtree.
+</ParamField>
+
+<ParamField path="transition" type="TransitionSpec">
+  Optional declarative transition settings for this container.
+</ParamField>
+
+<ParamField path="exitTransition" type="TransitionSpec">
+  Optional declarative exit transition before unmount removal.
+</ParamField>
+
+<ParamField path="id" type="string">
+  Optional unique identifier.
+</ParamField>
+
+<ParamField path="key" type="string">
+  Optional reconciliation key.
+</ParamField>
+
+### Layout Constraints
+
+Box also accepts all layout constraint props:
+
+- `width`, `height` - Fixed or percentage dimensions
+- `minWidth`, `minHeight` - Minimum constraints
+- `maxWidth`, `maxHeight` - Maximum constraints  
+- `flex`, `flexShrink`, `flexBasis` - Flex properties
+- `alignSelf` - Cross-axis alignment override
+
+## Border Styles
+
+Box supports multiple border styles:
+
+```typescript
+// Single-line border
+ui.box({ border: 'single' }, [ui.text('Content')])
+
+// Rounded corners
+ui.box({ border: 'rounded' }, [ui.text('Content')])
+
+// Double-line border
+ui.box({ border: 'double' }, [ui.text('Content')])
+
+// Heavy border
+ui.box({ border: 'heavy' }, [ui.text('Content')])
+
+// Dashed border
+ui.box({ border: 'dashed' }, [ui.text('Content')])
+```
+
+## Presets
+
+Use presets for common box patterns:
+
+```typescript
+// Card - rounded border with padding
+ui.box({ preset: 'card' }, [ui.text('Card content')])
+
+// Surface - padding only, no border
+ui.box({ preset: 'surface' }, [ui.text('Surface content')])
+
+// Well - single border with padding
+ui.box({ preset: 'well' }, [ui.text('Well content')])
+
+// Elevated - rounded border with shadow
+ui.box({ preset: 'elevated' }, [ui.text('Elevated card')])
+```
+
+<Note>
+  Preset props are applied before explicit props, so you can override preset values.
+</Note>
+
+## Padding
+
+Control spacing inside the box:
+
+```typescript
+// All sides
+ui.box({ p: 2 }, [ui.text('Content')])
+
+// Horizontal and vertical
+ui.box({ px: 2, py: 1 }, [ui.text('Content')])
+
+// Individual sides
+ui.box({ pt: 1, pr: 2, pb: 1, pl: 2 }, [ui.text('Content')])
+
+// Using spacing scale
+ui.box({ p: 'lg' }, [ui.text('Content')])
+```
+
+## Shadows
+
+Add depth with shadows:
+
+```typescript
+// Default shadow
+ui.box({ border: 'rounded', shadow: true }, [
+  ui.text('Card with shadow')
+])
+
+// Custom shadow
+ui.box({
+  border: 'rounded',
+  shadow: { offsetX: 2, offsetY: 2, density: 'medium' }
+}, [
+  ui.text('Custom shadow')
+])
+```
+
+## Titles
+
+Add titles to bordered boxes:
+
+```typescript
+// Left-aligned title (default)
+ui.box({ border: 'single', title: 'Settings' }, [
+  ui.text('Configuration')
+])
+
+// Centered title
+ui.box({ border: 'rounded', title: 'Dialog', titleAlign: 'center' }, [
+  ui.text('Message')
+])
+
+// Right-aligned title
+ui.box({ border: 'single', title: 'Info', titleAlign: 'right' }, [
+  ui.text('Details')
+])
+```
+
+## Partial Borders
+
+Render individual border sides:
+
+```typescript
+// Bottom border only
+ui.box({
+  border: 'single',
+  borderTop: false,
+  borderLeft: false,
+  borderRight: false,
+  borderBottom: true
+}, [
+  ui.text('Content with bottom border')
+])
+```
+
+## Scrollable Content
+
+```typescript
+ui.box({
+  border: 'rounded',
+  height: 10,
+  overflow: 'scroll',
+  scrollY: state.scrollOffset
+}, [
+  ui.column({ gap: 0 }, longContentList)
+])
+```
+
+## Layout Container
+
+Box automatically creates an inner column for multiple children:
+
+```typescript
+ui.box({ border: 'rounded', p: 1, gap: 1 }, [
+  ui.text('Item 1'),
+  ui.text('Item 2'),
+  ui.text('Item 3')
+])
+// Children are laid out vertically with gap: 1
+```
+
+## Styling Examples
+
+### Colored Borders
+
+```typescript
+ui.box({
+  border: 'rounded',
+  borderStyle: { fg: { r: 0, g: 150, b: 255 } },
+  p: 1
+}, [
+  ui.text('Blue border')
+])
+```
+
+### Background Fill
+
+```typescript
+ui.box({
+  border: 'rounded',
+  style: { bg: { r: 30, g: 33, b: 41 } },
+  p: 1
+}, [
+  ui.text('Dark background')
+])
+```
+
+### Separate Border and Content Styles
+
+```typescript
+ui.box({
+  border: 'single',
+  borderStyle: { fg: { r: 100, g: 100, b: 100 } },
+  style: { bg: { r: 20, g: 20, b: 20 } },
+  p: 1
+}, [
+  ui.text('Gray border, dark background')
+])
+```
+
+## Common Patterns
+
+### Card Component
+
+```typescript
+ui.box({ preset: 'card', title: 'User Profile' }, [
+  ui.text('Name: John Doe'),
+  ui.text('Email: john@example.com'),
+  ui.text('Role: Developer')
+])
+```
+
+### Panel with Header
+
+```typescript
+ui.box({ border: 'rounded', p: 1, gap: 1 }, [
+  ui.text('Settings', { variant: 'heading' }),
+  ui.divider(),
+  ui.text('Option 1'),
+  ui.text('Option 2')
+])
+```
+
+### Modal-like Container
+
+```typescript
+ui.box({
+  preset: 'elevated',
+  width: 60,
+  minHeight: 20,
+  title: 'Confirm Action',
+  titleAlign: 'center'
+}, [
+  ui.text('Are you sure you want to continue?'),
+  ui.row({ gap: 1, justify: 'end' }, [
+    ui.button('cancel', 'Cancel'),
+    ui.button('confirm', 'Confirm')
+  ])
+])
+```
+
+## Related Widgets
+
+- [Row](/widgets/row-column) - Horizontal layout container
+- [Column](/widgets/row-column) - Vertical layout container
+- [Card](/widgets/card) - High-level card component
+- [Panel](/widgets/panel) - Titled panel helper

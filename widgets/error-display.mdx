@@ -1,0 +1,470 @@
+---
+title: "Error Display"
+description: "Comprehensive error display widget with stack traces and retry actions"
+---
+
+## Overview
+
+The Error Display widget provides a structured way to present error information to users, including error messages, stack traces, and retry actions. It's designed for technical contexts where detailed error information is valuable.
+
+## Usage
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+// Basic error display
+ui.errorDisplay("Failed to load data")
+
+// With custom title
+ui.errorDisplay("Connection timed out", {
+  title: "Network Error",
+})
+
+// With stack trace
+ui.errorDisplay("Unexpected error occurred", {
+  stack: error.stack,
+  showStack: true,
+})
+
+// With retry action
+ui.errorDisplay("Failed to fetch user data", {
+  title: "API Error",
+  onRetry: () => refetchData(),
+})
+```
+
+## Props
+
+<ParamField path="message" type="string" required>
+  The primary error message to display
+</ParamField>
+
+<ParamField path="title" type="string" default="Error">
+  Optional title displayed above the error message
+</ParamField>
+
+<ParamField path="stack" type="string">
+  Optional stack trace text. When provided with `showStack: true`, displays detailed error information.
+</ParamField>
+
+<ParamField path="showStack" type="boolean" default="false">
+  Whether to display the stack trace. Only relevant when `stack` is provided.
+</ParamField>
+
+<ParamField path="onRetry" type="() => void">
+  Optional callback function invoked when the user clicks the retry button
+</ParamField>
+
+<ParamField path="style" type="TextStyle">
+  Optional style override for error text
+</ParamField>
+
+<ParamField path="key" type="string">
+  Optional reconciliation key
+</ParamField>
+
+## Examples
+
+### Basic Error Display
+
+```typescript
+type State = 
+  | { status: "loading" }
+  | { status: "success"; data: string }
+  | { status: "error"; error: string };
+
+function DataView(state: State) {
+  if (state.status === "loading") {
+    return ui.spinner({ label: "Loading..." });
+  }
+  
+  if (state.status === "error") {
+    return ui.errorDisplay(state.error);
+  }
+  
+  return ui.text(state.data);
+}
+```
+
+### Error with Retry
+
+```typescript
+function DataFetcher(state: State, dispatch: Dispatch) {
+  if (state.status === "error") {
+    return ui.errorDisplay(state.error, {
+      title: "Failed to Load",
+      onRetry: () => dispatch({ type: "RETRY" }),
+    });
+  }
+  
+  return DataView(state);
+}
+```
+
+### Error with Stack Trace
+
+```typescript
+function DeveloperErrorView(error: Error, showDetails: boolean) {
+  return ui.errorDisplay(error.message, {
+    title: error.name,
+    stack: error.stack,
+    showStack: showDetails,
+  });
+}
+```
+
+### API Error Display
+
+```typescript
+type ApiError = {
+  status: number;
+  statusText: string;
+  message: string;
+  details?: string;
+};
+
+function ApiErrorDisplay(error: ApiError, onRetry?: () => void) {
+  const title = `${error.status} ${error.statusText}`;
+  const message = error.details 
+    ? `${error.message}\n\nDetails: ${error.details}`
+    : error.message;
+  
+  return ui.errorDisplay(message, {
+    title,
+    onRetry,
+  });
+}
+```
+
+### Form Submission Error
+
+```typescript
+type SubmitError = {
+  field?: string;
+  message: string;
+  code?: string;
+};
+
+function FormErrorDisplay(error: SubmitError, onDismiss: () => void) {
+  const message = error.field
+    ? `${error.field}: ${error.message}`
+    : error.message;
+  
+  return ui.column({ gap: 1 }, [
+    ui.errorDisplay(message, {
+      title: error.code ? `Error ${error.code}` : "Submission Failed",
+    }),
+    ui.actions([
+      ui.button({
+        id: "dismiss-error",
+        label: "Dismiss",
+        onPress: onDismiss,
+      }),
+    ]),
+  ]);
+}
+```
+
+## Error Handling Patterns
+
+### Async Operation Error
+
+```typescript
+type AsyncState<T> = 
+  | { state: "idle" }
+  | { state: "pending" }
+  | { state: "fulfilled"; data: T }
+  | { state: "rejected"; error: Error };
+
+function AsyncView<T>(
+  state: AsyncState<T>,
+  render: (data: T) => VNode,
+  retry: () => void
+) {
+  switch (state.state) {
+    case "idle":
+      return ui.text("No data loaded", { style: { dim: true } });
+    
+    case "pending":
+      return ui.spinner({ label: "Loading..." });
+    
+    case "rejected":
+      return ui.errorDisplay(state.error.message, {
+        title: state.error.name,
+        stack: state.error.stack,
+        showStack: true,
+        onRetry: retry,
+      });
+    
+    case "fulfilled":
+      return render(state.data);
+  }
+}
+```
+
+### Multiple Errors
+
+```typescript
+type ValidationErrors = readonly {
+  field: string;
+  message: string;
+}[];
+
+function ValidationErrorDisplay(errors: ValidationErrors) {
+  if (errors.length === 0) return null;
+  
+  const message = errors.length === 1
+    ? errors[0].message
+    : `Found ${errors.length} validation errors:\n\n${errors.map(e => `• ${e.field}: ${e.message}`).join("\n")}`;
+  
+  return ui.errorDisplay(message, {
+    title: "Validation Failed",
+  });
+}
+```
+
+### Error Boundary Integration
+
+```typescript
+import { ui } from "@rezi-ui/core";
+import type { ErrorBoundaryError } from "@rezi-ui/core";
+
+function AppContent() {
+  return ui.errorBoundary({
+    children: RiskyComponent(),
+    fallback: (error) => ErrorFallback(error),
+  });
+}
+
+function ErrorFallback(error: ErrorBoundaryError) {
+  return ui.center(
+    ui.column({ gap: 1, maxWidth: 60 }, [
+      ui.errorDisplay(error.message, {
+        title: error.code,
+        stack: error.stack,
+        showStack: true,
+        onRetry: error.retry,
+      }),
+    ])
+  );
+}
+```
+
+### Network Error with Offline Detection
+
+```typescript
+function NetworkErrorDisplay(state: {
+  error: string;
+  isOffline: boolean;
+  onRetry: () => void;
+}) {
+  if (state.isOffline) {
+    return ui.column({ gap: 1 }, [
+      ui.errorDisplay(
+        "You appear to be offline. Check your network connection and try again.",
+        {
+          title: "No Connection",
+          onRetry: state.onRetry,
+        }
+      ),
+      ui.text("Waiting for connection...", { style: { dim: true } }),
+    ]);
+  }
+  
+  return ui.errorDisplay(state.error, {
+    title: "Network Error",
+    onRetry: state.onRetry,
+  });
+}
+```
+
+### Error with Alternative Actions
+
+```typescript
+function ErrorWithActions(state: {
+  error: string;
+  canRetry: boolean;
+  canGoBack: boolean;
+}) {
+  return ui.column({ gap: 1 }, [
+    ui.errorDisplay(state.error),
+    ui.actions([
+      state.canGoBack &&
+        ui.button({
+          id: "go-back",
+          label: "Go Back",
+          intent: "secondary",
+        }),
+      state.canRetry &&
+        ui.button({
+          id: "retry",
+          label: "Try Again",
+          intent: "primary",
+        }),
+    ]),
+  ]);
+}
+```
+
+## Stack Trace Display
+
+### Collapsible Stack
+
+```typescript
+function CollapsibleErrorDisplay(state: {
+  error: Error;
+  expanded: boolean;
+}) {
+  return ui.column({ gap: 1 }, [
+    ui.errorDisplay(state.error.message, {
+      title: state.error.name,
+      stack: state.error.stack,
+      showStack: state.expanded,
+    }),
+    ui.button({
+      id: "toggle-stack",
+      label: state.expanded ? "Hide Details" : "Show Details",
+      intent: "link",
+    }),
+  ]);
+}
+```
+
+### Formatted Stack Trace
+
+```typescript
+function formatStackTrace(stack: string | undefined): string {
+  if (!stack) return "";
+  
+  return stack
+    .split("\n")
+    .slice(1) // Remove first line (already shown as message)
+    .map(line => line.trim())
+    .filter(line => line.length > 0)
+    .join("\n");
+}
+
+function FormattedErrorDisplay(error: Error) {
+  return ui.errorDisplay(error.message, {
+    title: error.name,
+    stack: formatStackTrace(error.stack),
+    showStack: true,
+  });
+}
+```
+
+## Error Recovery Patterns
+
+### Exponential Backoff Retry
+
+```typescript
+type RetryState = {
+  error: string;
+  attempts: number;
+  maxAttempts: number;
+  nextRetryIn: number;
+};
+
+function RetryableError(state: RetryState, onRetry: () => void) {
+  const canRetry = state.attempts < state.maxAttempts;
+  
+  return ui.column({ gap: 1 }, [
+    ui.errorDisplay(state.error, {
+      title: "Request Failed",
+      ...(canRetry ? { onRetry } : {}),
+    }),
+    canRetry
+      ? ui.text(
+          `Retry ${state.attempts + 1}/${state.maxAttempts} in ${state.nextRetryIn}s`,
+          { style: { dim: true } }
+        )
+      : ui.text(
+          "Max retry attempts reached. Please check the logs for details.",
+          { style: { dim: true } }
+        ),
+  ]);
+}
+```
+
+### Error with Support Link
+
+```typescript
+function ErrorWithSupport(error: { message: string; code: string }) {
+  return ui.column({ gap: 1 }, [
+    ui.errorDisplay(error.message, {
+      title: `Error ${error.code}`,
+    }),
+    ui.row({ gap: 1 }, [
+      ui.text("Need help?", { style: { dim: true } }),
+      ui.link({
+        url: `https://support.example.com/errors/${error.code}`,
+        label: "View documentation",
+      }),
+    ]),
+  ]);
+}
+```
+
+## Design System Integration
+
+Error displays use theme error/danger colors:
+
+```typescript
+// Inherits theme danger color
+ui.errorDisplay("Something went wrong")
+
+// Custom styled error
+ui.errorDisplay("Custom error", {
+  style: {
+    fg: rgb(255, 100, 100),
+    bold: true,
+  },
+})
+```
+
+## Accessibility
+
+When displaying errors:
+
+1. **Be specific** - Clearly describe what went wrong
+2. **Provide context** - Explain the impact and what the user should do
+3. **Offer recovery** - Include retry or alternative actions when possible
+4. **Technical details** - Show stack traces in development, hide in production
+
+```typescript
+// Good: Clear, actionable error
+ui.errorDisplay(
+  "Unable to save your changes. Please check your connection and try again.",
+  { onRetry: () => save() }
+)
+
+// Avoid: Vague, unhelpful error
+ui.errorDisplay("Error 500")
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use descriptive titles" icon="heading">
+    Include error codes or categories in the title for quick identification.
+  </Card>
+  
+  <Card title="Provide retry actions" icon="arrows-rotate">
+    When errors are transient (network, timeout), offer a retry button.
+  </Card>
+  
+  <Card title="Show stack traces wisely" icon="code">
+    Display stack traces in development; hide them in production unless explicitly toggled.
+  </Card>
+  
+  <Card title="Guide users forward" icon="arrow-right">
+    Include alternative actions or next steps when retry isn't applicable.
+  </Card>
+</CardGroup>
+
+## Related Widgets
+
+- [Callout](/widgets/callout) - For less critical warnings and informational messages
+- [Error Boundary](/api/error-boundary) - For catching and handling render errors
+- [Empty](/widgets/empty) - For empty states (no data) vs. error states (failed to load)
+- [Toast](/widgets/toast) - For transient, non-blocking error notifications

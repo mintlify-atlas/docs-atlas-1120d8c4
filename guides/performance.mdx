@@ -1,0 +1,479 @@
+---
+title: 'Performance Optimization'
+description: 'Optimize your Rezi TUI for maximum performance and responsiveness'
+---
+
+Rezi is built for speed from the ground up. Here's how to get the most performance out of your TUI applications.
+
+## Benchmark Results
+
+From `BENCHMARKS.md` (2026-02-22, PTY mode):
+
+### vs Ink
+
+<Tabs>
+  <Tab title="Tree Construction">
+    | Scenario | Rezi | Ink | Speedup |
+    |----------|------|-----|----------|
+    | 10 items | 326μs | 67ms | **206x faster** |
+    | 100 items | 326μs | 26ms | **80x faster** |
+    | 1000 items | 3.07ms | 141ms | **46x faster** |
+  </Tab>
+  
+  <Tab title="Layout & Rendering">
+    | Scenario | Rezi | Ink | Speedup |
+    |----------|------|-----|----------|
+    | Rerender | 373μs | 17.7ms | **47x faster** |
+    | Layout stress | 2.88ms | 28ms | **10x faster** |
+    | Scroll stress | 21ms | 250ms | **12x faster** |
+    | Virtual list (100K) | 985μs | 22.6ms | **23x faster** |
+  </Tab>
+  
+  <Tab title="Complex UI">
+    | Scenario | Rezi | Ink | Speedup |
+    |----------|------|-----|----------|
+    | Full UI | 2.49ms | 25.6ms | **10x faster** |
+    | Strict UI | 1.19ms | 25.5ms | **21x faster** |
+    | Terminal FPS stream | 0.34ms | 3.4ms | **10x faster** |
+  </Tab>
+</Tabs>
+
+### vs Other Frameworks
+
+- **OpenTUI React:** Rezi is 2x-155x faster (geomean: ~10x)
+- **OpenTUI Core:** Rezi is faster in 19/21 scenarios (geomean: ~2.6x)
+- **Bubble Tea:** Rezi is faster in 20/21 scenarios
+
+<Note>
+Rezi achieves these speeds with a **binary drawlist** architecture, **native C renderer**, and **incremental layout engine**. No React overhead, no DOM, no browser.
+</Note>
+
+## Architecture Advantages
+
+### Binary Drawlist (ZRDL)
+
+Rezi uses a compact binary protocol for rendering:
+
+```typescript
+// Traditional approach (strings)
+const output = `\x1b[31mRed text\x1b[0m`;  // ANSI escape sequences
+
+// Rezi approach (binary)
+const drawlist = builder.text(0, 0, "Red text", { r: 255, g: 0, b: 0 });
+const bytes = builder.build();  // Compact binary format
+```
+
+**Benefits:**
+- **Compact:** 2-10x smaller than ANSI strings
+- **Fast:** Direct memory writes, no string concatenation
+- **Native rendering:** C engine processes binary directly
+- **Cacheable:** Reuse drawlists across frames
+
+### Incremental Layout
+
+Only dirty subtrees are re-laid out:
+
+```typescript
+// Only the counter text node is re-measured
+ui.column({ gap: 1 }, [
+  ui.text("Static header"),      // Not re-laid out
+  ui.text(`Count: ${state.count}`),  // Only this changes
+  ui.text("Static footer"),     // Not re-laid out
+])
+```
+
+Rezi tracks which widgets changed and only recomputes layout for affected branches.
+
+### Virtual List Optimization
+
+Virtual lists render only visible items:
+
+```typescript
+ui.virtualList({
+  id: "items",
+  items: state.items,  // 100,000 items
+  itemHeight: 1,
+  h: 20,               // Only 20 visible
+  renderItem: (item) => ui.text(item),  // Only 20 rendered
+})
+```
+
+**Performance:** 1.0K ops/s on 100K items (vs Ink: 44 ops/s, **23x faster**)
+
+## Optimization Patterns
+
+### Minimize State Updates
+
+<CodeGroup>
+```typescript Bad: Update on every keystroke
+app.on("event", (event, state) => {
+  if (event.action === "input") {
+    // Triggers full render on every keystroke
+    return { query: event.value };
+  }
+});
+```
+
+```typescript Good: Debounce updates
+import { useDebounce } from "@rezi-ui/core";
+
+const SearchInput = defineWidget((props, ctx) => {
+  const [localValue, setLocalValue] = ctx.useState("");
+  const debouncedValue = useDebounce(ctx, localValue, 300);
+  
+  ctx.useEffect(() => {
+    // Only update app state after 300ms of no typing
+    props.onSearch(debouncedValue);
+  }, [debouncedValue]);
+  
+  return ui.input({
+    id: ctx.id("search"),
+    value: localValue,
+    onChange: setLocalValue,
+  });
+});
+```
+</CodeGroup>
+
+### Memoize Expensive Computations
+
+<CodeGroup>
+```typescript Bad: Recompute every render
+const view = (state) => {
+  const sorted = state.items.sort((a, b) => b.score - a.score);
+  const filtered = sorted.filter(item => item.active);
+  
+  return ui.column({ gap: 1 }, 
+    filtered.map(item => ui.text(item.name))
+  );
+};
+```
+
+```typescript Good: Memoize with useMemo
+const ListView = defineWidget<{ items: Item[] }>((props, ctx) => {
+  const filteredItems = ctx.useMemo(() => {
+    return props.items
+      .sort((a, b) => b.score - a.score)
+      .filter(item => item.active);
+  }, [props.items]);
+  
+  return ui.column({ gap: 1 }, 
+    filteredItems.map(item => ui.text(item.name))
+  );
+});
+```
+</CodeGroup>
+
+### Use Virtual Lists for Large Data
+
+<CodeGroup>
+```typescript Bad: Render all items
+ui.column({ gap: 1 }, 
+  state.items.map(item => ui.text(item))  // 10,000 items = slow!
+)
+```
+
+```typescript Good: Virtualize
+ui.virtualList({
+  id: "items",
+  items: state.items,  // 10,000 items
+  itemHeight: 1,
+  h: 20,               // Only render 20
+  renderItem: (item) => ui.text(item),
+})
+```
+</CodeGroup>
+
+### Limit Frame Rate
+
+```typescript
+const app = createNodeApp({ 
+  initialState: {},
+  config: {
+    fpsCap: 30,  // Cap at 30 FPS (default: 60)
+  },
+});
+```
+
+**When to use:**
+- Battery-powered devices
+- Remote terminals with high latency
+- Background processes
+
+**Performance gain:** 50% CPU reduction with minimal perceived impact
+
+### Batch State Updates
+
+<CodeGroup>
+```typescript Bad: Multiple updates
+app.update(s => ({ count: s.count + 1 }));
+app.update(s => ({ loading: true }));
+app.update(s => ({ data: newData }));
+// 3 renders!
+```
+
+```typescript Good: Single update
+app.update(s => ({
+  count: s.count + 1,
+  loading: true,
+  data: newData,
+}));
+// 1 render!
+```
+</CodeGroup>
+
+### Avoid Inline Functions
+
+<CodeGroup>
+```typescript Bad: New function every render
+const view = (state) => {
+  return ui.column({ gap: 1 }, 
+    state.items.map(item => ui.text(item.name))
+    // New arrow function every render
+  );
+};
+```
+
+```typescript Good: Stable references
+const renderItem = (item) => ui.text(item.name);
+
+const view = (state) => {
+  return ui.column({ gap: 1 }, 
+    state.items.map(renderItem)  // Stable reference
+  );
+};
+```
+</CodeGroup>
+
+## Memory Optimization
+
+From benchmarks:
+
+| Framework | Typical RSS | Notes |
+|-----------|-------------|-------|
+| **Rezi** | **80-210 MB** | Heap ~20-120 MB depending on tree size |
+| Ink | 120-980 MB | Grows significantly with tree size |
+| OpenTUI (React) | 200 MB - 15 GB | Memory scales poorly; OOMs at 1000 items |
+| Bubble Tea | 7-10 MB | Go runtime baseline, very low footprint |
+
+### Reduce Memory Usage
+
+<Tabs>
+  <Tab title="Limit History">
+    ```typescript
+    const router = createRouterIntegration(routes, {
+      maxDepth: 10,  // Limit route history (default: 10)
+    });
+    ```
+  </Tab>
+  
+  <Tab title="Limit Drawlist Cache">
+    ```typescript
+    const app = createNodeApp({
+      initialState: {},
+      config: {
+        drawlistEncodedStringCacheCap: 65536,  // Reduce cache size
+      },
+    });
+    ```
+  </Tab>
+  
+  <Tab title="Clear Virtual List State">
+    ```typescript
+    // Virtual lists maintain scroll state
+    // Clear when switching views
+    app.update(s => ({
+      virtualListStates: {},  // Reset all virtual list state
+    }));
+    ```
+  </Tab>
+</Tabs>
+
+## Layout Performance
+
+### Prefer Column over Box
+
+<CodeGroup>
+```typescript Slower: Box with no border
+ui.box({}, children)  // Creates synthetic inner column
+```
+
+```typescript Faster: Direct column
+ui.column({}, children)  // Direct layout, no overhead
+```
+</CodeGroup>
+
+Use `ui.box` only when you need borders or backgrounds.
+
+### Minimize Wrapping
+
+<CodeGroup>
+```typescript Slower: Wrapping enabled
+ui.row({ wrap: true }, manyChildren)
+// May require 2-pass layout
+```
+
+```typescript Faster: No wrapping
+ui.row({ wrap: false }, manyChildren)
+// Always single-pass layout
+```
+</CodeGroup>
+
+### Use Fixed Sizes
+
+<CodeGroup>
+```typescript Slower: Auto-sizing
+ui.box({ border: "single" }, children)
+// Measures children for intrinsic size
+```
+
+```typescript Faster: Fixed size
+ui.box({ w: 40, h: 10, border: "single" }, children)
+// No measurement needed
+```
+</CodeGroup>
+
+## Rendering Performance
+
+### Reduce Overlay Count
+
+```typescript
+// Bad: Many overlapping layers
+ui.layers([
+  ui.layer({ id: "1", order: 1 }, content1),
+  ui.layer({ id: "2", order: 2 }, content2),
+  ui.layer({ id: "3", order: 3 }, content3),
+  ui.layer({ id: "4", order: 4 }, content4),
+]);
+
+// Good: Minimal layers
+ui.layers([
+  ui.layer({ id: "base", order: 0 }, baseContent),
+  show(state.showModal, 
+    ui.layer({ id: "modal", order: 1 }, modalContent)
+  ),
+]);
+```
+
+Each layer has rendering overhead. Keep layer count minimal.
+
+### Optimize Text Wrapping
+
+```typescript
+// Slow: Many wrapped text nodes
+ui.column({ gap: 1 }, 
+  longTexts.map(text => ui.text(text, { wrap: true, maxWidth: 80 }))
+);
+
+// Faster: Single wrapped text
+const combined = longTexts.join("\n");
+ui.text(combined, { wrap: true, maxWidth: 80 });
+```
+
+## Animation Performance
+
+### Limit Concurrent Animations
+
+```typescript
+// Bad: Animate 100 items simultaneously
+const animations = useStagger(ctx, 100, { duration: 200 });
+// 100 concurrent animations = expensive
+
+// Good: Stagger with delay
+const animations = useStagger(ctx, 100, { 
+  duration: 200,
+  staggerMs: 20,  // Only 10 concurrent at peak (200ms/20ms)
+});
+```
+
+### Use Container Transitions
+
+```typescript
+// Slower: Hook-based animation
+const AnimatedBox = defineWidget((props, ctx) => {
+  const x = useTransition(ctx, props.x);
+  return ui.box({ position: "absolute", left: x.value }, children);
+});
+
+// Faster: Declarative transition
+ui.box({ 
+  position: "absolute",
+  left: state.x,
+  transition: { duration: 200 },  // Automatic animation
+}, children);
+```
+
+Container transitions are optimized and skip hook overhead.
+
+## Profiling
+
+### Enable Performance Tracking
+
+```typescript
+const app = createNodeApp({
+  initialState: {},
+  config: {
+    internal_onRender: (metrics) => {
+      console.log(`Render: ${metrics.renderMs.toFixed(2)}ms`);
+      console.log(`Layout: ${metrics.layoutMs.toFixed(2)}ms`);
+      console.log(`Commit: ${metrics.commitMs.toFixed(2)}ms`);
+      console.log(`Total: ${metrics.totalMs.toFixed(2)}ms`);
+    },
+  },
+});
+```
+
+### Debug Panel
+
+```typescript
+import { debugPanel } from "@rezi-ui/core";
+
+ui.column({ gap: 1 }, [
+  debugPanel({ position: "top-right" }),  // FPS counter + stats
+  // ... your UI
+]);
+```
+
+### Benchmark Your App
+
+```typescript
+import { perfMarkStart, perfMarkEnd, perfSnapshot } from "@rezi-ui/core";
+
+const token = perfMarkStart("expensive-operation");
+// ... expensive code ...
+perfMarkEnd(token);
+
+const stats = perfSnapshot();
+console.log(`Operation took ${stats.phases.get("expensive-operation")}ms`);
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Virtual Lists" icon="list">
+    Always use `ui.virtualList` for lists with >100 items. It's optimized for massive datasets.
+  </Card>
+  
+  <Card title="Batch Updates" icon="layer-group">
+    Group state changes into single `app.update()` calls. Multiple updates = multiple renders.
+  </Card>
+  
+  <Card title="Memoization" icon="memory">
+    Use `ctx.useMemo()` and `ctx.useCallback()` for expensive computations and stable references.
+  </Card>
+  
+  <Card title="Frame Rate" icon="gauge">
+    Cap FPS at 30 for background processes and remote terminals. 60 FPS is often overkill.
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Debugging" icon="bug" href="/guides/debugging">
+    Debug and troubleshoot your TUI applications
+  </Card>
+  <Card title="Testing" icon="vial" href="/guides/testing">
+    Write tests for your TUI components
+  </Card>
+</CardGroup>

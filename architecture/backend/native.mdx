@@ -1,0 +1,277 @@
+---
+title: Native Addon (N-API)
+description: N-API binding to the Zireael C engine
+---
+
+`@rezi-ui/native` is the Node.js N-API binding that connects the TypeScript core to the Zireael C rendering engine. This addon provides FFI functions for engine lifecycle, frame submission, and event polling.
+
+## Overview
+
+**Package:** `@rezi-ui/native`  
+**Location:** `packages/native/`  
+**Binding:** Node-API (N-API)  
+**Engine:** Zireael (C implementation)
+
+**Responsibilities:**
+- Engine lifecycle (create, destroy)
+- Frame submission (drawlist execution)
+- Event polling (keyboard, mouse, resize)
+- Terminal state management (raw mode, alternate screen)
+- SharedArrayBuffer interop
+
+## FFI Functions
+
+### `engine_create(config)`
+
+Creates and initializes a Zireael engine instance.
+
+**Parameters:**
+```typescript
+interface EngineCreateConfig {
+  // Terminal configuration
+  termWidth?: number;         // Initial width (default: detect)
+  termHeight?: number;        // Initial height (default: detect)
+  truecolor?: boolean;        // Enable 24-bit color (default: true)
+  unicode?: boolean;          // Enable Unicode (default: true)
+  mouse?: boolean;            // Enable mouse events (default: true)
+  focus?: boolean;            // Enable focus tracking (default: true)
+  
+  // Frame limits
+  dl_max_total_bytes?: number;  // Max drawlist size (default: 4 MiB)
+  dl_max_cmds?: number;         // Max commands (default: 200,000)
+  dl_max_strings?: number;      // Max string table entries (default: 20,000)
+  dl_max_blobs?: number;        // Max blob table entries (default: 20,000)
+  dl_max_clip_depth?: number;   // Max clip stack depth (default: 64)
+  
+  // Event limits
+  event_buf_cap?: number;     // Event buffer capacity (default: 64 KiB)
+  
+  // Rendering policy
+  widthPolicy?: "auto" | "wide" | "narrow";  // Emoji width policy
+}
+```
+
+**Returns:** `EngineHandle` (opaque integer handle)
+
+**Errors:**
+- `ERR_OOM` — Memory allocation failed
+- `ERR_PLATFORM` — Terminal initialization failed
+
+### `engine_destroy(handle)`
+
+Destroys an engine instance and frees resources.
+
+**Parameters:**
+- `handle: EngineHandle` — Engine instance to destroy
+
+**Returns:** `ZrResult.OK` on success
+
+**Errors:**
+- `ERR_INVALID_ARGUMENT` — Invalid or null handle
+
+### `engine_present(handle, drawlist)`
+
+Submits a ZRDL drawlist and presents the frame to the terminal.
+
+**Parameters:**
+- `handle: EngineHandle` — Engine instance
+- `drawlist: Uint8Array | SharedArrayBuffer` — ZRDL binary buffer
+
+**Returns:** `ZrResult.OK` on success
+
+**Errors:**
+- `ERR_INVALID_ARGUMENT` — Invalid handle or null buffer
+- `ERR_FORMAT` — Malformed ZRDL header or magic mismatch
+- `ERR_UNSUPPORTED` — Unknown drawlist version or opcode
+- `ERR_LIMIT` — Drawlist exceeds engine caps
+
+**Guarantees:**
+- Exactly one write to terminal on success
+- Zero writes on failure
+- No partial ANSI sequences
+
+### `engine_poll_events(handle, buffer)`
+
+Polls terminal for input events and writes ZREV batch to buffer.
+
+**Parameters:**
+- `handle: EngineHandle` — Engine instance
+- `buffer: Uint8Array` — Destination buffer for ZREV batch
+
+**Returns:**
+- `> 0` — Number of bytes written to buffer
+- `0` — No events available
+- `< 0` — Error code (ZrResult)
+
+**Errors:**
+- `ERR_INVALID_ARGUMENT` — Invalid handle or null buffer
+- `ERR_LIMIT` — Buffer too small for event batch
+- `ERR_PLATFORM` — Terminal read failed
+
+**Non-blocking:** This function does not block. If no events are available, it returns `0` immediately.
+
+### `engine_get_size(handle)`
+
+Returns the current terminal size.
+
+**Returns:**
+```typescript
+{ cols: number; rows: number }
+```
+
+### `engine_set_raw_mode(enabled)`
+
+Toggles terminal raw mode (no line buffering, no echo).
+
+**Parameters:**
+- `enabled: boolean` — Enable or disable raw mode
+
+**Returns:** `ZrResult.OK` on success
+
+**Errors:**
+- `ERR_PLATFORM` — Terminal ioctl failed
+
+### `engine_set_alternate_screen(enabled)`
+
+Toggles alternate screen buffer.
+
+**Parameters:**
+- `enabled: boolean` — Enable or disable alternate screen
+
+**Returns:** `ZrResult.OK` on success
+
+## SharedArrayBuffer Support
+
+The addon supports SharedArrayBuffer for zero-copy drawlist submission:
+
+```typescript
+const sab = new SharedArrayBuffer(1024 * 1024); // 1 MiB
+const view = new Uint8Array(sab);
+
+// Write drawlist to SAB
+builder.buildInto(view);
+
+// Submit SAB directly (no copy)
+await engine_present(handle, sab);
+```
+
+**Benefits:**
+- Zero-copy submission
+- No transfer overhead
+- Faster frame times
+
+**Requirements:**
+- Node.js 16+ or `--experimental-shared-array-buffer`
+- SharedArrayBuffer available in environment
+
+## Thread Safety
+
+The native addon is **not thread-safe**. All FFI calls must be made from the same thread that created the engine.
+
+**Worker mode:** Engine runs on dedicated worker thread. Main thread never calls FFI directly.
+
+**Inline mode:** Engine runs on main thread. All FFI calls from main thread.
+
+## Error Handling
+
+All FFI functions return `ZrResult` (int32):
+
+```typescript
+enum ZrResult {
+  OK = 0,
+  ERR_INVALID_ARGUMENT = -1,
+  ERR_OOM = -2,
+  ERR_LIMIT = -3,
+  ERR_UNSUPPORTED = -4,
+  ERR_FORMAT = -5,
+  ERR_PLATFORM = -6,
+}
+```
+
+**Checking errors:**
+
+```typescript
+const result = engine_present(handle, drawlist);
+if (result !== ZrResult.OK) {
+  throw new ZrUiError("ZRUI_BACKEND_ERROR", `Present failed: ${result}`);
+}
+```
+
+## Building the Addon
+
+The addon is built using `node-gyp`:
+
+```bash
+cd packages/native
+npm run build
+```
+
+**Build outputs:**
+- `build/Release/rezi_native.node` — Native addon
+
+**Dependencies:**
+- Node.js headers
+- C compiler (GCC, Clang, MSVC)
+- Python 3 (for node-gyp)
+
+## Platform Support
+
+| Platform | Status | Notes |
+|----------|--------|-------|
+| **Linux** | Supported | Tested on Ubuntu 20.04+ |
+| **macOS** | Supported | Tested on macOS 11+ |
+| **Windows** | Supported | Requires Visual Studio 2019+ |
+| **WSL** | Supported | Works but with scheduler jitter |
+
+## ABI Versioning
+
+The addon exports ABI version constants:
+
+```typescript
+import { getEngineVersion } from "@rezi-ui/native";
+
+const version = getEngineVersion();
+// { major: 1, minor: 2, patch: 0 }
+```
+
+**Compatibility check:**
+
+```typescript
+import { ZR_ENGINE_ABI_MAJOR, ZR_ENGINE_ABI_MINOR } from "@rezi-ui/core";
+import { getEngineVersion } from "@rezi-ui/native";
+
+const engineVer = getEngineVersion();
+
+if (engineVer.major !== ZR_ENGINE_ABI_MAJOR) {
+  throw new Error("Engine ABI major version mismatch");
+}
+
+if (engineVer.minor < ZR_ENGINE_ABI_MINOR) {
+  console.warn("Engine ABI minor version older than core expects");
+}
+```
+
+## Debug Utilities
+
+The addon provides debug utilities when `REZI_DEBUG=1`:
+
+```typescript
+import { dumpDrawlist } from "@rezi-ui/native";
+
+const info = dumpDrawlist(drawlistBytes);
+console.log(info);
+// {
+//   version: 5,
+//   cmdCount: 42,
+//   stringCount: 10,
+//   blobCount: 2,
+//   totalBytes: 4096
+// }
+```
+
+## Related Documentation
+
+- [Node.js Backend](/architecture/backend/node) — Backend implementation
+- [Worker Model](/architecture/backend/worker-model) — Thread ownership
+- [Protocol Overview](/architecture/protocol/overview) — Binary formats
+- [ABI Pins](/architecture/protocol/abi) — Version constants

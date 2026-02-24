@@ -1,0 +1,353 @@
+---
+title: "Textarea"
+description: "Multi-line text input widget with word wrap and scrolling"
+---
+
+## Overview
+
+The `textarea` widget creates a focusable, editable multi-line text input field. It extends the `input` widget with multiline support, word wrapping, and configurable row height.
+
+## Basic Usage
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+// Simple textarea
+ui.textarea({
+  id: "description",
+  value: state.description
+})
+
+// Textarea with change handler
+ui.textarea({
+  id: "description",
+  value: state.description,
+  rows: 5,
+  onInput: (value) => app.update({ description: value })
+})
+
+// Full configuration
+ui.textarea({
+  id: "notes",
+  value: state.notes,
+  rows: 8,
+  wordWrap: true,
+  placeholder: "Enter your notes here...",
+  onInput: handleNotesChange,
+  onBlur: saveNotes
+})
+```
+
+## Props
+
+<ParamField path="id" type="string" required>
+  Unique identifier for focus routing. Required for all textareas.
+</ParamField>
+
+<ParamField path="value" type="string" required>
+  Current textarea value. Must be controlled by your application state.
+</ParamField>
+
+<ParamField path="rows" type="number" default="3">
+  Visible line count for the textarea height.
+</ParamField>
+
+<ParamField path="wordWrap" type="boolean" default="true">
+  When true, long lines wrap to the next row. When false, lines extend horizontally with scroll.
+</ParamField>
+
+<ParamField path="placeholder" type="string">
+  Placeholder text displayed when value is empty.
+</ParamField>
+
+<ParamField path="onInput" type="(value: string, cursor: number) => void">
+  Callback invoked when the textarea value changes. Receives the new value and cursor position.
+</ParamField>
+
+<ParamField path="onBlur" type="() => void">
+  Callback invoked when the textarea loses focus.
+</ParamField>
+
+<ParamField path="disabled" type="boolean" default="false">
+  When true, textarea cannot be focused or edited.
+</ParamField>
+
+<ParamField path="focusable" type="boolean" default="true">
+  When false, opt out of Tab focus order while keeping id-based routing available.
+</ParamField>
+
+<ParamField path="accessibleLabel" type="string">
+  Optional semantic label for accessibility and debug announcements.
+</ParamField>
+
+### Styling Props
+
+<ParamField path="style" type="TextStyle">
+  Optional style applied to the textarea value (merged with focus/disabled state).
+</ParamField>
+
+<ParamField path="focusConfig" type="FocusConfig">
+  Optional focus appearance configuration for custom focus indicators.
+</ParamField>
+
+## Event Handling
+
+### Input Changes
+
+The `onInput` callback receives both the new value and cursor position:
+
+```typescript
+ui.textarea({
+  id: "content",
+  value: state.content,
+  rows: 10,
+  onInput: (value, cursor) => {
+    app.update({ content: value });
+    
+    // Auto-save on change
+    scheduleAutoSave(value);
+  }
+})
+```
+
+### Blur Events
+
+Use `onBlur` to trigger actions when the textarea loses focus:
+
+```typescript
+ui.textarea({
+  id: "notes",
+  value: state.notes,
+  rows: 6,
+  onInput: (value) => app.update({ notes: value }),
+  onBlur: () => {
+    // Save to backend when user leaves the field
+    saveNotes(state.notes);
+  }
+})
+```
+
+## Word Wrapping
+
+### With Word Wrap (Default)
+
+```typescript
+ui.textarea({
+  id: "wrapped",
+  value: state.text,
+  rows: 5,
+  wordWrap: true  // Default: lines wrap to next row
+})
+```
+
+### Without Word Wrap
+
+```typescript
+ui.textarea({
+  id: "nowrap",
+  value: state.code,
+  rows: 5,
+  wordWrap: false  // Lines extend horizontally with scroll
+})
+```
+
+## Form Integration
+
+Textareas are typically wrapped with `ui.field()` for labels and error messages:
+
+```typescript
+ui.field({
+  label: "Description",
+  required: true,
+  error: state.errors.description,
+  hint: "Provide a detailed description (min 20 characters)",
+  children: ui.textarea({
+    id: "description",
+    value: state.description,
+    rows: 5,
+    placeholder: "Enter description...",
+    onInput: (value) => app.update({ description: value }),
+    onBlur: () => validateDescription()
+  })
+})
+```
+
+## Validation States
+
+### Error State
+
+Show validation errors using the `ui.field()` wrapper:
+
+```typescript
+ui.field({
+  label: "Message",
+  required: true,
+  error: state.touched.message && state.message.length < 10
+    ? "Message must be at least 10 characters"
+    : undefined,
+  children: ui.textarea({
+    id: "message",
+    value: state.message,
+    rows: 4,
+    onInput: (value) => app.update({ message: value }),
+    onBlur: () => app.update({ touched: { ...state.touched, message: true } })
+  })
+})
+```
+
+### Character Count
+
+```typescript
+ui.column({ gap: 0 }, [
+  ui.field({
+    label: "Bio",
+    children: ui.textarea({
+      id: "bio",
+      value: state.bio,
+      rows: 4,
+      onInput: (value) => {
+        if (value.length <= 200) {
+          app.update({ bio: value });
+        }
+      }
+    })
+  }),
+  ui.text(`${state.bio.length}/200 characters`, { dim: true })
+])
+```
+
+## Examples
+
+### Comment Box
+
+```typescript
+ui.column({ gap: 1 }, [
+  ui.text("Add Comment", { variant: "heading" }),
+  ui.textarea({
+    id: "comment",
+    value: state.commentText,
+    rows: 4,
+    placeholder: "Write your comment...",
+    onInput: (value) => app.update({ commentText: value })
+  }),
+  ui.actions([
+    ui.button("cancel", "Cancel", {
+      intent: "secondary",
+      onPress: () => app.update({ commentText: "" })
+    }),
+    ui.button("post", "Post Comment", {
+      intent: "primary",
+      disabled: state.commentText.trim().length === 0,
+      onPress: () => postComment(state.commentText)
+    })
+  ])
+])
+```
+
+### Code Editor
+
+```typescript
+ui.panel("Code Snippet", [
+  ui.textarea({
+    id: "code",
+    value: state.code,
+    rows: 15,
+    wordWrap: false,
+    style: { fontFamily: "monospace" },
+    onInput: (value) => app.update({ code: value })
+  }),
+  ui.row({ gap: 1, justify: "end" }, [
+    ui.button("copy", "Copy", {
+      dsSize: "sm",
+      onPress: () => copyToClipboard(state.code)
+    }),
+    ui.button("save", "Save", {
+      dsSize: "sm",
+      intent: "primary",
+      onPress: () => saveCode(state.code)
+    })
+  ])
+])
+```
+
+### Rich Text Notes
+
+```typescript
+ui.form([
+  ui.field({
+    label: "Title",
+    children: ui.input({
+      id: "note-title",
+      value: state.noteTitle,
+      placeholder: "Note title",
+      onInput: (value) => app.update({ noteTitle: value })
+    })
+  }),
+  ui.field({
+    label: "Content",
+    children: ui.textarea({
+      id: "note-content",
+      value: state.noteContent,
+      rows: 12,
+      placeholder: "Write your notes here...",
+      onInput: (value) => app.update({ noteContent: value })
+    })
+  }),
+  ui.actions([
+    ui.button("discard", "Discard", { intent: "secondary" }),
+    ui.button("save", "Save Note", { intent: "primary" })
+  ])
+])
+```
+
+### Auto-Expanding Textarea
+
+```typescript
+// Dynamically adjust rows based on content
+const lineCount = state.text.split('\n').length;
+const rows = Math.max(3, Math.min(lineCount + 1, 20));
+
+ui.textarea({
+  id: "auto-expand",
+  value: state.text,
+  rows: rows,
+  onInput: (value) => app.update({ text: value })
+})
+```
+
+## Keyboard Shortcuts
+
+When focused, textareas support:
+- **Arrow Keys** - Navigate cursor
+- **Home/End** - Jump to line start/end
+- **Ctrl+Home/End** (or Cmd+Home/End) - Jump to document start/end
+- **Backspace/Delete** - Delete characters
+- **Enter** - Insert newline
+- **Tab** - Insert tab or focus next field (depends on focus mode)
+- **Ctrl+A** (or Cmd+A) - Select all
+- **Ctrl+C/V/X** (or Cmd+C/V/X) - Copy/paste/cut
+- **Escape** - Clear selection or blur
+
+## Scrolling
+
+Textareas automatically scroll when:
+- Content exceeds visible rows
+- User navigates with arrow keys beyond visible area
+- Cursor position is outside viewport
+
+Use `wordWrap: false` for horizontal scrolling of long lines.
+
+## Accessibility
+
+- Textareas require a unique `id` for focus routing
+- Use `accessibleLabel` for descriptive announcements
+- Wrap with `ui.field()` to associate labels with textareas
+- Disabled textareas are not focusable or editable
+- Focus indicators are shown when navigating with keyboard
+
+## Related Widgets
+
+- [Input](/widgets/input) - For single-line text input
+- [Field](/widgets/field) - For wrapping inputs with labels and errors
+- [Code Editor](/widgets/code-editor) - For advanced code editing with syntax highlighting
+- [Button](/widgets/button) - For form submission

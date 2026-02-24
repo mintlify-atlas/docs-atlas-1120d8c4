@@ -1,0 +1,435 @@
+---
+title: "Status"
+description: "Colored dot indicator for displaying connection and availability states"
+---
+
+## Overview
+
+The Status widget displays a colored dot indicator with an optional label to represent connection status, availability, or other binary/multi-state conditions.
+
+## Usage
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+// Basic status indicator
+ui.status("online")
+
+// With label
+ui.status("busy", { label: "In a meeting" })
+
+// Label with custom visibility
+ui.status("away", { label: "Away", showLabel: true })
+```
+
+## Props
+
+<ParamField path="status" type="string" required>
+  Status type determining the indicator color:
+  - `"online"` - Green indicator (available)
+  - `"offline"` - Gray indicator (not available)
+  - `"away"` - Yellow indicator (temporarily unavailable)
+  - `"busy"` - Red indicator (do not disturb)
+  - `"unknown"` - Dim gray indicator (status unknown)
+</ParamField>
+
+<ParamField path="label" type="string">
+  Optional text label displayed after the status indicator
+</ParamField>
+
+<ParamField path="showLabel" type="boolean">
+  Whether to display the label text. Defaults to `true` when label is provided.
+</ParamField>
+
+<ParamField path="style" type="TextStyle">
+  Optional style override for the label text
+</ParamField>
+
+<ParamField path="key" type="string">
+  Optional reconciliation key
+</ParamField>
+
+## Examples
+
+### Basic Status Indicators
+
+```typescript
+function StatusShowcase() {
+  return ui.row({ gap: 3, p: 1 }, [
+    ui.status("online"),
+    ui.status("away"),
+    ui.status("busy"),
+    ui.status("offline"),
+    ui.status("unknown"),
+  ]);
+}
+```
+
+### User Presence
+
+```typescript
+type User = {
+  name: string;
+  status: "online" | "away" | "busy" | "offline";
+  statusMessage?: string;
+};
+
+function UserPresence(user: User) {
+  return ui.row({ gap: 1, items: "center" }, [
+    ui.status(user.status),
+    ui.text(user.name, { variant: "label" }),
+    user.statusMessage &&
+      ui.text(`— ${user.statusMessage}`, { style: { dim: true } }),
+  ]);
+}
+```
+
+### Service Health Dashboard
+
+```typescript
+type Service = {
+  name: string;
+  status: "online" | "offline";
+  uptime: number;
+  lastCheck: string;
+};
+
+function ServiceHealthPanel(services: readonly Service[]) {
+  return ui.panel("Service Health", [
+    ui.column({ gap: 1 }, [
+      ...services.map((service) =>
+        ui.row({ gap: 1, items: "center", justify: "between", key: service.name }, [
+          ui.row({ gap: 1, items: "center" }, [
+            ui.status(service.status),
+            ui.text(service.name),
+          ]),
+          ui.text(
+            `${service.uptime}% uptime`,
+            { style: { dim: true } }
+          ),
+        ])
+      ),
+    ]),
+  ]);
+}
+```
+
+### Connection Status Bar
+
+```typescript
+function ConnectionStatusBar(state: {
+  connected: boolean;
+  latency?: number;
+}) {
+  return ui.statusBar({
+    left: [
+      ui.status(
+        state.connected ? "online" : "offline",
+        { 
+          label: state.connected ? "Connected" : "Disconnected"
+        }
+      ),
+      state.connected && state.latency !== undefined &&
+        ui.text(`${state.latency}ms`, { style: { dim: true } }),
+    ],
+    right: [
+      ui.text(new Date().toLocaleTimeString()),
+    ],
+  });
+}
+```
+
+### Team Member List
+
+```typescript
+type TeamMember = {
+  id: string;
+  name: string;
+  role: string;
+  status: "online" | "away" | "busy" | "offline";
+};
+
+function TeamList(members: readonly TeamMember[]) {
+  return ui.column({ gap: 0 }, [
+    ui.text("Team Members", { variant: "heading" }),
+    ui.divider(),
+    ...members.map((member) =>
+      ui.row({ gap: 1, items: "center", key: member.id }, [
+        ui.status(member.status),
+        ui.column({ gap: 0, flex: 1 }, [
+          ui.text(member.name),
+          ui.text(member.role, { style: { dim: true } }),
+        ]),
+      ])
+    ),
+  ]);
+}
+```
+
+### Build Status Indicator
+
+```typescript
+type BuildStatus = "running" | "success" | "failed" | "pending";
+
+function BuildStatusIndicator(state: {
+  status: BuildStatus;
+  branch: string;
+  commit: string;
+}) {
+  const statusMap = {
+    running: "busy" as const,
+    success: "online" as const,
+    failed: "offline" as const,
+    pending: "away" as const,
+  };
+  
+  return ui.row({ gap: 1, items: "center" }, [
+    ui.status(statusMap[state.status]),
+    ui.text(`Build ${state.status}`, { variant: "label" }),
+    ui.text(`${state.branch}@${state.commit.slice(0, 7)}`, { style: { dim: true } }),
+  ]);
+}
+```
+
+## Status Patterns
+
+### Realtime Connection Monitor
+
+```typescript
+type ConnectionState = {
+  ws: "online" | "offline";
+  api: "online" | "offline";
+  db: "online" | "offline";
+};
+
+function ConnectionMonitor(state: ConnectionState) {
+  return ui.column({ gap: 1, p: 1 }, [
+    ui.text("System Status", { variant: "heading" }),
+    ui.row({ gap: 2 }, [
+      ui.status(state.ws, { label: "WebSocket" }),
+      ui.status(state.api, { label: "API" }),
+      ui.status(state.db, { label: "Database" }),
+    ]),
+  ]);
+}
+```
+
+### Availability Calendar
+
+```typescript
+type TimeSlot = {
+  time: string;
+  available: boolean;
+};
+
+function AvailabilityCalendar(slots: readonly TimeSlot[]) {
+  return ui.column({ gap: 0 }, [
+    ...slots.map((slot) =>
+      ui.row({ gap: 1, items: "center", key: slot.time }, [
+        ui.status(slot.available ? "online" : "busy"),
+        ui.text(slot.time),
+        ui.text(
+          slot.available ? "Available" : "Booked",
+          { style: { dim: true } }
+        ),
+      ])
+    ),
+  ]);
+}
+```
+
+### API Endpoint Status
+
+```typescript
+type Endpoint = {
+  path: string;
+  method: string;
+  status: number;
+  healthy: boolean;
+};
+
+function EndpointHealthCheck(endpoints: readonly Endpoint[]) {
+  return ui.table<Endpoint>({
+    id: "endpoints",
+    columns: [
+      {
+        key: "path",
+        header: "Endpoint",
+        flex: 1,
+      },
+      {
+        key: "method",
+        header: "Method",
+        width: 10,
+      },
+      {
+        key: "healthy",
+        header: "Health",
+        width: 12,
+        render: (value) =>
+          ui.status(
+            value ? "online" : "offline",
+            { label: value ? "Healthy" : "Down" }
+          ),
+      },
+    ],
+    data: endpoints,
+    getRowKey: (e) => e.path,
+  });
+}
+```
+
+### Multi-Region Status
+
+```typescript
+type Region = {
+  name: string;
+  code: string;
+  status: "online" | "offline" | "unknown";
+  latency: number;
+};
+
+function RegionalStatus(regions: readonly Region[]) {
+  return ui.column({ gap: 1 }, [
+    ui.text("Regional Status", { variant: "heading" }),
+    ui.divider(),
+    ...regions.map((region) =>
+      ui.row({ gap: 2, items: "center", justify: "between", key: region.code }, [
+        ui.row({ gap: 1, items: "center" }, [
+          ui.status(region.status),
+          ui.text(region.name),
+          ui.text(`(${region.code})`, { style: { dim: true } }),
+        ]),
+        region.status === "online" &&
+          ui.text(`${region.latency}ms`, { style: { dim: true } }),
+      ])
+    ),
+  ]);
+}
+```
+
+## Combining with Other Widgets
+
+### With Badge
+
+```typescript
+function UserStatusBadge(user: { name: string; status: "online" | "away" }) {
+  return ui.row({ gap: 1, items: "center" }, [
+    ui.status(user.status),
+    ui.text(user.name),
+    user.status === "online" && ui.badge("Active", { variant: "success" }),
+  ]);
+}
+```
+
+### With Progress
+
+```typescript
+function TaskProgress(task: {
+  name: string;
+  status: "running" | "completed" | "failed";
+  progress: number;
+}) {
+  const statusType =
+    task.status === "running" ? "busy" :
+    task.status === "completed" ? "online" :
+    "offline";
+  
+  return ui.column({ gap: 1 }, [
+    ui.row({ gap: 1, items: "center" }, [
+      ui.status(statusType),
+      ui.text(task.name),
+    ]),
+    task.status === "running" &&
+      ui.progress(task.progress, { width: 30 }),
+  ]);
+}
+```
+
+### In Table Columns
+
+```typescript
+type Server = {
+  id: string;
+  name: string;
+  status: "online" | "offline";
+  load: number;
+};
+
+function ServerTable(servers: readonly Server[]) {
+  return ui.table<Server>({
+    id: "servers",
+    columns: [
+      {
+        key: "status",
+        header: "Status",
+        width: 10,
+        render: (value) => ui.status(String(value) as "online" | "offline"),
+      },
+      { key: "name", header: "Server", flex: 1 },
+      { key: "load", header: "Load", width: 10, align: "right" },
+    ],
+    data: servers,
+    getRowKey: (s) => s.id,
+  });
+}
+```
+
+## Design System Integration
+
+Status indicators use semantic colors from the theme:
+
+- `online` → success color (typically green)
+- `busy` → danger color (typically red)
+- `away` → warning color (typically yellow)
+- `offline` → muted color (gray)
+- `unknown` → dim muted color (dark gray)
+
+<Note>
+  Status colors are automatically derived from the active theme's semantic color palette for consistent visual language.
+</Note>
+
+## Accessibility
+
+Status indicators combine color and text for accessibility:
+
+1. **Always provide labels** for important status information
+2. **Use consistent colors** across your application
+3. **Supplement with text** when color alone isn't sufficient
+
+```typescript
+// Good: Indicator + label
+ui.status("online", { label: "Connected" })
+
+// Better: Context + indicator + label
+ui.row({ gap: 1 }, [
+  ui.text("Connection:"),
+  ui.status("online", { label: "Connected" }),
+])
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use semantic status types" icon="circle-check">
+    Stick to the predefined status types (`online`, `offline`, `away`, `busy`, `unknown`) for consistency.
+  </Card>
+  
+  <Card title="Provide labels for clarity" icon="tag">
+    Include descriptive labels to communicate meaning beyond just color.
+  </Card>
+  
+  <Card title="Update in realtime" icon="arrows-rotate">
+    Status indicators are most effective when they reflect current state in realtime.
+  </Card>
+  
+  <Card title="Group related statuses" icon="layer-group">
+    When showing multiple statuses, group them logically for easier scanning.
+  </Card>
+</CardGroup>
+
+## Related Widgets
+
+- [Badge](/widgets/badge) - For text-based status labels with semantic colors
+- [Callout](/widgets/callout) - For larger, more prominent status messages
+- [Progress](/widgets/progress) - For operation completion status

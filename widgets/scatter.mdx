@@ -1,0 +1,513 @@
+---
+title: Scatter Plot
+description: Scatter plot widget for point-based data visualization
+---
+
+The Scatter Plot widget renders point clouds with automatic axis scaling and per-point coloring.
+
+## Basic Usage
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.scatter({
+  id: "scatter-demo",
+  width: 50,
+  height: 25,
+  points: [
+    { x: 10, y: 20 },
+    { x: 30, y: 45 },
+    { x: 50, y: 30 },
+    { x: 70, y: 60 },
+  ],
+  color: "#3b82f6",
+});
+```
+
+## Props
+
+<ParamField path="id" type="string">
+  Widget identifier for debugging.
+</ParamField>
+
+<ParamField path="width" type="number" required>
+  Chart width in terminal columns.
+</ParamField>
+
+<ParamField path="height" type="number" required>
+  Chart height in terminal rows.
+</ParamField>
+
+<ParamField path="points" type="ScatterPoint[]" required>
+  Data points to plot. Each point has:
+  - `x: number` - X coordinate
+  - `y: number` - Y coordinate
+  - `color?: string` - Optional per-point color (overrides default)
+</ParamField>
+
+<ParamField path="axes" type="{ x?: ChartAxis, y?: ChartAxis }">
+  Axis configuration:
+  - `label?: string` - Axis label
+  - `min?: number` - Minimum value (auto if omitted)
+  - `max?: number` - Maximum value (auto if omitted)
+</ParamField>
+
+<ParamField path="color" type="string" default="#3b82f6">
+  Default color for points (hex or theme). Overridden by per-point colors.
+</ParamField>
+
+<ParamField path="blitter" type="GraphicsBlitter" default="braille">
+  Rendering mode. One of `"braille"`, `"sextant"`, `"quadrant"`, `"halfblock"`.
+  Note: `"ascii"` is not supported for scatter plots.
+</ParamField>
+
+## Data Format
+
+Points are objects with `x`, `y`, and optional `color`:
+
+```typescript
+type ScatterPoint = {
+  x: number;
+  y: number;
+  color?: string; // Optional per-point color
+};
+```
+
+### Uniform Color
+
+```typescript
+ui.scatter({
+  id: "uniform",
+  width: 50,
+  height: 25,
+  points: [
+    { x: 10, y: 20 },
+    { x: 30, y: 40 },
+    { x: 50, y: 30 },
+  ],
+  color: "#3b82f6",
+});
+```
+
+### Per-Point Colors
+
+```typescript
+ui.scatter({
+  id: "colored",
+  width: 50,
+  height: 25,
+  points: [
+    { x: 10, y: 20, color: "#ef4444" },
+    { x: 30, y: 40, color: "#10b981" },
+    { x: 50, y: 30, color: "#3b82f6" },
+  ],
+});
+```
+
+### Mixed (Default + Override)
+
+```typescript
+ui.scatter({
+  id: "mixed",
+  width: 50,
+  height: 25,
+  color: "#6b7280", // Default gray
+  points: [
+    { x: 10, y: 20 }, // Uses default
+    { x: 30, y: 40, color: "#ef4444" }, // Red outlier
+    { x: 50, y: 30 }, // Uses default
+  ],
+});
+```
+
+## Axis Configuration
+
+### Auto-Scaling (Default)
+
+```typescript
+ui.scatter({
+  width: 50,
+  height: 25,
+  points: [
+    { x: 5, y: 10 },
+    { x: 95, y: 90 },
+  ],
+  // X-axis: 5 to 95
+  // Y-axis: 10 to 90
+  color: "#3b82f6",
+});
+```
+
+### Fixed Ranges
+
+```typescript
+ui.scatter({
+  width: 50,
+  height: 25,
+  points: data,
+  axes: {
+    x: { min: 0, max: 100, label: "Score" },
+    y: { min: 0, max: 100, label: "Accuracy %" },
+  },
+  color: "#3b82f6",
+});
+```
+
+### Partial Override
+
+```typescript
+ui.scatter({
+  width: 50,
+  height: 25,
+  points: data,
+  axes: {
+    x: { min: 0 }, // Fix min, auto max
+    y: { max: 100 }, // Auto min, fix max
+  },
+  color: "#3b82f6",
+});
+```
+
+## Examples
+
+### Correlation Plot
+
+```typescript
+function correlationPlot(
+  xValues: number[],
+  yValues: number[],
+  xLabel: string,
+  yLabel: string
+): VNode {
+  const points = xValues.map((x, i) => ({
+    x,
+    y: yValues[i],
+  }));
+  
+  return ui.column({ gap: 1 }, [
+    ui.text(`${xLabel} vs ${yLabel}`, { variant: "heading" }),
+    ui.scatter({
+      id: "correlation",
+      width: 60,
+      height: 30,
+      points,
+      axes: {
+        x: { label: xLabel },
+        y: { label: yLabel },
+      },
+      color: "#3b82f6",
+    }),
+  ]);
+}
+```
+
+### Clustered Data
+
+```typescript
+type DataPoint = { x: number; y: number; cluster: number };
+
+const CLUSTER_COLORS = [
+  "#ef4444", // Red
+  "#3b82f6", // Blue
+  "#10b981", // Green
+  "#f59e0b", // Yellow
+];
+
+function clusterPlot(data: DataPoint[]): VNode {
+  const points = data.map((pt) => ({
+    x: pt.x,
+    y: pt.y,
+    color: CLUSTER_COLORS[pt.cluster % CLUSTER_COLORS.length],
+  }));
+  
+  return ui.scatter({
+    id: "clusters",
+    width: 70,
+    height: 35,
+    points,
+    axes: {
+      x: { label: "Feature A" },
+      y: { label: "Feature B" },
+    },
+  });
+}
+```
+
+### Outlier Detection
+
+```typescript
+function outlierPlot(
+  data: Array<{ x: number; y: number }>,
+  threshold: number
+): VNode {
+  const maxDistance = Math.max(...data.map((p) =>
+    Math.sqrt(p.x ** 2 + p.y ** 2)
+  ));
+  
+  const points = data.map((pt) => {
+    const distance = Math.sqrt(pt.x ** 2 + pt.y ** 2);
+    const isOutlier = distance > maxDistance * threshold;
+    
+    return {
+      x: pt.x,
+      y: pt.y,
+      color: isOutlier ? "#ef4444" : "#3b82f6",
+    };
+  });
+  
+  return ui.scatter({
+    id: "outliers",
+    width: 60,
+    height: 30,
+    points,
+    axes: {
+      x: { label: "X" },
+      y: { label: "Y" },
+    },
+  });
+}
+```
+
+### Time Series Scatter
+
+```typescript
+function timeSeriesScatter(
+  timestamps: number[],
+  values: number[]
+): VNode {
+  const points = timestamps.map((ts, i) => ({
+    x: ts,
+    y: values[i],
+  }));
+  
+  return ui.scatter({
+    id: "timeseries",
+    width: 80,
+    height: 25,
+    points,
+    axes: {
+      x: { label: "Time (s)" },
+      y: { label: "Value", min: 0 },
+    },
+    color: "#8b5cf6",
+  });
+}
+```
+
+### Distribution Density
+
+```typescript
+function densityPlot(data: Array<{ x: number; y: number }>): VNode {
+  // Color by local density
+  const getDensity = (point: { x: number; y: number }): number => {
+    const radius = 10;
+    return data.filter((p) => {
+      const dx = p.x - point.x;
+      const dy = p.y - point.y;
+      return Math.sqrt(dx * dx + dy * dy) < radius;
+    }).length;
+  };
+  
+  const maxDensity = Math.max(...data.map(getDensity));
+  
+  const points = data.map((pt) => {
+    const density = getDensity(pt);
+    const ratio = density / maxDensity;
+    
+    // Gradient from blue (sparse) to red (dense)
+    const r = Math.floor(ratio * 255);
+    const b = Math.floor((1 - ratio) * 255);
+    const color = `rgb(${r}, 0, ${b})`;
+    
+    return { x: pt.x, y: pt.y, color };
+  });
+  
+  return ui.scatter({
+    id: "density",
+    width: 60,
+    height: 30,
+    points,
+  });
+}
+```
+
+### Multi-Series Scatter
+
+```typescript
+function multiSeriesScatter(
+  series: Array<{
+    name: string;
+    data: Array<{ x: number; y: number }>;
+    color: string;
+  }>
+): VNode {
+  // Flatten all series into single point array
+  const points = series.flatMap((s) =>
+    s.data.map((pt) => ({ ...pt, color: s.color }))
+  );
+  
+  // Create legend
+  const legend = ui.row({ gap: 2 }, [
+    ...series.map((s) =>
+      ui.row({ gap: 1, key: s.name }, [
+        ui.text("●", { style: { fg: s.color } }),
+        ui.text(s.name),
+      ])
+    ),
+  ]);
+  
+  return ui.column({ gap: 1 }, [
+    legend,
+    ui.scatter({
+      id: "multi-series",
+      width: 70,
+      height: 30,
+      points,
+    }),
+  ]);
+}
+```
+
+### Real-Time Streaming
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+type StreamState = {
+  points: Array<{ x: number; y: number }>;
+  maxPoints: number;
+};
+
+function streamingScatter(state: StreamState): VNode {
+  // Keep only last N points
+  const recentPoints = state.points.slice(-state.maxPoints);
+  
+  // Fade older points
+  const points = recentPoints.map((pt, i) => {
+    const age = recentPoints.length - i;
+    const alpha = 1 - (age / recentPoints.length) * 0.7;
+    const gray = Math.floor(59 + alpha * 196); // 59 to 255
+    
+    return {
+      x: pt.x,
+      y: pt.y,
+      color: `rgb(59, 130, ${gray})`,
+    };
+  });
+  
+  return ui.scatter({
+    id: "streaming",
+    width: 60,
+    height: 30,
+    points,
+    axes: {
+      x: { label: "Time" },
+      y: { label: "Value" },
+    },
+  });
+}
+```
+
+## Performance
+
+### Point Limits
+
+- Braille: Smooth up to ~1000 points
+- Sextant: Smooth up to ~800 points
+- Quadrant: Smooth up to ~600 points
+- Halfblock: Smooth up to ~400 points
+
+For larger datasets:
+- Downsample using grid binning
+- Filter to visible viewport
+- Use heatmap for very dense data
+
+### Grid Binning Example
+
+```typescript
+function binPoints(
+  points: Array<{ x: number; y: number }>,
+  gridSize: number
+): Array<{ x: number; y: number }> {
+  const bins = new Map<string, { x: number; y: number; count: number }>();
+  
+  for (const pt of points) {
+    const binX = Math.floor(pt.x / gridSize) * gridSize;
+    const binY = Math.floor(pt.y / gridSize) * gridSize;
+    const key = `${binX},${binY}`;
+    
+    const existing = bins.get(key);
+    if (existing) {
+      existing.x = (existing.x * existing.count + pt.x) / (existing.count + 1);
+      existing.y = (existing.y * existing.count + pt.y) / (existing.count + 1);
+      existing.count++;
+    } else {
+      bins.set(key, { x: pt.x, y: pt.y, count: 1 });
+    }
+  }
+  
+  return Array.from(bins.values());
+}
+
+const largeDataset = generatePoints(10000);
+const binned = binPoints(largeDataset, 5);
+
+ui.scatter({
+  id: "binned",
+  width: 60,
+  height: 30,
+  points: binned,
+  color: "#3b82f6",
+});
+```
+
+## Blitter Modes
+
+### Braille (Default)
+
+Highest resolution for detailed point clouds:
+
+```typescript
+ui.scatter({
+  width: 60,
+  height: 30,
+  points: data,
+  blitter: "braille",
+  color: "#3b82f6",
+});
+```
+
+### Sextant
+
+Block-based for better visibility of individual points:
+
+```typescript
+ui.scatter({
+  width: 60,
+  height: 30,
+  points: data,
+  blitter: "sextant",
+  color: "#3b82f6",
+});
+```
+
+### Quadrant
+
+Larger points, good for sparse data:
+
+```typescript
+ui.scatter({
+  width: 60,
+  height: 30,
+  points: data,
+  blitter: "quadrant",
+  color: "#3b82f6",
+});
+```
+
+## See Also
+
+- [Line Chart](/widgets/line-chart) - Connected line visualization
+- [Heatmap](/widgets/heatmap) - Dense 2D data
+- [Canvas](/widgets/canvas) - Custom graphics
+- [Bar Chart](/widgets/bar-chart) - Categorical data

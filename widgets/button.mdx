@@ -1,0 +1,298 @@
+---
+title: "Button"
+description: "Interactive button widget with press actions and design system integration"
+---
+
+## Overview
+
+The `button` widget creates a focusable, pressable button with customizable styling and event handling. Buttons automatically integrate with Rezi's design system when semantic theme tokens are available.
+
+## Basic Usage
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+// Simple button
+ui.button("save-btn", "Save")
+
+// Button with press handler
+ui.button("save-btn", "Save", {
+  onPress: () => console.log("Saved!")
+})
+
+// Full props object
+ui.button({
+  id: "save-btn",
+  label: "Save Changes",
+  onPress: handleSave,
+  intent: "primary"
+})
+```
+
+## Props
+
+<ParamField path="id" type="string" required>
+  Unique identifier for focus routing. Required for all buttons.
+</ParamField>
+
+<ParamField path="label" type="string" required>
+  Button text to display.
+</ParamField>
+
+<ParamField path="onPress" type="() => void">
+  Callback invoked when the button is activated (Space, Enter, or mouse click).
+</ParamField>
+
+<ParamField path="disabled" type="boolean" default="false">
+  When true, button cannot be focused or pressed.
+</ParamField>
+
+<ParamField path="focusable" type="boolean" default="true">
+  When false, opt out of Tab focus order while keeping id-based routing available.
+</ParamField>
+
+<ParamField path="accessibleLabel" type="string">
+  Optional semantic label for accessibility and debug announcements.
+</ParamField>
+
+### Styling Props
+
+<ParamField path="intent" type="ButtonIntent">
+  Shorthand for `dsVariant` + `dsTone` + `dsSize`. Maps to design system presets:
+  - `"primary"` → solid + primary (main CTA)
+  - `"secondary"` → soft + default (secondary actions)
+  - `"danger"` → outline + danger (destructive actions)
+  - `"success"` → soft + success (positive confirmations)
+  - `"warning"` → soft + warning (caution actions)
+  - `"link"` → ghost + default + sm (minimal link-style)
+</ParamField>
+
+<ParamField path="dsVariant" type="WidgetVariant" default="soft">
+  Design system visual variant:
+  - `"solid"` - Accent background, inverse text (primary CTA)
+  - `"soft"` - Subtle background, accent text (secondary)
+  - `"outline"` - Border, no fill (tertiary)
+  - `"ghost"` - No background or border (minimal)
+</ParamField>
+
+<ParamField path="dsTone" type="WidgetTone" default="default">
+  Design system color tone: `"default"`, `"primary"`, `"success"`, `"warning"`, `"danger"`.
+</ParamField>
+
+<ParamField path="dsSize" type="WidgetSize" default="md">
+  Design system size preset: `"xs"`, `"sm"`, `"md"`, `"lg"`, `"xl"`.
+</ParamField>
+
+<ParamField path="px" type="number">
+  Horizontal padding in cells. When using design system recipes, overrides the padding derived from `dsSize`.
+  Legacy/manual rendering default: 1.
+</ParamField>
+
+<ParamField path="style" type="TextStyle">
+  Optional style applied to the button label (merged with focus/disabled state).
+</ParamField>
+
+<ParamField path="pressedStyle" type="TextStyle">
+  Optional style applied while the button is pressed.
+</ParamField>
+
+<ParamField path="focusConfig" type="FocusConfig">
+  Optional focus appearance configuration for custom focus indicators.
+</ParamField>
+
+## Event Handling
+
+Buttons emit press events through the `onPress` callback:
+
+```typescript
+ui.button({
+  id: "delete-btn",
+  label: "Delete",
+  intent: "danger",
+  onPress: () => {
+    app.update(state => ({
+      ...state,
+      showConfirmDialog: true
+    }))
+  }
+})
+```
+
+You can also handle button events globally using the app event system:
+
+```typescript
+app.on("event", (event) => {
+  if (event.action === "press" && event.id === "delete-btn") {
+    handleDelete();
+  }
+});
+```
+
+## Design System Integration
+
+### Intent Shortcuts
+
+Use the `intent` prop for common button styles:
+
+```typescript
+// Primary action button
+ui.button("save", "Save", { intent: "primary" })
+
+// Secondary action button
+ui.button("cancel", "Cancel", { intent: "secondary" })
+
+// Destructive action button
+ui.button("delete", "Delete", { intent: "danger" })
+
+// Success confirmation button
+ui.button("confirm", "Confirm", { intent: "success" })
+
+// Warning/caution button
+ui.button("proceed", "Proceed with Caution", { intent: "warning" })
+
+// Minimal link-style button
+ui.button("learn-more", "Learn More", { intent: "link" })
+```
+
+### Manual Design System Props
+
+For fine-grained control, use `dsVariant`, `dsTone`, and `dsSize` directly:
+
+```typescript
+ui.button({
+  id: "custom-btn",
+  label: "Custom Button",
+  dsVariant: "solid",
+  dsTone: "primary",
+  dsSize: "lg"
+})
+```
+
+### Theme Fallback
+
+If the active theme does not provide semantic color tokens, buttons fall back to non-recipe rendering using the `style` prop.
+
+## Form Integration
+
+Buttons are commonly used in forms with the `ui.actions()` helper:
+
+```typescript
+ui.form([
+  ui.field({
+    label: "Email",
+    children: ui.input("email", state.email, {
+      onChange: (value) => app.update({ email: value })
+    })
+  }),
+  ui.actions([
+    ui.button("cancel", "Cancel", { intent: "secondary" }),
+    ui.button("submit", "Submit", { intent: "primary" })
+  ])
+])
+```
+
+## Validation States
+
+Disable buttons during validation or loading:
+
+```typescript
+ui.button({
+  id: "submit-btn",
+  label: state.loading ? "Submitting..." : "Submit",
+  disabled: state.loading || !state.isValid,
+  intent: "primary",
+  onPress: handleSubmit
+})
+```
+
+## Button Groups
+
+Create aligned button groups with `ui.actions()` or `ui.row()`:
+
+```typescript
+// Right-aligned action buttons (recommended for forms)
+ui.actions([
+  ui.button("cancel", "Cancel"),
+  ui.button("save", "Save", { intent: "primary" })
+])
+
+// Custom button group layout
+ui.row({ gap: 1, justify: "center" }, [
+  ui.button("prev", "Previous"),
+  ui.button("next", "Next", { intent: "primary" })
+])
+```
+
+## Examples
+
+### Confirm Dialog
+
+```typescript
+ui.dialog({
+  id: "confirm-delete",
+  title: "Delete Item",
+  message: "Are you sure you want to delete this item? This action cannot be undone.",
+  actions: [
+    {
+      id: "cancel",
+      label: "Cancel",
+      onPress: () => app.update({ showDialog: false })
+    },
+    {
+      id: "delete",
+      label: "Delete",
+      intent: "danger",
+      onPress: () => {
+        deleteItem();
+        app.update({ showDialog: false });
+      }
+    }
+  ]
+})
+```
+
+### Loading Button
+
+```typescript
+ui.button({
+  id: "fetch-btn",
+  label: state.loading ? "Loading..." : "Fetch Data",
+  disabled: state.loading,
+  intent: "primary",
+  onPress: async () => {
+    app.update({ loading: true });
+    try {
+      const data = await fetchData();
+      app.update({ data, loading: false });
+    } catch (err) {
+      app.update({ error: err, loading: false });
+    }
+  }
+})
+```
+
+### Toolbar Buttons
+
+```typescript
+ui.toolbar([
+  ui.button("new", "New", { dsSize: "sm" }),
+  ui.button("open", "Open", { dsSize: "sm" }),
+  ui.button("save", "Save", { dsSize: "sm", intent: "primary" }),
+  ui.spacer({ flex: 1 }),
+  ui.button("settings", "Settings", { dsSize: "sm", dsVariant: "ghost" })
+])
+```
+
+## Accessibility
+
+- Buttons require a unique `id` for focus routing
+- Use `accessibleLabel` for descriptive announcements
+- Disabled buttons are not focusable or pressable
+- Focus indicators are shown when navigating with keyboard
+
+## Related Widgets
+
+- [Link](/widgets/link) - For navigation hyperlinks
+- [Field](/widgets/field) - For wrapping form inputs with labels
+- [Input](/widgets/input) - For text input fields
+- [Checkbox](/widgets/checkbox) - For boolean toggles

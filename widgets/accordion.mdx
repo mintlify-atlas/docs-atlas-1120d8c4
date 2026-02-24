@@ -1,0 +1,429 @@
+---
+title: "Accordion"
+description: "Collapsible content sections with Up/Down navigation and Enter/Space toggles"
+icon: "bars-staggered"
+---
+
+## Overview
+
+The `accordion` widget creates collapsible content sections with expand/collapse controls. Each item has a title header and associated content panel. Supports single or multiple expanded sections.
+
+## Basic Usage
+
+```typescript
+import { ui } from "@rezi-ui/core";
+import { defineWidget } from "@rezi-ui/core";
+
+const MyAccordion = defineWidget((ctx) => {
+  const [expanded, setExpanded] = ctx.useState<readonly string[]>(["item-1"]);
+
+  return ui.accordion({
+    id: "faq-accordion",
+    expanded,
+    onChange: setExpanded,
+    items: [
+      {
+        key: "item-1",
+        title: "What is Rezi?",
+        content: ui.text("Rezi is a runtime-agnostic TUI framework for TypeScript."),
+      },
+      {
+        key: "item-2",
+        title: "How do I install it?",
+        content: ui.text("Run: npm install @rezi-ui/core @rezi-ui/node"),
+      },
+      {
+        key: "item-3",
+        title: "Does it support TypeScript?",
+        content: ui.text("Yes, Rezi is written in TypeScript with full type definitions."),
+      },
+    ],
+  });
+});
+```
+
+## Props
+
+<ParamField path="id" type="string" required>
+  Unique identifier for focus routing.
+</ParamField>
+
+<ParamField path="items" type="readonly AccordionItem[]" required>
+  Array of accordion items with `key`, `title`, and `content`.
+</ParamField>
+
+<ParamField path="expanded" type="readonly string[]" required>
+  Array of expanded item keys (controlled state).
+</ParamField>
+
+<ParamField path="onChange" type="(expanded: readonly string[]) => void" required>
+  Callback when expansion state changes.
+</ParamField>
+
+<ParamField path="allowMultiple" type="boolean" default="true">
+  When `false`, only one item can be expanded at a time (single-expand mode).
+</ParamField>
+
+### Design System Props
+
+<ParamField path="dsVariant" type="WidgetVariant" default="soft">
+  Design system visual variant: `"solid"`, `"soft"`, `"outline"`, `"ghost"`.
+</ParamField>
+
+<ParamField path="dsTone" type="WidgetTone" default="default">
+  Design system color tone: `"default"`, `"primary"`, `"success"`, `"warning"`, `"danger"`.
+</ParamField>
+
+<ParamField path="dsSize" type="WidgetSize" default="md">
+  Design system size preset: `"xs"`, `"sm"`, `"md"`, `"lg"`, `"xl"`.
+</ParamField>
+
+## Keyboard Navigation
+
+Accordion supports full keyboard control:
+
+| Key | Action |
+|-----|--------|
+| `Up` | Navigate to previous item header |
+| `Down` | Navigate to next item header |
+| `Enter` | Toggle focused item |
+| `Space` | Toggle focused item |
+| `Home` | Jump to first item |
+| `End` | Jump to last item |
+| `Tab` | Move focus into expanded content |
+
+## Single-Expand Mode
+
+Only one section can be open at a time:
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+const SingleAccordion = defineWidget((ctx) => {
+  const [expanded, setExpanded] = ctx.useState<readonly string[]>(["section-1"]);
+
+  return ui.accordion({
+    id: "single-accordion",
+    expanded,
+    onChange: setExpanded,
+    allowMultiple: false,
+    items: [
+      {
+        key: "section-1",
+        title: "Account Settings",
+        content: AccountSettingsForm(),
+      },
+      {
+        key: "section-2",
+        title: "Privacy Settings",
+        content: PrivacySettingsForm(),
+      },
+      {
+        key: "section-3",
+        title: "Notification Settings",
+        content: NotificationSettingsForm(),
+      },
+    ],
+  });
+});
+```
+
+## Multi-Expand Mode
+
+Multiple sections can be open simultaneously:
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+const MultiAccordion = defineWidget((ctx) => {
+  const [expanded, setExpanded] = ctx.useState<readonly string[]>([
+    "filters",
+    "sorting",
+  ]);
+
+  return ui.accordion({
+    id: "multi-accordion",
+    expanded,
+    onChange: setExpanded,
+    allowMultiple: true,
+    items: [
+      {
+        key: "filters",
+        title: "Filters",
+        content: FilterControls(),
+      },
+      {
+        key: "sorting",
+        title: "Sorting",
+        content: SortControls(),
+      },
+      {
+        key: "grouping",
+        title: "Grouping",
+        content: GroupControls(),
+      },
+    ],
+  });
+});
+```
+
+## Rich Content
+
+Accordion items can contain any VNode content:
+
+```typescript
+ui.accordion({
+  id: "rich-accordion",
+  expanded: state.expanded,
+  onChange: setExpanded,
+  items: [
+    {
+      key: "profile",
+      title: "Profile Information",
+      content: ui.column({ gap: 1 }, [
+        ui.field({
+          label: "Name",
+          children: ui.input("name", state.name),
+        }),
+        ui.field({
+          label: "Email",
+          children: ui.input("email", state.email),
+        }),
+        ui.actions([
+          ui.button("save-profile", "Save", { intent: "primary" }),
+        ]),
+      ]),
+    },
+    {
+      key: "stats",
+      title: "Statistics",
+      content: ui.column({ gap: 1 }, [
+        ui.text("Performance Metrics", { variant: "heading" }),
+        ui.progress(0.75, { label: "CPU Usage" }),
+        ui.progress(0.42, { label: "Memory Usage" }),
+        ui.sparkline([10, 20, 15, 30, 25, 18, 22]),
+      ]),
+    },
+  ],
+});
+```
+
+## Design System Integration
+
+```typescript
+// Primary solid variant
+ui.accordion({
+  id: "primary-accordion",
+  expanded: state.expanded,
+  onChange: setExpanded,
+  dsVariant: "solid",
+  dsTone: "primary",
+  items: [
+    { key: "item-1", title: "Section 1", content: Content1() },
+    { key: "item-2", title: "Section 2", content: Content2() },
+  ],
+});
+
+// Large size
+ui.accordion({
+  id: "large-accordion",
+  expanded: state.expanded,
+  onChange: setExpanded,
+  dsSize: "lg",
+  items: [
+    { key: "item-1", title: "Large Section 1", content: Content1() },
+    { key: "item-2", title: "Large Section 2", content: Content2() },
+  ],
+});
+```
+
+## Expand/Collapse All
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+const AccordionWithControls = defineWidget((ctx) => {
+  const items = [
+    { key: "item-1", title: "Section 1", content: ui.text("Content 1") },
+    { key: "item-2", title: "Section 2", content: ui.text("Content 2") },
+    { key: "item-3", title: "Section 3", content: ui.text("Content 3") },
+  ];
+
+  const [expanded, setExpanded] = ctx.useState<readonly string[]>([]);
+
+  const expandAll = () => {
+    setExpanded(items.map((item) => item.key));
+  };
+
+  const collapseAll = () => {
+    setExpanded([]);
+  };
+
+  return ui.column({ gap: 1 }, [
+    ui.row({ gap: 1 }, [
+      ui.button({
+        id: "expand-all",
+        label: "Expand All",
+        onPress: expandAll,
+        dsSize: "sm",
+      }),
+      ui.button({
+        id: "collapse-all",
+        label: "Collapse All",
+        onPress: collapseAll,
+        dsSize: "sm",
+      }),
+    ]),
+    ui.accordion({
+      id: "controlled-accordion",
+      expanded,
+      onChange: setExpanded,
+      items,
+    }),
+  ]);
+});
+```
+
+## FAQ Example
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+const FAQ = defineWidget((ctx) => {
+  const [expanded, setExpanded] = ctx.useState<readonly string[]>([]);
+
+  return ui.panel("Frequently Asked Questions", [
+    ui.accordion({
+      id: "faq",
+      expanded,
+      onChange: setExpanded,
+      allowMultiple: true,
+      items: [
+        {
+          key: "q1",
+          title: "How do I get started?",
+          content: ui.column({ gap: 1 }, [
+            ui.text("Install Rezi with npm:"),
+            ui.text("npm install @rezi-ui/core @rezi-ui/node", {
+              variant: "code",
+            }),
+            ui.text("Then create your first app!"),
+          ]),
+        },
+        {
+          key: "q2",
+          title: "What platforms are supported?",
+          content: ui.text(
+            "Rezi runs on Node.js, Bun, and Deno. Browser support is coming soon."
+          ),
+        },
+        {
+          key: "q3",
+          title: "Can I use TypeScript?",
+          content: ui.text(
+            "Yes! Rezi is written in TypeScript with full type definitions."
+          ),
+        },
+      ],
+    }),
+  ]);
+});
+```
+
+## Settings Panel Example
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+const SettingsPanel = defineWidget((ctx) => {
+  const [expanded, setExpanded] = ctx.useState<readonly string[]>(["general"]);
+  const [settings, setSettings] = ctx.useState({
+    name: "Alice",
+    theme: "dark",
+    notifications: true,
+  });
+
+  return ui.panel("Settings", [
+    ui.accordion({
+      id: "settings-accordion",
+      expanded,
+      onChange: setExpanded,
+      allowMultiple: false,
+      items: [
+        {
+          key: "general",
+          title: "General",
+          content: ui.form([
+            ui.field({
+              label: "Name",
+              children: ui.input("settings-name", settings.name, {
+                onInput: (value) => setSettings({ ...settings, name: value }),
+              }),
+            }),
+          ]),
+        },
+        {
+          key: "appearance",
+          title: "Appearance",
+          content: ui.form([
+            ui.field({
+              label: "Theme",
+              children: ui.select({
+                id: "settings-theme",
+                value: settings.theme,
+                options: [
+                  { value: "light", label: "Light" },
+                  { value: "dark", label: "Dark" },
+                  { value: "auto", label: "Auto" },
+                ],
+                onChange: (value) => setSettings({ ...settings, theme: value }),
+              }),
+            }),
+          ]),
+        },
+        {
+          key: "notifications",
+          title: "Notifications",
+          content: ui.form([
+            ui.checkbox({
+              id: "settings-notifications",
+              checked: settings.notifications,
+              label: "Enable notifications",
+              onChange: (checked) =>
+                setSettings({ ...settings, notifications: checked }),
+            }),
+          ]),
+        },
+      ],
+    }),
+  ]);
+});
+```
+
+## Best Practices
+
+1. **Use single-expand for wizards** - Sequential forms work better with `allowMultiple: false`
+2. **Provide meaningful titles** - Headers should clearly describe content
+3. **Keep content concise** - Long sections are hard to navigate in TUI
+4. **Preserve state** - Store expanded state in parent to persist across renders
+5. **Use for hierarchical data** - Good for settings, FAQs, and documentation
+
+## Accessibility
+
+- Headers have `role="button"` and `aria-expanded` attributes
+- Content panels have `role="region"` when expanded
+- Focus moves between headers with Up/Down arrows
+- Enter/Space keys toggle expansion
+- Tab key moves focus into expanded content
+
+## Related Widgets
+
+- [Tabs](/widgets/tabs) - For switching between views
+- [Tree](/widgets/tree) - For hierarchical file/folder navigation
+- [Panel](/widgets/panel) - For grouped content sections
+
+## Location in Source
+
+- Implementation: `packages/core/src/widgets/accordion.ts`
+- Types: `packages/core/src/widgets/types.ts:1544-1565`
+- Factory: `packages/core/src/widgets/ui.ts:1501`

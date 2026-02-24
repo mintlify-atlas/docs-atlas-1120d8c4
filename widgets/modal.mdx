@@ -1,0 +1,436 @@
+---
+title: "Modal"
+description: "Centered overlay dialog with backdrop, focus trap, and keyboard controls"
+icon: "window-maximize"
+---
+
+## Overview
+
+The `modal` widget creates a centered overlay dialog with an optional backdrop, automatic focus management, and keyboard controls. Modals block interaction with content below and trap focus within the dialog.
+
+## Basic Usage
+
+```typescript
+import { ui } from "@rezi-ui/core";
+import { defineWidget } from "@rezi-ui/core";
+
+const MyApp = defineWidget((ctx) => {
+  const [showModal, setShowModal] = ctx.useState(false);
+
+  return ui.layers([
+    ui.column({ gap: 1, p: 1 }, [
+      ui.button({
+        id: "open-modal",
+        label: "Open Modal",
+        onPress: () => setShowModal(true),
+      }),
+    ]),
+    showModal &&
+      ui.modal({
+        id: "my-modal",
+        title: "Confirm Action",
+        content: ui.text("Are you sure you want to proceed?"),
+        actions: [
+          ui.button({
+            id: "modal-cancel",
+            label: "Cancel",
+            onPress: () => setShowModal(false),
+          }),
+          ui.button({
+            id: "modal-confirm",
+            label: "Confirm",
+            intent: "primary",
+            onPress: () => {
+              // Handle confirmation
+              setShowModal(false);
+            },
+          }),
+        ],
+        onClose: () => setShowModal(false),
+      }),
+  ]);
+});
+```
+
+## Props
+
+<ParamField path="id" type="string" required>
+  Unique identifier for focus routing.
+</ParamField>
+
+<ParamField path="content" type="VNode" required>
+  Main content of the modal body.
+</ParamField>
+
+<ParamField path="title" type="string">
+  Optional title rendered in modal header.
+</ParamField>
+
+<ParamField path="actions" type="readonly VNode[]">
+  Action buttons rendered in modal footer (typically buttons).
+</ParamField>
+
+<ParamField path="width" type="number | 'auto'">
+  Modal width in cells, or `"auto"` to fit content.
+</ParamField>
+
+<ParamField path="height" type="number">
+  Modal height in cells.
+</ParamField>
+
+<ParamField path="maxWidth" type="number">
+  Maximum width constraint.
+</ParamField>
+
+<ParamField path="minWidth" type="number">
+  Minimum width constraint.
+</ParamField>
+
+<ParamField path="minHeight" type="number">
+  Minimum height constraint.
+</ParamField>
+
+### Backdrop Configuration
+
+<ParamField path="backdrop" type="ModalBackdrop" default="'dim'">
+  Backdrop style or configuration:
+  - `"none"` - No backdrop
+  - `"dim"` - Semi-transparent overlay
+  - `"opaque"` - Solid backdrop
+  - Object with `variant`, `pattern`, `foreground`, `background`
+</ParamField>
+
+<ParamField path="closeOnBackdrop" type="boolean" default="true">
+  Close when backdrop is clicked.
+</ParamField>
+
+<ParamField path="closeOnEscape" type="boolean" default="true">
+  Close when ESC key is pressed.
+</ParamField>
+
+<ParamField path="onClose" type="() => void">
+  Callback when modal should close (ESC, backdrop click, or explicit close).
+</ParamField>
+
+### Focus Management
+
+<ParamField path="initialFocus" type="string">
+  ID of element to focus when modal opens.
+</ParamField>
+
+<ParamField path="returnFocusTo" type="string">
+  ID of element to return focus to when modal closes.
+</ParamField>
+
+### Styling
+
+<ParamField path="frameStyle" type="OverlayFrameStyle">
+  Frame/surface colors for modal body and border:
+  - `background` - Surface background color
+  - `foreground` - Default text/icon color
+  - `border` - Border color
+</ParamField>
+
+## Keyboard Controls
+
+| Key | Action |
+|-----|--------|
+| `ESC` | Close modal (if `closeOnEscape` enabled) |
+| `Tab` | Navigate to next focusable element in modal |
+| `Shift+Tab` | Navigate to previous focusable element |
+| `Enter` | Activate focused button |
+
+## Backdrop Variants
+
+### Dim Backdrop (Default)
+
+Semi-transparent overlay:
+
+```typescript
+ui.modal({
+  id: "modal",
+  title: "Modal",
+  content: ui.text("Modal content"),
+  backdrop: "dim", // Default
+  onClose: closeModal,
+});
+```
+
+### Opaque Backdrop
+
+Solid background:
+
+```typescript
+ui.modal({
+  id: "modal",
+  title: "Modal",
+  content: ui.text("Modal content"),
+  backdrop: "opaque",
+  onClose: closeModal,
+});
+```
+
+### No Backdrop
+
+Modal without backdrop overlay:
+
+```typescript
+ui.modal({
+  id: "modal",
+  title: "Modal",
+  content: ui.text("Modal content"),
+  backdrop: "none",
+  onClose: closeModal,
+});
+```
+
+### Custom Backdrop
+
+```typescript
+ui.modal({
+  id: "modal",
+  title: "Modal",
+  content: ui.text("Modal content"),
+  backdrop: {
+    variant: "dim",
+    pattern: "░", // Light shade
+    foreground: { r: 100, g: 100, b: 150 },
+    background: { r: 0, g: 0, b: 0 },
+  },
+  onClose: closeModal,
+});
+```
+
+## Dialog Helper
+
+Use `ui.dialog()` for simple confirmation dialogs:
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.dialog({
+  id: "confirm-delete",
+  title: "Delete Item",
+  message: "Are you sure? This cannot be undone.",
+  actions: [
+    {
+      label: "Cancel",
+      onPress: () => closeDialog(),
+    },
+    {
+      label: "Delete",
+      intent: "danger",
+      onPress: () => {
+        performDelete();
+        closeDialog();
+      },
+    },
+  ],
+  onClose: closeDialog,
+});
+```
+
+## Form Modal
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+const EditUserModal = defineWidget((ctx, props: { user: User; onClose: () => void }) => {
+  const [name, setName] = ctx.useState(props.user.name);
+  const [email, setEmail] = ctx.useState(props.user.email);
+
+  const handleSave = () => {
+    saveUser({ ...props.user, name, email });
+    props.onClose();
+  };
+
+  return ui.modal({
+    id: "edit-user-modal",
+    title: "Edit User",
+    width: 50,
+    content: ui.form([
+      ui.field({
+        label: "Name",
+        children: ui.input("edit-name", name, {
+          onInput: setName,
+        }),
+      }),
+      ui.field({
+        label: "Email",
+        children: ui.input("edit-email", email, {
+          onInput: setEmail,
+        }),
+      }),
+    ]),
+    actions: [
+      ui.button({
+        id: "edit-cancel",
+        label: "Cancel",
+        onPress: props.onClose,
+      }),
+      ui.button({
+        id: "edit-save",
+        label: "Save",
+        intent: "primary",
+        onPress: handleSave,
+        disabled: !name || !email,
+      }),
+    ],
+    initialFocus: "edit-name",
+    onClose: props.onClose,
+  });
+});
+```
+
+## Confirmation Modal
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+const ConfirmModal = defineWidget(
+  (ctx, props: { title: string; message: string; onConfirm: () => void; onCancel: () => void }) => {
+    return ui.modal({
+      id: "confirm-modal",
+      title: props.title,
+      content: ui.text(props.message),
+      actions: [
+        ui.button({
+          id: "confirm-no",
+          label: "No",
+          onPress: props.onCancel,
+        }),
+        ui.button({
+          id: "confirm-yes",
+          label: "Yes",
+          intent: "primary",
+          onPress: props.onConfirm,
+        }),
+      ],
+      initialFocus: "confirm-no",
+      onClose: props.onCancel,
+    });
+  }
+);
+```
+
+## Loading Modal
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.modal({
+  id: "loading-modal",
+  content: ui.column({ gap: 1, items: "center" }, [
+    ui.spinner({ variant: "dots" }),
+    ui.text("Processing..."),
+  ]),
+  backdrop: "opaque",
+  closeOnEscape: false,
+  closeOnBackdrop: false,
+});
+```
+
+## Multi-Step Modal
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+const WizardModal = defineWidget((ctx, props: { onClose: () => void }) => {
+  const [step, setStep] = ctx.useState(1);
+  const totalSteps = 3;
+
+  const nextStep = () => setStep(step + 1);
+  const prevStep = () => setStep(step - 1);
+
+  return ui.modal({
+    id: "wizard-modal",
+    title: `Step ${step} of ${totalSteps}`,
+    width: 60,
+    content:
+      step === 1
+        ? Step1Content()
+        : step === 2
+          ? Step2Content()
+          : Step3Content(),
+    actions: [
+      step > 1 &&
+        ui.button({
+          id: "wizard-prev",
+          label: "Previous",
+          onPress: prevStep,
+        }),
+      ui.button({
+        id: "wizard-cancel",
+        label: "Cancel",
+        onPress: props.onClose,
+      }),
+      ui.button({
+        id: "wizard-next",
+        label: step === totalSteps ? "Finish" : "Next",
+        intent: "primary",
+        onPress: step === totalSteps ? props.onClose : nextStep,
+      }),
+    ],
+    onClose: props.onClose,
+  });
+});
+```
+
+## Modal Stack
+
+Multiple modals are automatically stacked with proper z-indexing:
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.layers([
+  MainContent(),
+  state.showModal1 && Modal1({ onClose: () => closeModal1() }),
+  state.showModal2 && Modal2({ onClose: () => closeModal2() }),
+]);
+```
+
+## Custom Styling
+
+```typescript
+ui.modal({
+  id: "styled-modal",
+  title: "Custom Modal",
+  content: ui.text("Content"),
+  frameStyle: {
+    background: { r: 30, g: 30, b: 40 },
+    foreground: { r: 220, g: 220, b: 230 },
+    border: { r: 100, g: 120, b: 150 },
+  },
+  onClose: closeModal,
+});
+```
+
+## Best Practices
+
+1. **Use sparingly** - Modals interrupt user flow; prefer inline forms when possible
+2. **Provide clear actions** - Always include Cancel or Close option
+3. **Focus first input** - Use `initialFocus` to direct keyboard navigation
+4. **Handle ESC key** - Allow users to cancel with ESC unless critical
+5. **Return focus** - Use `returnFocusTo` to restore focus after close
+6. **Size appropriately** - Don't make modals too large for terminal viewport
+
+## Accessibility
+
+- Focus automatically trapped within modal when open
+- ESC key closes modal (unless disabled)
+- Tab navigation cycles through modal elements
+- Focus returns to trigger element on close
+- Backdrop clicks close modal (unless disabled)
+
+## Related Widgets
+
+- [Dialog](/widgets/dialog) - Simplified confirmation dialog helper
+- [Dropdown](/widgets/dropdown) - For contextual menus
+- [Layer](/widgets/layer) - For custom overlay positioning
+- [Toast](/widgets/toast) - For non-blocking notifications
+
+## Location in Source
+
+- Types: `packages/core/src/widgets/types.ts:1054-1087`
+- Factory: `packages/core/src/widgets/ui.ts:1249`

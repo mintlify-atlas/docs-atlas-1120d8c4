@@ -1,0 +1,412 @@
+---
+title: "Callout"
+description: "Highlighted message box for important information, warnings, and alerts"
+---
+
+## Overview
+
+The Callout widget (also known as Alert or Admonition) displays a highlighted message box with semantic styling to draw attention to important information, warnings, success messages, or errors.
+
+## Usage
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+// Basic informational callout
+ui.callout("This is an important message")
+
+// With semantic variant
+ui.callout("Operation completed successfully", { variant: "success" })
+ui.callout("Please review before continuing", { variant: "warning" })
+ui.callout("An error occurred", { variant: "error" })
+
+// With title and custom icon
+ui.callout("Check for updates regularly", {
+  variant: "info",
+  title: "Pro Tip",
+  icon: "ui.lightbulb",
+})
+```
+
+## Props
+
+<ParamField path="message" type="string" required>
+  The main message text to display in the callout
+</ParamField>
+
+<ParamField path="variant" type="string" default="info">
+  Semantic variant determining the callout styling:
+  - `"info"` - Blue informational message
+  - `"success"` - Green success notification
+  - `"warning"` - Yellow warning/caution
+  - `"error"` - Red error alert
+</ParamField>
+
+<ParamField path="title" type="string">
+  Optional title displayed above the message
+</ParamField>
+
+<ParamField path="icon" type="string">
+  Optional icon path to display. If not provided, a default icon based on the variant is used.
+</ParamField>
+
+<ParamField path="style" type="TextStyle">
+  Optional style override for the callout text
+</ParamField>
+
+<ParamField path="key" type="string">
+  Optional reconciliation key
+</ParamField>
+
+## Examples
+
+### Basic Callout Variants
+
+```typescript
+function CalloutShowcase() {
+  return ui.column({ gap: 1, p: 1 }, [
+    ui.text("Callout Variants", { variant: "heading" }),
+    ui.divider(),
+    
+    ui.callout("This is an informational message.", { variant: "info" }),
+    ui.callout("Operation completed successfully.", { variant: "success" }),
+    ui.callout("Please review before continuing.", { variant: "warning" }),
+    ui.callout("An error occurred during processing.", { variant: "error" }),
+  ]);
+}
+```
+
+### Callouts with Titles
+
+```typescript
+function TitledCallouts() {
+  return ui.column({ gap: 1 }, [
+    ui.callout("New features are available in this release.", {
+      variant: "info",
+      title: "What's New",
+    }),
+    
+    ui.callout("Your changes have been saved to the server.", {
+      variant: "success",
+      title: "Saved",
+    }),
+    
+    ui.callout("This action cannot be undone. Please confirm before proceeding.", {
+      variant: "warning",
+      title: "Warning",
+    }),
+    
+    ui.callout("Unable to connect to the database. Check your connection.", {
+      variant: "error",
+      title: "Connection Failed",
+    }),
+  ]);
+}
+```
+
+### Form Validation Errors
+
+```typescript
+type FormErrors = readonly string[];
+
+function FormErrorCallout(errors: FormErrors) {
+  if (errors.length === 0) return null;
+  
+  const message = errors.length === 1
+    ? errors[0]
+    : `${errors.length} validation errors:\n${errors.map(e => `• ${e}`).join("\n")}`;
+  
+  return ui.callout(message, {
+    variant: "error",
+    title: "Validation Failed",
+  });
+}
+```
+
+### API Response Messages
+
+```typescript
+type ApiResponse = 
+  | { success: true; message: string }
+  | { success: false; error: string };
+
+function ApiResponseCallout(response: ApiResponse | null) {
+  if (!response) return null;
+  
+  if (response.success) {
+    return ui.callout(response.message, {
+      variant: "success",
+      title: "Success",
+    });
+  }
+  
+  return ui.callout(response.error, {
+    variant: "error",
+    title: "Error",
+  });
+}
+```
+
+### System Status Alerts
+
+```typescript
+type SystemAlert = {
+  id: string;
+  severity: "info" | "warning" | "error";
+  title: string;
+  message: string;
+  timestamp: Date;
+};
+
+function SystemAlerts(alerts: readonly SystemAlert[]) {
+  if (alerts.length === 0) {
+    return ui.callout("All systems operational", { variant: "success" });
+  }
+  
+  return ui.column({ gap: 1 }, [
+    ui.text("System Alerts", { variant: "heading" }),
+    ...alerts.map((alert) =>
+      ui.callout(alert.message, {
+        key: alert.id,
+        variant: alert.severity,
+        title: `${alert.title} — ${alert.timestamp.toLocaleTimeString()}`,
+      })
+    ),
+  ]);
+}
+```
+
+### Deployment Status
+
+```typescript
+type DeploymentStatus = 
+  | { state: "pending"; message: string }
+  | { state: "progress"; message: string; step: string }
+  | { state: "success"; message: string }
+  | { state: "failed"; message: string; error: string };
+
+function DeploymentStatusCallout(status: DeploymentStatus) {
+  switch (status.state) {
+    case "pending":
+      return ui.callout(status.message, {
+        variant: "info",
+        title: "Deployment Queued",
+      });
+    
+    case "progress":
+      return ui.callout(`${status.message}\nCurrent step: ${status.step}`, {
+        variant: "info",
+        title: "Deploying",
+      });
+    
+    case "success":
+      return ui.callout(status.message, {
+        variant: "success",
+        title: "Deployment Complete",
+      });
+    
+    case "failed":
+      return ui.callout(`${status.message}\nError: ${status.error}`, {
+        variant: "error",
+        title: "Deployment Failed",
+      });
+  }
+}
+```
+
+## Callout Patterns
+
+### Contextual Help
+
+```typescript
+function SetupWizard(step: number) {
+  return ui.column({ gap: 1, p: 1 }, [
+    ui.text(`Setup - Step ${step} of 3`, { variant: "heading" }),
+    
+    step === 1 && ui.callout(
+      "Enter your API key from the dashboard settings page.",
+      { variant: "info", title: "Tip" }
+    ),
+    
+    step === 2 && ui.callout(
+      "Select the regions where your application will be deployed.",
+      { variant: "info", title: "Configuration" }
+    ),
+    
+    step === 3 && ui.callout(
+      "Review your settings before completing setup. You can change these later.",
+      { variant: "warning", title: "Review" }
+    ),
+  ]);
+}
+```
+
+### Progressive Disclosure
+
+```typescript
+function DangerousActionConfirm(state: { showWarning: boolean }) {
+  return ui.column({ gap: 1 }, [
+    ui.text("Delete Project", { variant: "heading" }),
+    
+    state.showWarning && ui.callout(
+      "This will permanently delete the project and all associated data. This action cannot be undone.",
+      {
+        variant: "error",
+        title: "Permanent Deletion",
+      }
+    ),
+    
+    ui.actions([
+      ui.button({ id: "cancel", label: "Cancel" }),
+      ui.button({
+        id: "delete",
+        label: "Delete",
+        intent: "danger",
+      }),
+    ]),
+  ]);
+}
+```
+
+### Feature Announcements
+
+```typescript
+type Feature = {
+  name: string;
+  description: string;
+  isNew: boolean;
+};
+
+function FeatureAnnouncement(feature: Feature) {
+  return ui.column({ gap: 1 }, [
+    feature.isNew && ui.callout(
+      `${feature.name}: ${feature.description}`,
+      {
+        variant: "info",
+        title: "New Feature",
+        icon: "ui.sparkles",
+      }
+    ),
+  ]);
+}
+```
+
+### Maintenance Windows
+
+```typescript
+type Maintenance = {
+  scheduled: Date;
+  duration: number;
+  description: string;
+};
+
+function MaintenanceNotice(maintenance: Maintenance | null) {
+  if (!maintenance) return null;
+  
+  const now = new Date();
+  const hoursUntil = (maintenance.scheduled.getTime() - now.getTime()) / (1000 * 60 * 60);
+  
+  if (hoursUntil < 0) {
+    return ui.callout(
+      "System maintenance is in progress. Some features may be unavailable.",
+      {
+        variant: "warning",
+        title: "Maintenance in Progress",
+      }
+    );
+  }
+  
+  if (hoursUntil < 24) {
+    return ui.callout(
+      `${maintenance.description}\nScheduled: ${maintenance.scheduled.toLocaleString()}\nDuration: ${maintenance.duration} hours`,
+      {
+        variant: "warning",
+        title: "Upcoming Maintenance",
+      }
+    );
+  }
+  
+  return null;
+}
+```
+
+## Combining with Actions
+
+```typescript
+function CalloutWithActions(state: { dismissed: boolean }) {
+  if (state.dismissed) return null;
+  
+  return ui.column({ gap: 1 }, [
+    ui.callout(
+      "A new version is available with important security fixes.",
+      {
+        variant: "warning",
+        title: "Update Available",
+      }
+    ),
+    ui.actions([
+      ui.button({ id: "dismiss", label: "Dismiss", intent: "secondary" }),
+      ui.button({ id: "update", label: "Update Now", intent: "primary" }),
+    ]),
+  ]);
+}
+```
+
+## Design System Integration
+
+Callouts use theme semantic colors:
+
+- `info` → theme info color (blue)
+- `success` → theme success color (green)
+- `warning` → theme warning color (yellow)
+- `error` → theme danger/error color (red)
+
+<Note>
+  Callouts automatically apply appropriate borders, backgrounds, and icon colors based on the active theme's semantic palette.
+</Note>
+
+## Accessibility
+
+Callouts should be used appropriately based on message importance:
+
+1. **Info** - General information, tips, notes
+2. **Success** - Confirmations, completed actions
+3. **Warning** - Cautions, non-critical issues, confirmations needed
+4. **Error** - Critical errors, failures, blocked actions
+
+```typescript
+// Good: Appropriate variant for message type
+ui.callout("File uploaded successfully", { variant: "success" })
+ui.callout("Session will expire in 5 minutes", { variant: "warning" })
+ui.callout("Failed to save changes", { variant: "error" })
+
+// Avoid: Wrong variant for message severity
+// Don't use "error" for non-critical messages
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use appropriate variants" icon="triangle-exclamation">
+    Match the variant to the message severity: info for notes, warning for cautions, error for failures.
+  </Card>
+  
+  <Card title="Keep messages concise" icon="text-size">
+    Write clear, actionable messages. Users should understand what happened and what to do next.
+  </Card>
+  
+  <Card title="Add titles for context" icon="heading">
+    Include a title to quickly communicate the message category or source.
+  </Card>
+  
+  <Card title="Don't overuse" icon="ban">
+    Too many callouts reduce their effectiveness. Reserve them for important information.
+  </Card>
+</CardGroup>
+
+## Related Widgets
+
+- [Error Display](/widgets/error-display) - For detailed error reporting with stack traces
+- [Badge](/widgets/badge) - For compact inline status indicators
+- [Toast](/widgets/toast) - For temporary, non-blocking notifications
+- [Modal](/widgets/modal) - For critical messages requiring user interaction

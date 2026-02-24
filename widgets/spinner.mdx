@@ -1,0 +1,252 @@
+---
+title: "Spinner"
+description: "Animated loading indicator for displaying ongoing operations"
+---
+
+## Overview
+
+The Spinner widget displays an animated loading indicator to provide visual feedback during asynchronous operations. It supports multiple animation variants and optional labels.
+
+## Usage
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+// Basic spinner
+ui.spinner()
+
+// With label
+ui.spinner({ label: "Loading..." })
+
+// Different variant
+ui.spinner({ variant: "dots", label: "Processing" })
+```
+
+## Props
+
+<ParamField path="variant" type="string" default="dots">
+  Spinner animation variant:
+  - `"dots"` - Animated dots sequence
+  - `"line"` - Horizontal line animation
+  - `"circle"` - Spinning circle
+  - `"bounce"` - Bouncing animation
+  - `"pulse"` - Pulsing effect
+  - `"arrows"` - Rotating arrows
+  - `"dots2"` - Alternative dots pattern
+</ParamField>
+
+<ParamField path="label" type="string">
+  Optional text label displayed after the spinner
+</ParamField>
+
+<ParamField path="style" type="TextStyle">
+  Optional style override for the spinner and label
+</ParamField>
+
+<ParamField path="key" type="string">
+  Optional reconciliation key for efficient updates
+</ParamField>
+
+## Examples
+
+### Basic Loading State
+
+```typescript
+function LoadingView() {
+  return ui.column({ gap: 1, p: 1 }, [
+    ui.spinner({ label: "Loading data..." }),
+  ]);
+}
+```
+
+### Multiple Spinner Variants
+
+```typescript
+function SpinnerShowcase() {
+  const variants = ["dots", "line", "circle", "bounce", "pulse", "arrows"] as const;
+  
+  return ui.column({ gap: 1, p: 1 }, [
+    ui.text("Spinner Variants", { variant: "heading" }),
+    ...variants.map((variant) =>
+      ui.row({ gap: 1, key: variant }, [
+        ui.spinner({ variant }),
+        ui.text(variant),
+      ])
+    ),
+  ]);
+}
+```
+
+### Conditional Loading
+
+```typescript
+type State = {
+  loading: boolean;
+  data: string | null;
+};
+
+function DataView(state: State) {
+  if (state.loading) {
+    return ui.center(
+      ui.spinner({ variant: "circle", label: "Fetching data..." })
+    );
+  }
+  
+  return ui.text(state.data ?? "No data");
+}
+```
+
+### Styled Spinner
+
+```typescript
+import { rgb } from "@rezi-ui/core";
+
+function CustomSpinner() {
+  return ui.spinner({
+    variant: "circle",
+    label: "Please wait",
+    style: {
+      fg: rgb(100, 200, 255),
+      bold: true,
+    },
+  });
+}
+```
+
+## Loading State Patterns
+
+### Inline Loading
+
+```typescript
+function InlineLoadingButton(state: { saving: boolean }) {
+  return ui.row({ gap: 1, items: "center" }, [
+    ui.button({
+      id: "save-btn",
+      label: "Save",
+      disabled: state.saving,
+    }),
+    state.saving && ui.spinner({ variant: "dots" }),
+  ]);
+}
+```
+
+### Full-Screen Overlay
+
+```typescript
+function LoadingOverlay() {
+  return ui.layers([
+    MainContent(),
+    ui.box(
+      {
+        width: "100%",
+        height: "100%",
+        style: { bg: rgb(0, 0, 0, 0.5) },
+      },
+      [
+        ui.center(
+          ui.column({ gap: 1 }, [
+            ui.spinner({ variant: "circle" }),
+            ui.text("Loading...", { style: { bold: true } }),
+          ])
+        ),
+      ]
+    ),
+  ]);
+}
+```
+
+### Section Loading
+
+```typescript
+function DataSection(state: { loading: boolean; items: Item[] }) {
+  return ui.panel("Recent Activity", [
+    state.loading
+      ? ui.column({ gap: 1, p: 2 }, [
+          ui.spinner({ label: "Loading activity..." }),
+        ])
+      : ui.column(
+          { gap: 0 },
+          state.items.map((item, i) => ui.text(item.name, { key: String(i) }))
+        ),
+  ]);
+}
+```
+
+## Animation Behavior
+
+The spinner animation is driven by the framework's tick events:
+
+- Animation updates on every frame when the app is rendering
+- Pauses automatically when the terminal is resized or suspended
+- No manual animation state management required
+
+<Note>
+  Spinners automatically animate as long as they remain mounted. Remove the spinner from the view tree when loading completes.
+</Note>
+
+## Design System Integration
+
+Spinners inherit theme colors by default:
+
+```typescript
+// Uses theme accent color
+ui.spinner({ label: "Loading" })
+
+// Override with custom color
+ui.spinner({
+  label: "Custom",
+  style: { fg: rgb(255, 100, 50) },
+})
+```
+
+## Accessibility
+
+When using spinners for loading states:
+
+1. **Provide context** - Include a descriptive label explaining what's loading
+2. **Time limits** - Show alternative UI if loading exceeds expected duration
+3. **Cancellation** - Provide a way to cancel long-running operations
+
+```typescript
+function AccessibleLoading(state: { elapsed: number }) {
+  return ui.column({ gap: 1 }, [
+    ui.spinner({ label: "Loading data..." }),
+    state.elapsed > 5000 &&
+      ui.text("This is taking longer than usual", { style: { dim: true } }),
+    state.elapsed > 10000 &&
+      ui.button({
+        id: "cancel-load",
+        label: "Cancel",
+        intent: "secondary",
+      }),
+  ]);
+}
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use appropriate variants" icon="wand-magic-sparkles">
+    Choose variants that match the operation duration:
+    - Quick operations: `"dots"` or `"pulse"`
+    - Long operations: `"circle"` or `"bounce"`
+  </Card>
+  
+  <Card title="Add descriptive labels" icon="text">
+    Always include a label explaining what's loading to provide context to users.
+  </Card>
+  
+  <Card title="Position strategically" icon="location-dot">
+    Place spinners near the content being loaded rather than at arbitrary locations.
+  </Card>
+  
+  <Card title="Remove when done" icon="check">
+    Ensure spinners are removed from the view tree when operations complete to avoid confusing users.
+  </Card>
+</CardGroup>
+
+## Related Widgets
+
+- [Progress](/widgets/progress) - For operations with known completion percentage
+- [Skeleton](/widgets/skeleton) - For placeholder loading states
+- [Callout](/widgets/callout) - For status messages after loading completes

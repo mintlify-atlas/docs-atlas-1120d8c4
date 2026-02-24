@@ -1,0 +1,630 @@
+---
+title: Modal Dialog Patterns
+description: Building modal dialogs, confirmation flows, and modal stacks
+---
+
+# Modal Dialog Patterns
+
+Patterns for creating modal dialogs, managing modal stacks, and building confirmation flows.
+
+## Problem
+
+You need to display:
+- Confirmation dialogs for destructive actions
+- Forms or complex content in modal overlays
+- Multiple modals stacked on top of each other
+- Proper focus management and keyboard navigation
+
+## Solution
+
+Use `ui.modal()` for overlays, manage visibility with state, and use `useModalStack` for multiple modals.
+
+## Basic Confirmation Dialog
+
+```typescript
+import { ui } from "@rezi-ui/core";
+import { createNodeApp } from "@rezi-ui/node";
+
+type State = {
+  items: Array<{ id: string; name: string }>;
+  confirmDeleteId: string | null;
+};
+
+const app = createNodeApp<State>({
+  initialState: {
+    items: [
+      { id: "1", name: "Project Alpha" },
+      { id: "2", name: "Project Beta" },
+      { id: "3", name: "Project Gamma" },
+    ],
+    confirmDeleteId: null,
+  },
+});
+
+app.view((state) => {
+  const confirmItem = state.confirmDeleteId
+    ? state.items.find((i) => i.id === state.confirmDeleteId)
+    : null;
+
+  return ui.layers([
+    // Main content
+    ui.page({ p: 1 }, [
+      ui.panel("Projects", [
+        ui.column({ gap: 1 }, [
+          ...state.items.map((item) =>
+            ui.row({ key: item.id, gap: 2, justify: "between" }, [
+              ui.text(item.name),
+              ui.button({
+                id: `delete-${item.id}`,
+                label: "Delete",
+                intent: "danger",
+                onPress: () =>
+                  app.update((s) => ({ ...s, confirmDeleteId: item.id })),
+              }),
+            ])
+          ),
+        ]),
+      ]),
+    ]),
+
+    // Modal overlay (conditional)
+    confirmItem &&
+      ui.modal({
+        id: "confirm-delete",
+        title: "Confirm Deletion",
+        width: 50,
+        backdrop: "dim",
+        content: ui.column({ gap: 1 }, [
+          ui.text(`Delete "${confirmItem.name}"?`),
+          ui.text("This action cannot be undone.", { variant: "caption" }),
+        ]),
+        actions: [
+          ui.button({
+            id: "cancel",
+            label: "Cancel",
+            intent: "secondary",
+            onPress: () => app.update((s) => ({ ...s, confirmDeleteId: null })),
+          }),
+          ui.button({
+            id: "confirm",
+            label: "Delete",
+            intent: "danger",
+            onPress: () =>
+              app.update((s) => ({
+                ...s,
+                items: s.items.filter((it) => it.id !== s.confirmDeleteId),
+                confirmDeleteId: null,
+              })),
+          }),
+        ],
+        onClose: () => app.update((s) => ({ ...s, confirmDeleteId: null })),
+        returnFocusTo: confirmItem ? `delete-${confirmItem.id}` : undefined,
+      }),
+  ]);
+});
+
+app.keys({
+  "ctrl+c": () => app.stop(),
+  q: () => app.stop(),
+  escape: () => app.update((s) => ({ ...s, confirmDeleteId: null })),
+});
+
+await app.start();
+```
+
+**Key elements:**
+- **`ui.layers([...])`** - Renders main content with modal on top
+- **`backdrop: "dim"`** - Darkens background content
+- **`onClose`** - Handles Escape key and close button
+- **`returnFocusTo`** - Restores focus to triggering element after close
+
+## Modal with Form
+
+```typescript
+import { defineWidget, ui, useForm } from "@rezi-ui/core";
+
+type ModalState = { showCreateUser: boolean };
+type UserFormValues = { name: string; email: string; role: string };
+
+const App = defineWidget<ModalState>((ctx) => {
+  const [state, setState] = ctx.useState<ModalState>(() => ({
+    showCreateUser: false,
+  }));
+
+  const form = useForm<UserFormValues>(ctx, {
+    initialValues: { name: "", email: "", role: "user" },
+    validate: (v) => ({
+      name: v.name ? undefined : "Required",
+      email: v.email.includes("@") ? undefined : "Invalid email",
+    }),
+    onSubmit: async (values) => {
+      console.log("Create user:", values);
+      setState({ showCreateUser: false });
+      form.reset();
+    },
+  });
+
+  return ui.layers([
+    ui.page({ p: 1 }, [
+      ui.panel("Users", [
+        ui.button({
+          id: "create-user",
+          label: "Create User",
+          intent: "primary",
+          onPress: () => setState({ showCreateUser: true }),
+        }),
+      ]),
+    ]),
+
+    state.showCreateUser &&
+      ui.modal({
+        id: "create-user-modal",
+        title: "Create New User",
+        width: 60,
+        backdrop: "dim",
+        content: ui.form([
+          form.field("name", { label: "Full Name", required: true }),
+          form.field("email", { label: "Email", required: true }),
+          ui.field({
+            label: "Role",
+            children: ui.select({
+              ...form.bind("role"),
+              options: [
+                { value: "user", label: "User" },
+                { value: "admin", label: "Admin" },
+              ],
+            }),
+          }),
+        ]),
+        actions: [
+          ui.button({
+            id: "cancel",
+            label: "Cancel",
+            intent: "secondary",
+            onPress: () => {
+              setState({ showCreateUser: false });
+              form.reset();
+            },
+          }),
+          ui.button({
+            id: "submit",
+            label: "Create",
+            intent: "primary",
+            disabled: !form.isValid,
+            onPress: form.handleSubmit,
+          }),
+        ],
+        onClose: () => {
+          setState({ showCreateUser: false });
+          form.reset();
+        },
+        initialFocus: "name",
+      }),
+  ]);
+});
+```
+
+## Modal Stack Management
+
+For applications with multiple overlapping modals, use `useModalStack`:
+
+```typescript
+import { defineWidget, ui, useModalStack } from "@rezi-ui/core";
+
+const App = defineWidget<void>((ctx) => {
+  const modals = useModalStack(ctx);
+
+  const showConfirmDelete = (itemId: string) => {
+    modals.push(`delete-${itemId}`, {
+      title: "Confirm Deletion",
+      content: ui.text(`Delete item ${itemId}?`),
+      actions: [
+        ui.button({
+          id: "cancel",
+          label: "Cancel",
+          onPress: () => modals.pop(),
+        }),
+        ui.button({
+          id: "confirm",
+          label: "Delete",
+          intent: "danger",
+          onPress: () => {
+            console.log("Deleted", itemId);
+            modals.pop();
+          },
+        }),
+      ],
+    });
+  };
+
+  const showSettings = () => {
+    modals.push("settings", {
+      title: "Settings",
+      content: ui.column({ gap: 1 }, [
+        ui.text("Application Settings"),
+        ui.button({
+          id: "reset",
+          label: "Reset to Defaults",
+          intent: "danger",
+          onPress: () => showConfirmDelete("settings-reset"),
+        }),
+      ]),
+      actions: [
+        ui.button({
+          id: "close",
+          label: "Close",
+          onPress: () => modals.pop(),
+        }),
+      ],
+    });
+  };
+
+  return ui.layers([
+    ui.page({ p: 1 }, [
+      ui.panel("App", [
+        ui.button({
+          id: "settings",
+          label: "Open Settings",
+          onPress: showSettings,
+        }),
+      ]),
+    ]),
+
+    // Render modal stack
+    ...modals.render(),
+  ]);
+});
+```
+
+**Modal stack features:**
+- **LIFO ordering** - Last opened modal is on top
+- **Automatic focus management** - Focus moves between modals
+- **`modals.push(id, props)`** - Add modal to stack
+- **`modals.pop()`** - Remove top modal
+- **`modals.clear()`** - Close all modals
+- **`modals.current()`** - Get ID of top modal
+- **`modals.size`** - Number of open modals
+
+## Dialog Helper Functions
+
+Rezi provides pre-built dialog patterns:
+
+### Confirmation Dialog
+
+```typescript
+import { confirmDialog } from "@rezi-ui/core/dialogs";
+
+app.view((state) => {
+  return ui.layers([
+    ui.page({ p: 1 }, [...]),
+
+    state.showConfirm &&
+      confirmDialog({
+        id: "confirm",
+        title: "Confirm Action",
+        message: "Are you sure you want to proceed?",
+        confirmLabel: "Yes, proceed",
+        cancelLabel: "Cancel",
+        intent: "primary",
+        onConfirm: () => {
+          console.log("Confirmed");
+          app.update((s) => ({ ...s, showConfirm: false }));
+        },
+        onCancel: () => app.update((s) => ({ ...s, showConfirm: false })),
+      }),
+  ]);
+});
+```
+
+### Alert Dialog
+
+```typescript
+import { alertDialog } from "@rezi-ui/core/dialogs";
+
+alertDialog({
+  id: "alert",
+  title: "Operation Complete",
+  message: "Your changes have been saved successfully.",
+  buttonLabel: "OK",
+  onClose: () => app.update((s) => ({ ...s, showAlert: false })),
+});
+```
+
+### Prompt Dialog
+
+```typescript
+import { promptDialog } from "@rezi-ui/core/dialogs";
+
+promptDialog({
+  id: "prompt",
+  title: "Enter Name",
+  message: "Please enter a name for this item:",
+  placeholder: "Item name",
+  defaultValue: "",
+  confirmLabel: "Save",
+  cancelLabel: "Cancel",
+  onConfirm: (value) => {
+    console.log("Entered:", value);
+    app.update((s) => ({ ...s, showPrompt: false }));
+  },
+  onCancel: () => app.update((s) => ({ ...s, showPrompt: false })),
+});
+```
+
+## Focus Management
+
+### Initial Focus
+
+Set which element receives focus when modal opens:
+
+```typescript
+ui.modal({
+  id: "modal",
+  title: "Modal Title",
+  content: ui.form([
+    ui.input({ id: "name", value: "" }),
+    ui.input({ id: "email", value: "" }),
+  ]),
+  actions: [
+    ui.button({ id: "cancel", label: "Cancel" }),
+    ui.button({ id: "submit", label: "Submit" }),
+  ],
+  initialFocus: "name", // Focus this input on open
+});
+```
+
+### Return Focus
+
+Restore focus to triggering element after modal closes:
+
+```typescript
+ui.button({
+  id: "open-modal",
+  label: "Open",
+  onPress: () => setState({ showModal: true }),
+}),
+
+state.showModal &&
+  ui.modal({
+    id: "modal",
+    title: "Modal",
+    content: ui.text("Content"),
+    actions: [ui.button({ id: "close", label: "Close" })],
+    returnFocusTo: "open-modal", // Return focus here on close
+  });
+```
+
+### Focus Trap
+
+Modals automatically trap focus - Tab/Shift+Tab cycles only through modal elements:
+
+```typescript
+ui.modal({
+  id: "modal",
+  title: "Modal",
+  content: ui.column({ gap: 1 }, [
+    ui.input({ id: "input1", value: "" }),
+    ui.input({ id: "input2", value: "" }),
+  ]),
+  actions: [
+    ui.button({ id: "cancel", label: "Cancel" }),
+    ui.button({ id: "submit", label: "Submit" }),
+  ],
+  // Focus cycles: input1 → input2 → cancel → submit → input1
+});
+```
+
+## Backdrop Styles
+
+```typescript
+ui.modal({
+  id: "modal",
+  title: "Modal",
+  content: ui.text("Content"),
+  backdrop: "blur", // "none" | "dim" | "blur"
+  actions: [...],
+});
+```
+
+- **`none`** - No backdrop (main content fully visible)
+- **`dim`** - Semi-transparent dark overlay (default)
+- **`blur`** - Blurred background effect
+
+## Modal Sizing
+
+```typescript
+ui.modal({
+  id: "modal",
+  title: "Modal",
+  content: ui.text("Content"),
+  width: 60, // Fixed width in cells
+  minWidth: 40, // Minimum width
+  maxWidth: 80, // Maximum width
+  height: 20, // Fixed height in rows
+  minHeight: 10, // Minimum height
+  maxHeight: 30, // Maximum height
+  actions: [...],
+});
+```
+
+## Keyboard Handling
+
+### Global Escape Handler
+
+```typescript
+app.keys({
+  escape: () => {
+    app.update((s) => ({
+      ...s,
+      showModal: false,
+      confirmDeleteId: null,
+      // Clear all modal state
+    }));
+  },
+});
+```
+
+### Modal-Specific Keys
+
+```typescript
+ui.modal({
+  id: "modal",
+  title: "Modal",
+  content: ui.text("Press Ctrl+S to save"),
+  actions: [...],
+  onClose: () => setState({ showModal: false }),
+});
+
+// In app keys
+app.keys({
+  "ctrl+s": (ctx) => {
+    if (ctx.state.showModal) {
+      // Handle save while modal is open
+      console.log("Save from modal");
+    }
+  },
+});
+```
+
+## Common Patterns
+
+### Confirmation Before Navigation
+
+```typescript
+type State = {
+  currentPage: string;
+  hasUnsavedChanges: boolean;
+  pendingNavigation: string | null;
+};
+
+function requestNavigate(targetPage: string) {
+  app.update((s) => {
+    if (s.hasUnsavedChanges) {
+      return { ...s, pendingNavigation: targetPage };
+    }
+    return { ...s, currentPage: targetPage };
+  });
+}
+
+app.view((state) => {
+  return ui.layers([
+    ui.page({ p: 1 }, [...]),
+
+    state.pendingNavigation &&
+      ui.modal({
+        id: "unsaved-changes",
+        title: "Unsaved Changes",
+        content: ui.text("You have unsaved changes. Discard them?"),
+        actions: [
+          ui.button({
+            id: "cancel",
+            label: "Cancel",
+            onPress: () => app.update((s) => ({ ...s, pendingNavigation: null })),
+          }),
+          ui.button({
+            id: "discard",
+            label: "Discard",
+            intent: "danger",
+            onPress: () =>
+              app.update((s) => ({
+                ...s,
+                currentPage: s.pendingNavigation!,
+                pendingNavigation: null,
+                hasUnsavedChanges: false,
+              })),
+          }),
+        ],
+        onClose: () => app.update((s) => ({ ...s, pendingNavigation: null })),
+      }),
+  ]);
+});
+```
+
+### Multi-Step Modal Flow
+
+```typescript
+type WizardState = {
+  showWizard: boolean;
+  step: number;
+};
+
+app.view((state) => {
+  return ui.layers([
+    ui.page({ p: 1 }, [...]),
+
+    state.showWizard &&
+      ui.modal({
+        id: "wizard",
+        title: `Setup: Step ${state.step + 1} of 3`,
+        content:
+          state.step === 0
+            ? ui.text("Step 1 content")
+            : state.step === 1
+              ? ui.text("Step 2 content")
+              : ui.text("Step 3 content"),
+        actions: [
+          state.step > 0 &&
+            ui.button({
+              id: "back",
+              label: "Back",
+              onPress: () => app.update((s) => ({ ...s, step: s.step - 1 })),
+            }),
+          ui.button({
+            id: state.step === 2 ? "finish" : "next",
+            label: state.step === 2 ? "Finish" : "Next",
+            intent: "primary",
+            onPress: () =>
+              app.update((s) =>
+                s.step === 2
+                  ? { ...s, showWizard: false, step: 0 }
+                  : { ...s, step: s.step + 1 }
+              ),
+          }),
+        ],
+        onClose: () => app.update((s) => ({ ...s, showWizard: false, step: 0 })),
+      }),
+  ]);
+});
+```
+
+### Loading Modal
+
+```typescript
+app.view((state) => {
+  return ui.layers([
+    ui.page({ p: 1 }, [...]),
+
+    state.isLoading &&
+      ui.modal({
+        id: "loading",
+        title: "Processing",
+        content: ui.column({ gap: 1 }, [
+          ui.spinner({ label: "Please wait..." }),
+          ui.text("This may take a few moments.", { variant: "caption" }),
+        ]),
+        actions: [], // No actions - cannot close during load
+        backdrop: "blur",
+      }),
+  ]);
+});
+```
+
+## Best Practices
+
+1. **Use `ui.layers([...])`** - Proper layering for modals
+2. **Always provide `onClose`** - Handle Escape key
+3. **Set `returnFocusTo`** - Restore focus after close
+4. **Use `initialFocus` for forms** - Guide user to first input
+5. **Disable backdrop click to close for destructive actions** - Use explicit buttons
+6. **Keep modals focused** - Don't nest complex UIs unnecessarily
+7. **Use `useModalStack` for multi-modal UIs** - Automatic focus/stack management
+8. **Show clear action intent** - Use `intent` prop on buttons
+9. **Provide visual hierarchy** - Primary action should stand out
+10. **Test keyboard navigation** - Tab, Shift+Tab, Escape, Enter
+
+## Related
+
+- [Button Widget](/widgets/button) - Modal actions
+- [Forms Recipe](/recipes/forms) - Forms in modals
+- [Keyboard Shortcuts Recipe](/recipes/keyboard-shortcuts) - Modal key handling
+- [Focus Management](/concepts/focus) - Focus trap and navigation

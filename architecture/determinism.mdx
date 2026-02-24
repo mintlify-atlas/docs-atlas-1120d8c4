@@ -1,0 +1,351 @@
+---
+title: Deterministic Rendering
+description: Reproducibility guarantees and record/replay system
+---
+
+Rezi provides deterministic rendering: same initial state + same event sequence = identical frames every time. This enables record/replay debugging, snapshot testing, and reproducible bug reports.
+
+## Determinism Guarantees
+
+**Property:** Given the same initial state and the same sequence of events, Rezi will produce:
+1. Identical VNode trees
+2. Identical layout results (cell coordinates)
+3. Identical drawlists (byte-for-byte)
+4. Identical terminal output
+
+**This holds across:**
+- Multiple runs on the same machine
+- Different machines (same platform + runtime version)
+- Different times (no clock dependencies in render path)
+- Different terminal sizes (when viewport is fixed)
+
+## Sources of Determinism
+
+### Pinned Unicode Version
+
+Rezi pins Unicode 15.1.0 for text measurement:
+
+```typescript
+import {
+  ZR_UNICODE_VERSION_MAJOR,  // 15
+  ZR_UNICODE_VERSION_MINOR,  // 1
+  ZR_UNICODE_VERSION_PATCH,  // 0
+} from "@rezi-ui/core";
+```
+
+**Why:** Character widths, grapheme cluster boundaries, and East Asian width properties all depend on Unicode table data. Pinning ensures the same string measures identically everywhere.
+
+**Tables used:**
+- `packages/core/src/layout/unicode/tables_15_1_0.ts`
+
+### Versioned Binary Protocols
+
+All binary formats are versioned:
+
+- **ZRDL:** Drawlist format version in header (v1-v5)
+- **ZREV:** Event batch version in header (v1)
+
+Mismatched versions are rejected with deterministic errors. No silent data corruption.
+
+### Commit-Point Semantics
+
+State updates are batched and committed at well-defined points:
+
+```typescript
+app.update((state) => ({ count: state.count + 1 }));
+app.update((state) => ({ count: state.count + 1 }));
+// Both updates batched into single commit
+```
+
+**Commit points:**
+- After all event handlers complete
+- Before next frame render
+- On explicit `app.flush()`
+
+**Benefit:** Eliminates race conditions from interleaved state updates.
+
+### Deterministic Layout Algorithms
+
+Layout engine uses deterministic algorithms:
+
+**Integer distribution:**
+
+```typescript
+function distributeInteger(total: number, weights: number[]): number[] {
+  // Deterministic weighted distribution
+  // Same inputs -> same outputs, every time
+}
+```
+
+**Location:** `packages/core/src/layout/engine/distributeInteger.ts`
+
+**Flex/grid sizing:**
+- No floating-point rounding errors
+- Deterministic resolution of ambiguous constraints
+- Stable sort orders (instance IDs break ties)
+
+### Reconciliation Stability
+
+Reconciliation matches children deterministically:
+
+**Keyed children:** Match by explicit `key` prop
+
+```typescript
+ui.column([
+  each(items, (item) => 
+    ui.text({ key: item.id, text: item.name })
+  )
+]);
+```
+
+**Unkeyed children:** Match by position (stable when list order stable)
+
+**Instance ID allocation:** Deterministic counter per parent
+
+### No Random State
+
+Rezi's render path contains:
+- No `Math.random()` calls
+- No `Date.now()` or `performance.now()` reads
+- No non-deterministic hash functions
+
+**Animation timing:** Uses explicit frame deltas from ZREV tick events (deterministic when replaying)
+
+## Record/Replay System
+
+Rezi includes a record/replay system for debugging:
+
+### Recording a Session
+
+```typescript
+import { createNodeApp } from "@rezi-ui/node";
+import { createRecorder } from "@rezi-ui/node/repro";
+
+const app = createNodeApp({ initialState, config });
+
+const recorder = createRecorder({
+  outputPath: "./session.zrui",
+  captureEvents: true,
+  captureState: true
+});
+
+app.on("event", (ev) => recorder.recordEvent(ev));
+app.on("stateChange", (state) => recorder.recordState(state));
+
+app.run();
+```
+
+**Captured data:**
+- Initial state
+- All ZREV event batches
+- State snapshots at each commit point
+- Viewport size changes
+
+**Output format:** Binary `.zrui` file (compressed)
+
+### Replaying a Session
+
+```typescript
+import { replaySession } from "@rezi-ui/node/repro";
+
+const result = await replaySession({
+  sessionPath: "./session.zrui",
+  app: createNodeApp({ initialState, config }),
+  assertStatesMatch: true,  // Validate determinism
+});
+
+if (result.ok) {
+  console.log("Replay succeeded");
+  console.log(`${result.framesRendered} frames rendered`);
+} else {
+  console.error("Replay failed", result.error);
+}
+```
+
+**Replay guarantees:**
+- Same initial state
+- Same event sequence (timing doesn't matter)
+- Same state transitions at each commit point
+
+**Use cases:**
+- Reproduce user-reported bugs
+- Verify fixes without manual reproduction
+- Snapshot testing
+
+**Location:** `packages/node/src/repro/`
+
+## Snapshot Testing
+
+Deterministic rendering enables snapshot tests:
+
+```typescript
+import { createTestApp, snapshot } from "@rezi-ui/testkit";
+import { describe, it, expect } from "node:test";
+
+describe("Counter component", () => {
+  it("renders initial state", () => {
+    const app = createTestApp({
+      initialState: { count: 0 }
+    });
+    
+    const frame = snapshot(app);
+    expect(frame).toMatchSnapshot();
+  });
+  
+  it("renders after increment", () => {
+    const app = createTestApp({
+      initialState: { count: 0 }
+    });
+    
+    app.dispatch({ type: "increment" });
+    app.flush();
+    
+    const frame = snapshot(app);
+    expect(frame).toMatchSnapshot();
+  });
+});
+```
+
+**Snapshot formats:**
+- **ASCII:** Text rendering of frame
+- **ZRDL:** Binary drawlist
+- **Layout tree:** Cell coordinates JSON
+
+## Non-Deterministic Inputs
+
+Some inputs are inherently non-deterministic:
+
+### Time
+
+User code may read `Date.now()` or `performance.now()` in view functions:
+
+```typescript
+function view(state: State): VNode {
+  const now = Date.now();  // Non-deterministic!
+  return ui.text(`Current time: ${now}`);
+}
+```
+
+**Mitigation:** Pass time as state:
+
+```typescript
+app.on("tick", () => {
+  app.update((s) => ({ ...s, time: Date.now() }));
+});
+
+function view(state: State): VNode {
+  return ui.text(`Current time: ${state.time}`);
+}
+```
+
+### Random State
+
+User code may call `Math.random()`:
+
+```typescript
+function view(state: State): VNode {
+  const color = Math.random() > 0.5 ? "red" : "blue";  // Non-deterministic!
+  return ui.text({ text: "Hello", fg: color });
+}
+```
+
+**Mitigation:** Use deterministic PRNG seeded from state:
+
+```typescript
+function seededRandom(seed: number): number {
+  // xorshift or similar
+}
+
+function view(state: State): VNode {
+  const color = seededRandom(state.seed) > 0.5 ? "red" : "blue";
+  return ui.text({ text: "Hello", fg: color });
+}
+```
+
+### External I/O
+
+Reading files, network requests, or system APIs:
+
+```typescript
+function view(state: State): VNode {
+  const data = fs.readFileSync("/tmp/data.json");  // Non-deterministic!
+  return ui.text(data.toString());
+}
+```
+
+**Mitigation:** Perform I/O in event handlers, store results in state:
+
+```typescript
+app.on("mount", async () => {
+  const data = await fs.promises.readFile("/tmp/data.json", "utf-8");
+  app.update((s) => ({ ...s, data }));
+});
+
+function view(state: State): VNode {
+  return ui.text(state.data || "Loading...");
+}
+```
+
+## Testing Determinism
+
+Verify determinism with this test pattern:
+
+```typescript
+import { createTestApp, snapshot } from "@rezi-ui/testkit";
+import { describe, it, expect } from "node:test";
+
+describe("Determinism", () => {
+  it("produces identical frames on replay", () => {
+    const events = [
+      { type: "key", keyCode: ZR_KEY_ENTER },
+      { type: "key", keyCode: ZR_KEY_TAB },
+    ];
+    
+    // First run
+    const app1 = createTestApp({ initialState });
+    for (const ev of events) {
+      app1.handleEvent(ev);
+      app1.flush();
+    }
+    const frame1 = snapshot(app1);
+    
+    // Second run
+    const app2 = createTestApp({ initialState });
+    for (const ev of events) {
+      app2.handleEvent(ev);
+      app2.flush();
+    }
+    const frame2 = snapshot(app2);
+    
+    // Frames must match byte-for-byte
+    expect(frame1).toEqual(frame2);
+  });
+});
+```
+
+## Caveats
+
+**Platform dependencies:**
+- Terminal capabilities may differ (truecolor, mouse)
+- Font rendering is terminal-specific
+- Terminal emulator bugs may cause divergence
+
+**Runtime versions:**
+- Different Node.js versions may have different behavior
+- Different V8 versions may optimize differently
+
+**Floating-point:**
+- Rezi avoids floating-point in layout (uses integers)
+- User code with floating-point may have platform differences
+
+**Mitigations:**
+- Pin Node.js version in CI
+- Use integer arithmetic for critical logic
+- Test on multiple platforms
+
+## Related Documentation
+
+- [Render Pipeline](/architecture/render-pipeline) — Rendering phases
+- [Layout Engine](/architecture/layout-engine) — Layout algorithms
+- [Protocol Versioning](/architecture/protocol/versioning) — Binary format versions
+- [Benchmarks](/architecture/benchmarks) — Performance measurements

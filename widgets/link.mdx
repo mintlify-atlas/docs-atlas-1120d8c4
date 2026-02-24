@@ -1,0 +1,343 @@
+---
+title: "Link"
+description: "Hyperlink widget for terminal URL navigation and local press handlers"
+icon: "link"
+---
+
+## Overview
+
+The `link` widget creates clickable hyperlinks that can open URLs in terminal emulators that support hyperlink escape codes (OSC 8). Links also support local press handlers for in-app navigation.
+
+## Basic Usage
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+// Simple link with URL
+ui.link("https://rezi.dev");
+
+// Link with custom label
+ui.link("https://rezi.dev", "Visit Rezi Docs");
+
+// Full props object
+ui.link({
+  url: "https://github.com/rezi-ui/rezi",
+  label: "View on GitHub",
+  onPress: () => console.log("Link pressed"),
+});
+```
+
+## Props
+
+<ParamField path="url" type="string" required>
+  URL to open in terminal hyperlink-capable renderers.
+</ParamField>
+
+<ParamField path="label" type="string">
+  Link label text. Defaults to the URL if omitted.
+</ParamField>
+
+<ParamField path="id" type="string">
+  Optional unique identifier for focus routing.
+</ParamField>
+
+<ParamField path="onPress" type="() => void">
+  Optional local press handler. Called when link is activated via keyboard or mouse.
+</ParamField>
+
+<ParamField path="disabled" type="boolean" default="false">
+  Disabled links are rendered but not focusable or pressable.
+</ParamField>
+
+<ParamField path="focusable" type="boolean" default="true">
+  Opt out of Tab focus order while keeping id-based routing available.
+</ParamField>
+
+<ParamField path="accessibleLabel" type="string">
+  Optional semantic label used for accessibility and debug announcements.
+</ParamField>
+
+<ParamField path="style" type="TextStyle">
+  Optional text style for the link (color, bold, underline, etc.).
+</ParamField>
+
+## External Links
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+// Documentation link
+ui.link("https://rezi.dev/docs", "Read the Docs");
+
+// Repository link
+ui.link("https://github.com/rezi-ui/rezi", "GitHub");
+
+// Issue tracker
+ui.link("https://github.com/rezi-ui/rezi/issues", "Report an Issue");
+```
+
+## Email Links
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.link("mailto:support@example.com", "Contact Support");
+
+ui.link("mailto:alice@example.com?subject=Hello&body=Hi Alice!", "Email Alice");
+```
+
+## Local Navigation
+
+Use `onPress` for in-app navigation:
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.link({
+  url: "/settings",
+  label: "Settings",
+  onPress: () => app.router.navigate("/settings"),
+});
+
+ui.link({
+  url: "/profile",
+  label: "View Profile",
+  onPress: () => {
+    app.update({ currentView: "profile" });
+  },
+});
+```
+
+## Custom Styling
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+// Blue underlined link
+ui.link({
+  url: "https://example.com",
+  label: "Example",
+  style: {
+    fg: { r: 70, g: 130, b: 255 },
+    underline: true,
+  },
+});
+
+// Bold link
+ui.link({
+  url: "https://important.com",
+  label: "Important Link",
+  style: {
+    bold: true,
+    fg: { r: 255, g: 100, b: 100 },
+  },
+});
+```
+
+## Disabled Links
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.link({
+  url: "https://unavailable.com",
+  label: "Unavailable",
+  disabled: true,
+  style: { dim: true },
+});
+```
+
+## Link Lists
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+const links = [
+  { url: "https://rezi.dev", label: "Home" },
+  { url: "https://rezi.dev/docs", label: "Documentation" },
+  { url: "https://rezi.dev/examples", label: "Examples" },
+  { url: "https://github.com/rezi-ui/rezi", label: "GitHub" },
+];
+
+ui.column(
+  { gap: 0 },
+  links.map((link, index) =>
+    ui.row(
+      { key: `link-${index}`, gap: 1 },
+      [ui.text("•"), ui.link(link.url, link.label)]
+    )
+  )
+);
+```
+
+## With Icons
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.row({ gap: 1, items: "center" }, [
+  ui.icon("link"),
+  ui.link("https://rezi.dev", "Official Website"),
+]);
+
+ui.row({ gap: 1, items: "center" }, [
+  ui.icon("github"),
+  ui.link("https://github.com/rezi-ui/rezi", "Source Code"),
+]);
+```
+
+## Footer Links
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.statusBar({
+  left: [ui.text("Rezi TUI Framework v1.0.0")],
+  right: [
+    ui.link("https://rezi.dev/docs", "Docs"),
+    ui.text("·"),
+    ui.link("https://github.com/rezi-ui/rezi", "GitHub"),
+    ui.text("·"),
+    ui.link("https://rezi.dev/support", "Support"),
+  ],
+});
+```
+
+## Error Message Links
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.callout(
+  "An error occurred. Check the logs for details.",
+  {
+    variant: "error",
+  }
+);
+
+ui.row({ gap: 1 }, [
+  ui.text("Need help?"),
+  ui.link("https://rezi.dev/troubleshooting", "Troubleshooting Guide"),
+]);
+```
+
+## Keyboard Navigation
+
+Links support standard keyboard interaction:
+
+| Key | Action |
+|-----|--------|
+| `Tab` | Move to next focusable element |
+| `Shift+Tab` | Move to previous focusable element |
+| `Enter` | Activate link (open URL or call `onPress`) |
+| `Space` | Activate link (open URL or call `onPress`) |
+
+## Terminal Support
+
+Link rendering depends on terminal capabilities:
+
+- **Supported terminals**: iTerm2, Windows Terminal, Alacritty, kitty, GNOME Terminal
+- **Unsupported terminals**: Links render as plain text with the label
+- **Detection**: Rezi automatically detects terminal hyperlink support
+
+## Best Practices
+
+1. **Provide descriptive labels** - "View Documentation" is better than "Click here"
+2. **Use consistent styling** - Keep link colors and underlines uniform
+3. **Test terminal support** - Not all terminals render hyperlinks
+4. **Combine with icons** - Visual indicators improve scannability
+5. **Disable unavailable links** - Use `disabled` prop instead of removing links
+
+## Examples
+
+### Help Panel
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.panel("Help & Resources", [
+  ui.column({ gap: 1 }, [
+    ui.text("Documentation", { variant: "heading" }),
+    ui.link("https://rezi.dev/docs/getting-started", "Getting Started"),
+    ui.link("https://rezi.dev/docs/widgets", "Widget Reference"),
+    ui.link("https://rezi.dev/docs/examples", "Examples"),
+    ui.spacer({ size: 1 }),
+    ui.text("Community", { variant: "heading" }),
+    ui.link("https://github.com/rezi-ui/rezi/discussions", "Discussions"),
+    ui.link("https://discord.gg/rezi", "Discord Server"),
+    ui.link("https://twitter.com/reziframework", "Twitter"),
+  ]),
+]);
+```
+
+### Reference List
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+const references = [
+  { title: "API Documentation", url: "https://rezi.dev/api" },
+  { title: "GitHub Repository", url: "https://github.com/rezi-ui/rezi" },
+  { title: "npm Package", url: "https://npmjs.com/package/@rezi-ui/core" },
+  { title: "Release Notes", url: "https://rezi.dev/releases" },
+];
+
+ui.column(
+  { gap: 0 },
+  references.map((ref) =>
+    ui.row({ gap: 1, key: ref.url }, [
+      ui.text("→", { style: { dim: true } }),
+      ui.link(ref.url, ref.title),
+    ])
+  )
+);
+```
+
+### Context Menu
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.dropdown({
+  id: "help-menu",
+  anchorId: "help-button",
+  items: [
+    {
+      id: "docs",
+      label: "Documentation",
+      onPress: () => openLink("https://rezi.dev/docs"),
+    },
+    {
+      id: "issues",
+      label: "Report Issue",
+      onPress: () => openLink("https://github.com/rezi-ui/rezi/issues"),
+    },
+    { id: "divider", label: "", divider: true },
+    {
+      id: "about",
+      label: "About Rezi",
+      onPress: () => app.update({ showAboutDialog: true }),
+    },
+  ],
+  onClose: () => app.update({ helpMenuOpen: false }),
+});
+```
+
+## Accessibility
+
+- Links are keyboard navigable with Tab
+- Enter and Space keys activate links
+- Use `accessibleLabel` for descriptive announcements
+- Disabled links are not focusable
+- Focus indicators are shown when navigating with keyboard
+
+## Related Widgets
+
+- [Button](/widgets/button) - For local actions without URLs
+- [Breadcrumb](/widgets/breadcrumb) - For navigation path display
+- [Text](/widgets/text) - For non-interactive text content
+
+## Location in Source
+
+- Types: `packages/core/src/widgets/types.ts:623-640`
+- Factory: `packages/core/src/widgets/ui.ts:681-699`

@@ -1,0 +1,489 @@
+---
+title: "Toast"
+description: "Non-blocking notification system with auto-dismiss and action buttons"
+icon: "bell"
+---
+
+## Overview
+
+The `toast` widget displays non-blocking notification messages in a corner of the screen. Toasts support auto-dismiss, action buttons, progress indicators, and multiple toast stacking.
+
+## Basic Usage
+
+```typescript
+import { ui } from "@rezi-ui/core";
+import { defineWidget } from "@rezi-ui/core";
+
+const ToastExample = defineWidget((ctx) => {
+  const [toasts, setToasts] = ctx.useState<Toast[]>([]);
+
+  const showToast = (message: string, type: Toast["type"]) => {
+    const toast: Toast = {
+      id: Date.now().toString(),
+      message,
+      type,
+      duration: 3000,
+    };
+    setToasts([...toasts, toast]);
+  };
+
+  const dismissToast = (id: string) => {
+    setToasts(toasts.filter((t) => t.id !== id));
+  };
+
+  return ui.layers([
+    ui.column({ gap: 1, p: 1 }, [
+      ui.button({
+        id: "toast-info",
+        label: "Show Info",
+        onPress: () => showToast("This is an info message", "info"),
+      }),
+      ui.button({
+        id: "toast-success",
+        label: "Show Success",
+        onPress: () => showToast("Action completed successfully", "success"),
+      }),
+      ui.button({
+        id: "toast-warning",
+        label: "Show Warning",
+        onPress: () => showToast("Warning: Check your settings", "warning"),
+      }),
+      ui.button({
+        id: "toast-error",
+        label: "Show Error",
+        onPress: () => showToast("Error: Failed to save", "error"),
+      }),
+    ]),
+    ui.toastContainer({
+      toasts,
+      position: "bottom-right",
+      onDismiss: dismissToast,
+    }),
+  ]);
+});
+```
+
+## Props
+
+### ToastContainerProps
+
+<ParamField path="toasts" type="readonly Toast[]" required>
+  Active toast notifications to display.
+</ParamField>
+
+<ParamField path="onDismiss" type="(id: string) => void" required>
+  Callback when a toast is dismissed (auto or manual).
+</ParamField>
+
+<ParamField path="position" type="ToastPosition" default="'bottom-right'">
+  Position on screen:
+  - `"top-left"`
+  - `"top-center"`
+  - `"top-right"`
+  - `"bottom-left"`
+  - `"bottom-center"`
+  - `"bottom-right"`
+</ParamField>
+
+<ParamField path="maxVisible" type="number" default="5">
+  Maximum visible toasts. Older toasts are hidden when limit reached.
+</ParamField>
+
+<ParamField path="width" type="number" default="40">
+  Toast container width in cells.
+</ParamField>
+
+<ParamField path="frameStyle" type="OverlayFrameStyle">
+  Frame/surface colors for toast backgrounds, text, and borders.
+</ParamField>
+
+### Toast Object
+
+<ParamField path="id" type="string" required>
+  Unique toast identifier.
+</ParamField>
+
+<ParamField path="message" type="string" required>
+  Toast message text.
+</ParamField>
+
+<ParamField path="type" type="'info' | 'success' | 'warning' | 'error'" required>
+  Toast type determines color and icon.
+</ParamField>
+
+<ParamField path="duration" type="number" default="3000">
+  Auto-dismiss duration in milliseconds. Set to `0` for persistent toast.
+</ParamField>
+
+<ParamField path="action" type="ToastAction">
+  Optional action button with `label` and `onAction` callback.
+</ParamField>
+
+<ParamField path="progress" type="number">
+  Optional progress indicator (0-100).
+</ParamField>
+
+## Toast Types
+
+### Info Toast
+
+```typescript
+const toast: Toast = {
+  id: "info-1",
+  message: "Your profile has been updated",
+  type: "info",
+  duration: 3000,
+};
+```
+
+### Success Toast
+
+```typescript
+const toast: Toast = {
+  id: "success-1",
+  message: "File saved successfully",
+  type: "success",
+  duration: 3000,
+};
+```
+
+### Warning Toast
+
+```typescript
+const toast: Toast = {
+  id: "warning-1",
+  message: "Disk space running low",
+  type: "warning",
+  duration: 5000,
+};
+```
+
+### Error Toast
+
+```typescript
+const toast: Toast = {
+  id: "error-1",
+  message: "Failed to connect to server",
+  type: "error",
+  duration: 5000,
+};
+```
+
+## Persistent Toasts
+
+Set `duration: 0` for toasts that don't auto-dismiss:
+
+```typescript
+const toast: Toast = {
+  id: "persistent-1",
+  message: "Manual dismissal required",
+  type: "info",
+  duration: 0, // Won't auto-dismiss
+};
+```
+
+## Action Buttons
+
+```typescript
+const toast: Toast = {
+  id: "action-1",
+  message: "New version available",
+  type: "info",
+  duration: 0,
+  action: {
+    label: "Update",
+    onAction: () => {
+      startUpdate();
+      dismissToast("action-1");
+    },
+  },
+};
+```
+
+## Progress Indicators
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+const UploadProgress = defineWidget((ctx) => {
+  const [progress, setProgress] = ctx.useState(0);
+  const [toasts, setToasts] = ctx.useState<Toast[]>([]);
+
+  const startUpload = () => {
+    const uploadToast: Toast = {
+      id: "upload-1",
+      message: "Uploading file...",
+      type: "info",
+      duration: 0,
+      progress: 0,
+    };
+    setToasts([uploadToast]);
+
+    // Simulate progress
+    const interval = setInterval(() => {
+      setProgress((p) => {
+        const newProgress = p + 10;
+        if (newProgress >= 100) {
+          clearInterval(interval);
+          setToasts([
+            {
+              id: "upload-complete",
+              message: "Upload complete",
+              type: "success",
+              duration: 3000,
+            },
+          ]);
+          return 100;
+        }
+        // Update toast progress
+        setToasts([
+          {
+            id: "upload-1",
+            message: "Uploading file...",
+            type: "info",
+            duration: 0,
+            progress: newProgress,
+          },
+        ]);
+        return newProgress;
+      });
+    }, 300);
+  };
+
+  return ui.layers([
+    ui.button({
+      id: "upload-btn",
+      label: "Upload File",
+      onPress: startUpload,
+    }),
+    ui.toastContainer({
+      toasts,
+      position: "bottom-right",
+      onDismiss: (id) => setToasts(toasts.filter((t) => t.id !== id)),
+    }),
+  ]);
+});
+```
+
+## Position Variants
+
+```typescript
+// Top positions
+ui.toastContainer({
+  toasts,
+  position: "top-left",
+  onDismiss: dismissToast,
+});
+
+ui.toastContainer({
+  toasts,
+  position: "top-center",
+  onDismiss: dismissToast,
+});
+
+ui.toastContainer({
+  toasts,
+  position: "top-right",
+  onDismiss: dismissToast,
+});
+
+// Bottom positions
+ui.toastContainer({
+  toasts,
+  position: "bottom-left",
+  onDismiss: dismissToast,
+});
+
+ui.toastContainer({
+  toasts,
+  position: "bottom-center",
+  onDismiss: dismissToast,
+});
+
+ui.toastContainer({
+  toasts,
+  position: "bottom-right", // Default
+  onDismiss: dismissToast,
+});
+```
+
+## Toast Queue Management
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+const ToastManager = defineWidget((ctx) => {
+  const [toasts, setToasts] = ctx.useState<Toast[]>([]);
+  let nextId = 1;
+
+  const addToast = (message: string, type: Toast["type"], duration = 3000) => {
+    const toast: Toast = {
+      id: `toast-${nextId++}`,
+      message,
+      type,
+      duration,
+    };
+    setToasts([...toasts, toast]);
+  };
+
+  const dismissToast = (id: string) => {
+    setToasts(toasts.filter((t) => t.id !== id));
+  };
+
+  const clearAllToasts = () => {
+    setToasts([]);
+  };
+
+  return ui.layers([
+    ui.column({ gap: 1, p: 1 }, [
+      ui.button({
+        id: "add-toast",
+        label: "Add Toast",
+        onPress: () => addToast("New notification", "info"),
+      }),
+      ui.button({
+        id: "clear-toasts",
+        label: "Clear All",
+        onPress: clearAllToasts,
+        disabled: toasts.length === 0,
+      }),
+      ui.text(`Active toasts: ${toasts.length}`, { variant: "caption" }),
+    ]),
+    ui.toastContainer({
+      toasts,
+      position: "bottom-right",
+      maxVisible: 5,
+      onDismiss: dismissToast,
+    }),
+  ]);
+});
+```
+
+## Auto-Dismiss Timer
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+const AutoDismissExample = defineWidget((ctx) => {
+  const [toasts, setToasts] = ctx.useState<Toast[]>([]);
+
+  const addToast = (message: string, type: Toast["type"]) => {
+    const toast: Toast = {
+      id: Date.now().toString(),
+      message,
+      type,
+      duration: 3000,
+    };
+    setToasts([...toasts, toast]);
+
+    // Auto-dismiss after duration
+    setTimeout(() => {
+      setToasts((current) => current.filter((t) => t.id !== toast.id));
+    }, toast.duration);
+  };
+
+  return ui.layers([
+    ui.button({
+      id: "show-toast",
+      label: "Show Toast",
+      onPress: () => addToast("Auto-dismiss in 3s", "info"),
+    }),
+    ui.toastContainer({
+      toasts,
+      position: "bottom-right",
+      onDismiss: (id) => setToasts(toasts.filter((t) => t.id !== id)),
+    }),
+  ]);
+});
+```
+
+## Custom Styling
+
+```typescript
+ui.toastContainer({
+  toasts,
+  position: "bottom-right",
+  frameStyle: {
+    background: { r: 30, g: 30, b: 40 },
+    foreground: { r: 220, g: 220, b: 230 },
+    border: { r: 100, g: 120, b: 150 },
+  },
+  onDismiss: dismissToast,
+});
+```
+
+## Notification Patterns
+
+### Save Confirmation
+
+```typescript
+const saveConfirmation: Toast = {
+  id: "save-confirm",
+  message: "Changes saved successfully",
+  type: "success",
+  duration: 2000,
+};
+```
+
+### Error with Retry
+
+```typescript
+const errorWithRetry: Toast = {
+  id: "save-error",
+  message: "Failed to save changes",
+  type: "error",
+  duration: 0,
+  action: {
+    label: "Retry",
+    onAction: () => {
+      retrySave();
+      dismissToast("save-error");
+    },
+  },
+};
+```
+
+### Update Available
+
+```typescript
+const updateNotification: Toast = {
+  id: "update-available",
+  message: "A new version is available",
+  type: "info",
+  duration: 0,
+  action: {
+    label: "Update Now",
+    onAction: () => {
+      startUpdate();
+      dismissToast("update-available");
+    },
+  },
+};
+```
+
+## Best Practices
+
+1. **Keep messages concise** - One line of text is ideal for terminal UI
+2. **Use appropriate types** - Match type to message severity
+3. **Set sensible durations** - 3s for info, 5s for warnings/errors
+4. **Limit visible toasts** - Use `maxVisible` to prevent clutter
+5. **Provide actions** - Add action buttons for actionable notifications
+6. **Stack toasts** - Multiple toasts should stack vertically
+
+## Accessibility
+
+- Toasts appear in a consistent location
+- Auto-dismiss timers provide time to read message
+- Action buttons are keyboard accessible
+- Toast type is conveyed through color and icon
+
+## Related Widgets
+
+- [Modal](/widgets/modal) - For blocking dialogs that require user action
+- [Callout](/widgets/callout) - For inline alert messages
+- [Error Display](/widgets/error-display) - For detailed error information
+
+## Location in Source
+
+- Types: `packages/core/src/widgets/types.ts:2246-2296`
+- Factory: `packages/core/src/widgets/ui.ts:1762`

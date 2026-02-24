@@ -1,0 +1,579 @@
+---
+title: Loading & Async State Patterns
+description: Handling asynchronous operations with loading indicators, error states, and retry logic
+---
+
+# Loading & Async State Patterns
+
+Patterns for managing asynchronous data fetching, loading indicators, error handling, and retry logic.
+
+## Problem
+
+You need to:
+- Fetch data asynchronously (API calls, file I/O)
+- Show loading indicators during async operations
+- Handle and display errors gracefully
+- Implement retry logic
+- Prevent race conditions
+- Show skeleton/placeholder UI
+
+## Solution
+
+Model async state explicitly as a tagged union and render appropriate UI for each state.
+
+## Basic Loading State Pattern
+
+```typescript
+import { ui } from "@rezi-ui/core";
+import { createNodeApp } from "@rezi-ui/node";
+
+type LoadingState<T> =
+  | { status: "idle" }
+  | { status: "loading" }
+  | { status: "success"; data: T }
+  | { status: "error"; error: string };
+
+type User = { id: string; name: string; email: string };
+
+type State = {
+  users: LoadingState<User[]>;
+};
+
+const app = createNodeApp<State>({
+  initialState: { users: { status: "idle" } },
+});
+
+function fetchUsers(): void {
+  app.update((s) => ({ ...s, users: { status: "loading" } }));
+
+  // Simulate API call
+  setTimeout(() => {
+    const success = Math.random() > 0.2; // 80% success rate
+    if (!success) {
+      app.update((s) => ({
+        ...s,
+        users: { status: "error", error: "Failed to load users" },
+      }));
+      return;
+    }
+    app.update((s) => ({
+      ...s,
+      users: {
+        status: "success",
+        data: [
+          { id: "1", name: "Ada Lovelace", email: "ada@example.com" },
+          { id: "2", name: "Linus Torvalds", email: "linus@example.com" },
+          { id: "3", name: "Grace Hopper", email: "grace@example.com" },
+        ],
+      },
+    }));
+  }, 800);
+}
+
+function renderUsers(state: State) {
+  switch (state.users.status) {
+    case "idle":
+      return ui.button({
+        id: "load",
+        label: "Load Users",
+        intent: "primary",
+        onPress: fetchUsers,
+      });
+
+    case "loading":
+      return ui.column({ gap: 1 }, [
+        ui.spinner({ label: "Loading users..." }),
+        ui.skeleton(40),
+        ui.skeleton(40),
+        ui.skeleton(40),
+      ]);
+
+    case "error":
+      return ui.empty("Error", {
+        description: state.users.error,
+        action: ui.button({
+          id: "retry",
+          label: "Retry",
+          intent: "primary",
+          onPress: fetchUsers,
+        }),
+      });
+
+    case "success":
+      return ui.column(
+        { gap: 1 },
+        state.users.data.map((user) =>
+          ui.row({ key: user.id, gap: 2 }, [
+            ui.text(user.name, { flex: 1 }),
+            ui.text(user.email, { variant: "caption" }),
+          ])
+        )
+      );
+  }
+}
+
+app.view((state) =>
+  ui.page({ p: 1 }, [
+    ui.panel("Users", [renderUsers(state)]),
+  ])
+);
+
+app.keys({
+  "ctrl+c": () => app.stop(),
+  q: () => app.stop(),
+  r: () => fetchUsers(),
+});
+
+await app.start();
+```
+
+**Key principles:**
+- **Tagged union** - Explicit state representation
+- **Exhaustive matching** - TypeScript ensures all states handled
+- **Retry logic** - Same function for initial load and retry
+
+## Loading Indicators
+
+### Spinner
+
+```typescript
+ui.spinner({ label: "Loading..." })
+ui.spinner({ label: "Processing", variant: "dots" })
+ui.spinner({ label: "Please wait", variant: "arc" })
+```
+
+### Progress Bar
+
+```typescript
+type State = {
+  uploadProgress: number; // 0.0 to 1.0
+};
+
+ui.progress(state.uploadProgress, {
+  label: "Uploading",
+  showPercent: true,
+  variant: "blocks",
+});
+```
+
+### Skeleton Placeholders
+
+```typescript
+// Single-line skeleton
+ui.skeleton(40) // 40 cells wide
+
+// Multi-line skeleton
+ui.skeleton(50, { height: 3, variant: "rect" })
+
+// Skeleton for a list
+ui.column({ gap: 1 }, [
+  ui.skeleton(60),
+  ui.skeleton(55),
+  ui.skeleton(58),
+  ui.skeleton(52),
+])
+```
+
+### Loading Overlay
+
+```typescript
+app.view((state) => {
+  return ui.layers([
+    ui.page({ p: 1 }, [
+      ui.panel("Content", [
+        // Main content
+        ui.text("Your content here"),
+      ]),
+    ]),
+
+    state.isLoading &&
+      ui.modal({
+        id: "loading",
+        title: "Processing",
+        content: ui.column({ gap: 1 }, [
+          ui.spinner({ label: "Please wait..." }),
+          ui.text("This may take a few moments.", { variant: "caption" }),
+        ]),
+        actions: [], // No actions - cannot close
+        backdrop: "blur",
+      }),
+  ]);
+});
+```
+
+## Error Handling
+
+### Error Display Patterns
+
+```typescript
+function renderError(error: string, onRetry: () => void) {
+  return ui.callout(error, {
+    variant: "error",
+    action: ui.button({
+      id: "retry",
+      label: "Retry",
+      intent: "secondary",
+      onPress: onRetry,
+    }),
+  });
+}
+
+// Usage
+if (state.data.status === "error") {
+  return renderError(state.data.error, () => fetchData());
+}
+```
+
+### Empty State
+
+```typescript
+ui.empty("No Data", {
+  description: "No results found. Try adjusting your filters.",
+  icon: "search",
+  action: ui.button({
+    id: "clear-filters",
+    label: "Clear Filters",
+    intent: "secondary",
+    onPress: () => app.update((s) => ({ ...s, filters: {} })),
+  }),
+});
+```
+
+### Inline Errors
+
+```typescript
+ui.column({ gap: 1 }, [
+  ui.text("User Profile", { variant: "heading" }),
+  state.error &&
+    ui.callout(state.error, { variant: "error" }),
+  // ... rest of content
+]);
+```
+
+## Async with useAsync Hook
+
+For component-level async operations:
+
+```typescript
+import { defineWidget, ui, useAsync } from "@rezi-ui/core";
+
+type User = { id: string; name: string };
+
+const UserProfile = defineWidget<{ userId: string }>((ctx) => {
+  const asyncUser = useAsync(ctx, async () => {
+    const response = await fetch(`/api/users/${ctx.props.userId}`);
+    if (!response.ok) throw new Error("Failed to load user");
+    return (await response.json()) as User;
+  }, [ctx.props.userId]); // Refetch when userId changes
+
+  if (asyncUser.isLoading) {
+    return ui.column({ gap: 1 }, [
+      ui.spinner({ label: "Loading user..." }),
+      ui.skeleton(40),
+    ]);
+  }
+
+  if (asyncUser.error) {
+    return ui.callout(asyncUser.error.message, {
+      variant: "error",
+      action: ui.button({
+        id: "retry",
+        label: "Retry",
+        onPress: asyncUser.retry,
+      }),
+    });
+  }
+
+  const user = asyncUser.data;
+  if (!user) {
+    return ui.text("No user found");
+  }
+
+  return ui.column({ gap: 1 }, [
+    ui.text(user.name, { variant: "heading" }),
+    ui.text(user.id, { variant: "caption" }),
+  ]);
+});
+```
+
+**`useAsync` features:**
+- **Automatic state management** - `isLoading`, `error`, `data`
+- **Dependency tracking** - Refetch when dependencies change
+- **Retry support** - `retry()` method
+- **Cleanup** - Cancels on unmount
+
+## Preventing Race Conditions
+
+### Request Cancellation
+
+```typescript
+type State = {
+  query: string;
+  results: LoadingState<string[]>;
+  requestId: number;
+};
+
+let abortController: AbortController | null = null;
+
+async function searchUsers(query: string, requestId: number): Promise<void> {
+  // Cancel previous request
+  if (abortController) {
+    abortController.abort();
+  }
+  abortController = new AbortController();
+
+  app.update((s) => ({ ...s, results: { status: "loading" } }));
+
+  try {
+    const response = await fetch(`/api/search?q=${query}`, {
+      signal: abortController.signal,
+    });
+    const data = await response.json();
+
+    // Only update if this is still the latest request
+    app.update((s) => {
+      if (s.requestId !== requestId) {
+        return s; // Stale request, ignore
+      }
+      return { ...s, results: { status: "success", data } };
+    });
+  } catch (error) {
+    if (error.name === "AbortError") {
+      return; // Request was cancelled, ignore
+    }
+    app.update((s) => ({
+      ...s,
+      results: { status: "error", error: error.message },
+    }));
+  }
+}
+
+// Usage
+app.view((state) => {
+  return ui.input({
+    id: "search",
+    value: state.query,
+    onInput: (value) => {
+      const requestId = state.requestId + 1;
+      app.update((s) => ({ ...s, query: value, requestId }));
+      searchUsers(value, requestId);
+    },
+  });
+});
+```
+
+### Debounced Search
+
+```typescript
+import { defineWidget, ui, useDebounce } from "@rezi-ui/core";
+
+const SearchWidget = defineWidget<void>((ctx) => {
+  const [query, setQuery] = ctx.useState("");
+  const [results, setResults] = ctx.useState<LoadingState<string[]>>({
+    status: "idle",
+  });
+
+  const debouncedQuery = useDebounce(ctx, query, 300); // 300ms debounce
+
+  ctx.useEffect(() => {
+    if (!debouncedQuery) {
+      setResults({ status: "idle" });
+      return;
+    }
+
+    setResults({ status: "loading" });
+
+    fetch(`/api/search?q=${debouncedQuery}`)
+      .then((res) => res.json())
+      .then((data) => setResults({ status: "success", data }))
+      .catch((error) =>
+        setResults({ status: "error", error: error.message })
+      );
+  }, [debouncedQuery]);
+
+  return ui.column({ gap: 1 }, [
+    ui.input({
+      id: "search",
+      value: query,
+      placeholder: "Search...",
+      onInput: setQuery,
+    }),
+    results.status === "loading" && ui.spinner({ label: "Searching..." }),
+    results.status === "success" &&
+      ui.column({ gap: 1 }, results.data.map((r) => ui.text(r))),
+  ]);
+});
+```
+
+## Optimistic Updates
+
+Update UI immediately, rollback on error:
+
+```typescript
+type Todo = { id: string; text: string; completed: boolean };
+
+function toggleTodo(todo: Todo): void {
+  const optimisticUpdate = { ...todo, completed: !todo.completed };
+
+  // Update UI immediately
+  app.update((s) => ({
+    ...s,
+    todos: s.todos.map((t) => (t.id === todo.id ? optimisticUpdate : t)),
+  }));
+
+  // Send to server
+  fetch(`/api/todos/${todo.id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ completed: !todo.completed }),
+  }).catch((error) => {
+    // Rollback on error
+    app.update((s) => ({
+      ...s,
+      todos: s.todos.map((t) => (t.id === todo.id ? todo : t)),
+      error: "Failed to update todo",
+    }));
+  });
+}
+```
+
+## Polling Pattern
+
+```typescript
+type State = {
+  data: LoadingState<number>;
+  pollingEnabled: boolean;
+};
+
+let pollInterval: NodeJS.Timeout | null = null;
+
+function startPolling(): void {
+  if (pollInterval) return; // Already polling
+
+  const poll = async () => {
+    try {
+      const response = await fetch("/api/metrics");
+      const data = await response.json();
+      app.update((s) => ({
+        ...s,
+        data: { status: "success", data },
+      }));
+    } catch (error) {
+      app.update((s) => ({
+        ...s,
+        data: { status: "error", error: error.message },
+      }));
+    }
+  };
+
+  poll(); // Initial fetch
+  pollInterval = setInterval(poll, 5000); // Poll every 5s
+}
+
+function stopPolling(): void {
+  if (pollInterval) {
+    clearInterval(pollInterval);
+    pollInterval = null;
+  }
+}
+
+app.view((state) => {
+  return ui.column({ gap: 1 }, [
+    ui.button({
+      id: "toggle-polling",
+      label: state.pollingEnabled ? "Stop Polling" : "Start Polling",
+      intent: state.pollingEnabled ? "danger" : "primary",
+      onPress: () => {
+        if (state.pollingEnabled) {
+          stopPolling();
+        } else {
+          startPolling();
+        }
+        app.update((s) => ({ ...s, pollingEnabled: !s.pollingEnabled }));
+      },
+    }),
+    // Render data
+  ]);
+});
+```
+
+## Pagination with Loading
+
+```typescript
+type State = {
+  data: LoadingState<User[]>;
+  page: number;
+  hasMore: boolean;
+};
+
+async function loadPage(page: number): Promise<void> {
+  app.update((s) => ({ ...s, data: { status: "loading" } }));
+
+  try {
+    const response = await fetch(`/api/users?page=${page}`);
+    const data = await response.json();
+    app.update((s) => ({
+      ...s,
+      data: { status: "success", data: data.users },
+      hasMore: data.hasMore,
+    }));
+  } catch (error) {
+    app.update((s) => ({
+      ...s,
+      data: { status: "error", error: error.message },
+    }));
+  }
+}
+
+app.view((state) => {
+  return ui.column({ gap: 1 }, [
+    state.data.status === "loading" && ui.spinner({ label: "Loading..." }),
+    state.data.status === "success" &&
+      ui.column({ gap: 1 }, state.data.data.map((user) => ui.text(user.name))),
+    ui.row({ gap: 1 }, [
+      ui.button({
+        id: "prev",
+        label: "Previous",
+        disabled: state.page === 0 || state.data.status === "loading",
+        onPress: () => {
+          const nextPage = state.page - 1;
+          app.update((s) => ({ ...s, page: nextPage }));
+          loadPage(nextPage);
+        },
+      }),
+      ui.text(`Page ${state.page + 1}`),
+      ui.button({
+        id: "next",
+        label: "Next",
+        disabled: !state.hasMore || state.data.status === "loading",
+        onPress: () => {
+          const nextPage = state.page + 1;
+          app.update((s) => ({ ...s, page: nextPage }));
+          loadPage(nextPage);
+        },
+      }),
+    ]),
+  ]);
+});
+```
+
+## Best Practices
+
+1. **Model loading state explicitly** - Use tagged unions (`idle | loading | success | error`)
+2. **Always handle all states** - Exhaustive matching ensures no missing cases
+3. **Use skeletons for predictable content** - Show layout structure while loading
+4. **Provide retry logic** - Always offer a way to retry failed requests
+5. **Show progress for long operations** - Use `ui.progress()` for determinate progress
+6. **Prevent race conditions** - Use request IDs or AbortController
+7. **Debounce user input** - Reduce unnecessary API calls
+8. **Cancel on unmount** - Clean up ongoing requests
+9. **Optimistic updates for better UX** - Update UI immediately, rollback on error
+10. **Show empty states** - Guide users when no data is available
+
+## Related
+
+- [Spinner Widget](/widgets/spinner) - Loading indicators
+- [Progress Widget](/widgets/progress) - Progress bars
+- [Skeleton Widget](/widgets/skeleton) - Placeholder content
+- [Empty Widget](/widgets/empty) - Empty and error states
+- [Callout Widget](/widgets/callout) - Error messages
+- [Forms Recipe](/recipes/forms) - Form submission patterns

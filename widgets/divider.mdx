@@ -1,0 +1,380 @@
+---
+title: "Divider"
+description: "Visual separator for layout sections"
+---
+
+## Overview
+
+The Divider widget creates visual separators between content sections. It automatically adapts its orientation based on the parent container (horizontal in columns, vertical in rows).
+
+## Basic Usage
+
+<CodeGroup>
+```typescript ui.divider() API
+import { ui } from '@rezi-ui/core';
+
+// Horizontal divider (in column)
+ui.column({ gap: 1 }, [
+  ui.text('Section 1'),
+  ui.divider(),
+  ui.text('Section 2')
+])
+
+// Vertical divider (in row)
+ui.row({ gap: 1 }, [
+  ui.text('Left'),
+  ui.divider(),
+  ui.text('Right')
+])
+
+// Custom divider character
+ui.column({ gap: 1 }, [
+  ui.text('Header'),
+  ui.divider({ char: '=' }),
+  ui.text('Content')
+])
+
+// Divider with label
+ui.column({ gap: 1 }, [
+  ui.text('Before'),
+  ui.divider({ label: 'OR' }),
+  ui.text('After')
+])
+```
+
+```tsx JSX
+import { Column, Row, Text, Divider } from '@rezi-ui/jsx';
+
+// Horizontal divider
+<Column gap={1}>
+  <Text>Section 1</Text>
+  <Divider />
+  <Text>Section 2</Text>
+</Column>
+
+// Vertical divider
+<Row gap={1}>
+  <Text>Left</Text>
+  <Divider />
+  <Text>Right</Text>
+</Row>
+
+// Custom divider
+<Column gap={1}>
+  <Text>Header</Text>
+  <Divider char="=" />
+  <Text>Content</Text>
+</Column>
+
+// Divider with label
+<Column gap={1}>
+  <Text>Before</Text>
+  <Divider label="OR" />
+  <Text>After</Text>
+</Column>
+```
+</CodeGroup>
+
+## Props
+
+<ParamField path="direction" type="'horizontal' | 'vertical'">
+  Override automatic orientation detection. By default, dividers are horizontal in columns and vertical in rows.
+</ParamField>
+
+<ParamField path="char" type="string" default="'-' or '|'">
+  Character to use for the divider line. Defaults to `-` for horizontal and `|` for vertical.
+</ParamField>
+
+<ParamField path="label" type="string">
+  Optional label text to display in the center of the divider.
+</ParamField>
+
+<ParamField path="color" type="string">
+  Color for the divider line. Accepts RGB color string.
+</ParamField>
+
+<ParamField path="key" type="string">
+  Optional reconciliation key.
+</ParamField>
+
+## Orientation
+
+Dividers automatically detect orientation from their parent container:
+
+```typescript
+// Horizontal (in column) - spans full width
+ui.column({ gap: 1 }, [
+  ui.text('Top'),
+  ui.divider(),
+  ui.text('Bottom')
+])
+// Renders: ─────────────────────
+
+// Vertical (in row) - spans full height
+ui.row({ gap: 1 }, [
+  ui.text('Left'),
+  ui.divider(),
+  ui.text('Right')
+])
+// Renders: │
+//          │
+//          │
+```
+
+### Override Orientation
+
+```typescript
+// Force horizontal divider in a row
+ui.row({ gap: 1 }, [
+  ui.column({}, [
+    ui.text('Column 1'),
+    ui.divider({ direction: 'horizontal' }),
+    ui.text('More content')
+  ]),
+  ui.column({}, [
+    ui.text('Column 2'),
+    ui.divider({ direction: 'horizontal' }),
+    ui.text('More content')
+  ])
+])
+```
+
+## Custom Characters
+
+Use different characters for visual variety:
+
+```typescript
+// Double line
+ui.divider({ char: '═' })
+
+// Dots
+ui.divider({ char: '·' })
+
+// Heavy line
+ui.divider({ char: '━' })
+
+// Dashed
+ui.divider({ char: '╌' })
+
+// Custom character
+ui.divider({ char: '*' })
+
+// Emoji
+ui.divider({ char: '✦' })
+```
+
+## Labels
+
+Add text labels to dividers:
+
+```typescript
+// Section divider
+ui.divider({ label: 'Advanced Options' })
+
+// Choice separator
+ui.column({ gap: 1 }, [
+  ui.button('login', 'Login with Email'),
+  ui.divider({ label: 'OR' }),
+  ui.button('oauth', 'Login with OAuth')
+])
+
+// Date separator
+ui.divider({ label: 'Today' })
+
+// Category divider
+ui.divider({ label: 'System Files' })
+```
+
+<Note>
+  Labels are automatically centered in the divider with padding on both sides.
+</Note>
+
+## Styling
+
+Customize divider appearance with color:
+
+```typescript
+// Colored divider
+ui.divider({ color: 'rgb(100, 100, 100)' })
+
+// Accent divider
+ui.divider({ color: 'rgb(0, 150, 255)' })
+
+// Warning divider
+ui.divider({ color: 'rgb(255, 165, 0)', char: '━' })
+```
+
+## Common Patterns
+
+### Section Separators
+
+```typescript
+ui.column({ gap: 1 }, [
+  ui.text('Profile Settings', { variant: 'heading' }),
+  ui.text('Update your profile information'),
+  ui.divider(),
+  
+  ui.text('Privacy Settings', { variant: 'heading' }),
+  ui.text('Control your privacy preferences'),
+  ui.divider(),
+  
+  ui.text('Notification Settings', { variant: 'heading' }),
+  ui.text('Manage notification preferences')
+])
+```
+
+### Panel Layouts
+
+```typescript
+ui.row({ gap: 1, items: 'stretch', height: '100%' }, [
+  ui.box({ width: 30, border: 'rounded', p: 1 }, [
+    ui.text('Sidebar Content')
+  ]),
+  ui.divider(),
+  ui.box({ flex: 1, border: 'rounded', p: 1 }, [
+    ui.text('Main Content')
+  ]),
+  ui.divider(),
+  ui.box({ width: 25, border: 'rounded', p: 1 }, [
+    ui.text('Side Panel')
+  ])
+])
+```
+
+### Header Divider
+
+```typescript
+ui.column({ gap: 1 }, [
+  ui.text('Application Title', { variant: 'heading' }),
+  ui.divider({ char: '═' }),
+  ui.text('Welcome to the application')
+])
+```
+
+### Form Sections
+
+```typescript
+ui.column({ gap: 1 }, [
+  ui.text('Basic Information', { variant: 'heading' }),
+  ui.input('name', state.name),
+  ui.input('email', state.email),
+  
+  ui.divider({ label: 'Optional' }),
+  
+  ui.text('Additional Details', { variant: 'heading' }),
+  ui.input('phone', state.phone),
+  ui.input('website', state.website)
+])
+```
+
+### List Separators
+
+```typescript
+ui.column({ gap: 1 }, [
+  ui.text('Item 1'),
+  ui.divider({ char: '·' }),
+  ui.text('Item 2'),
+  ui.divider({ char: '·' }),
+  ui.text('Item 3')
+])
+```
+
+### Category Groups
+
+```typescript
+ui.column({ gap: 1 }, [
+  ui.divider({ label: 'Recent Files' }),
+  ui.text('document.txt'),
+  ui.text('image.png'),
+  
+  ui.divider({ label: 'Older Files' }),
+  ui.text('archive.zip'),
+  ui.text('backup.tar.gz')
+])
+```
+
+### Timeline
+
+```typescript
+ui.column({ gap: 0 }, [
+  ui.text('09:00 - Meeting Start'),
+  ui.divider({ char: '│', color: 'rgb(100, 100, 100)' }),
+  ui.text('10:30 - Break'),
+  ui.divider({ char: '│', color: 'rgb(100, 100, 100)' }),
+  ui.text('11:00 - Workshop'),
+  ui.divider({ char: '│', color: 'rgb(100, 100, 100)' }),
+  ui.text('12:30 - Lunch')
+])
+```
+
+### Choice Separator
+
+```typescript
+ui.column({ gap: 1 }, [
+  ui.button('option-a', 'Continue with Option A'),
+  ui.divider({ label: 'OR', char: '─' }),
+  ui.button('option-b', 'Continue with Option B')
+])
+```
+
+## Divider vs Spacer
+
+**Use Divider when:**
+- You want a visible line between sections
+- You need to visually separate content
+- You want to add section labels
+- You're creating a clear content hierarchy
+
+**Use Spacer when:**
+- You need empty space without a visual line
+- You're creating flexible layouts
+- You want to push items apart
+- The separation should be invisible
+
+```typescript
+// Divider - visible line
+ui.column({ gap: 0 }, [
+  ui.text('Section 1'),
+  ui.divider(),
+  ui.text('Section 2')
+])
+
+// Spacer - empty space
+ui.column({ gap: 0 }, [
+  ui.text('Section 1'),
+  ui.spacer({ size: 2 }),
+  ui.text('Section 2')
+])
+```
+
+## Unicode Line Drawing
+
+Dividers support Unicode box-drawing characters:
+
+```typescript
+// Light lines
+ui.divider({ char: '─' })  // Horizontal
+ui.divider({ char: '│' })  // Vertical
+
+// Heavy lines
+ui.divider({ char: '━' })  // Horizontal
+ui.divider({ char: '┃' })  // Vertical
+
+// Double lines
+ui.divider({ char: '═' })  // Horizontal
+ui.divider({ char: '║' })  // Vertical
+
+// Dashed lines
+ui.divider({ char: '╌' })  // Horizontal
+ui.divider({ char: '╎' })  // Vertical
+
+// Dotted lines
+ui.divider({ char: '┄' })  // Horizontal
+ui.divider({ char: '┆' })  // Vertical
+```
+
+## Related Widgets
+
+- [Spacer](/widgets/spacer) - Invisible spacing element
+- [Row & Column](/widgets/row-column) - Stack layouts that contain dividers
+- [Box](/widgets/box) - Container with borders

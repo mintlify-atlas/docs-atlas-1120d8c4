@@ -1,0 +1,423 @@
+---
+title: "Virtual List"
+description: "High-performance list rendering with viewport windowing for 100K+ items"
+---
+
+# Virtual List Widget
+
+The virtual list widget efficiently renders large lists by only creating VNodes for items within the visible viewport plus an overscan buffer. This enables smooth rendering of datasets with 100,000+ items.
+
+## Basic Usage
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+const items = Array.from({ length: 10000 }, (_, i) => ({
+  id: String(i),
+  name: `Item ${i}`,
+}));
+
+ui.virtualList({
+  id: "my-list",
+  items,
+  itemHeight: 1,
+  renderItem: (item, index, focused) => {
+    return ui.text(item.name, {
+      style: focused ? { bg: { r: 50, g: 100, b: 150 } } : undefined,
+    });
+  },
+});
+```
+
+## Item Height Modes
+
+### Fixed Height (Fastest)
+
+When all items have the same height, use a fixed number:
+
+```typescript
+ui.virtualList({
+  id: "fixed-list",
+  items,
+  itemHeight: 1, // All items are 1 cell tall
+  renderItem: (item) => ui.text(item.name),
+});
+```
+
+**Performance**: O(1) offset calculation via multiplication. Best for maximum performance.
+
+### Variable Height (Pre-computed)
+
+When item heights are known in advance:
+
+```typescript
+interface Item {
+  id: string;
+  content: string;
+  lines: number; // Pre-computed height
+}
+
+ui.virtualList({
+  id: "variable-list",
+  items,
+  itemHeight: (item) => item.lines,
+  renderItem: (item) => {
+    return ui.box({ p: 1, h: item.lines }, [
+      ui.text(item.content, { wrap: true }),
+    ]);
+  },
+});
+```
+
+**Performance**: O(n) cumulative offset array with binary search for visible range.
+
+### Estimated Height (Dynamic)
+
+For items with unknown heights, provide an estimate. The list measures actual heights and corrects offsets:
+
+```typescript
+ui.virtualList({
+  id: "estimated-list",
+  items,
+  estimateItemHeight: 3, // Estimate 3 cells per item
+  renderItem: (item, index, focused) => {
+    // Actual height varies based on content
+    return ui.box({ p: 1 }, [
+      ui.text(item.title, { variant: "heading" }),
+      ui.text(item.description, { wrap: true }),
+    ]);
+  },
+});
+```
+
+**Performance**: Initial layout uses estimates, then corrects with measurements. Slight overhead but handles dynamic content.
+
+## Keyboard Navigation
+
+### Built-in Navigation
+
+Enabled by default:
+
+```typescript
+ui.virtualList({
+  id: "navigable-list",
+  items,
+  itemHeight: 1,
+  renderItem: (item, index, focused) => {
+    return ui.text(item.name, {
+      style: focused ? { bg: { r: 50, g: 100, b: 150 } } : undefined,
+    });
+  },
+  keyboardNavigation: true, // Default
+});
+```
+
+Supported keys:
+- **Arrow Up/Down**: Move selection
+- **Page Up/Down**: Jump by viewport height
+- **Home/End**: Jump to first/last item
+
+### Wrap Around
+
+```typescript
+ui.virtualList({
+  id: "wrap-list",
+  items,
+  itemHeight: 1,
+  renderItem,
+  wrapAround: true, // End → Start, Start → End
+});
+```
+
+### Disable Navigation
+
+```typescript
+ui.virtualList({
+  id: "no-nav-list",
+  items,
+  itemHeight: 1,
+  renderItem,
+  keyboardNavigation: false,
+});
+```
+
+## Selection Handling
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+const MyList = defineWidget((ctx) => {
+  const [items] = ctx.useState(data);
+
+  const handleSelect = (item: Item, index: number) => {
+    console.log(`Selected item ${index}:`, item);
+    // Open detail view, trigger action, etc.
+  };
+
+  return ui.virtualList({
+    id: "selectable-list",
+    items,
+    itemHeight: 1,
+    renderItem: (item, index, focused) => {
+      return ui.text(item.name, {
+        style: focused ? { bg: { r: 50, g: 100, b: 150 } } : undefined,
+      });
+    },
+    onSelect: handleSelect,
+  });
+});
+```
+
+## Scroll Management
+
+### Controlled Scroll
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+const MyList = defineWidget((ctx) => {
+  const [scrollTop, setScrollTop] = ctx.useState(0);
+
+  return ui.column({ gap: 1 }, [
+    ui.text(`Scroll position: ${scrollTop}`),
+    ui.virtualList({
+      id: "controlled-list",
+      items,
+      itemHeight: 1,
+      renderItem,
+      onScroll: (newScrollTop, visibleRange) => {
+        setScrollTop(newScrollTop);
+        console.log(`Visible items: ${visibleRange[0]} - ${visibleRange[1]}`);
+      },
+    }),
+  ]);
+});
+```
+
+### Scroll Direction
+
+Control mouse wheel behavior:
+
+```typescript
+ui.virtualList({
+  id: "natural-scroll-list",
+  items,
+  itemHeight: 1,
+  renderItem,
+  scrollDirection: "natural", // Trackpad-style (default: "traditional")
+});
+```
+
+## Overscan Buffer
+
+Control how many items to render outside the visible viewport:
+
+```typescript
+ui.virtualList({
+  id: "overscan-list",
+  items,
+  itemHeight: 1,
+  renderItem,
+  overscan: 5, // Render 5 items above and below viewport (default: 3)
+});
+```
+
+**Higher overscan**:
+- Pro: Smoother scrolling (less pop-in)
+- Con: More VNodes rendered
+
+**Lower overscan**:
+- Pro: Fewer VNodes (better for very complex items)
+- Con: Slight pop-in during fast scrolling
+
+## Large Dataset Example (100K+ Items)
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+interface LogEntry {
+  id: string;
+  timestamp: number;
+  level: "info" | "warn" | "error";
+  message: string;
+}
+
+const LogViewer = defineWidget((ctx) => {
+  const [logs] = ctx.useState<LogEntry[]>(() => {
+    // Generate 100,000 log entries
+    return Array.from({ length: 100_000 }, (_, i) => ({
+      id: String(i),
+      timestamp: Date.now() - i * 1000,
+      level: ["info", "warn", "error"][i % 3] as LogEntry["level"],
+      message: `Log entry ${i}`,
+    }));
+  });
+
+  return ui.virtualList({
+    id: "log-list",
+    items: logs,
+    itemHeight: 1,
+    overscan: 10,
+    renderItem: (log, index, focused) => {
+      const levelColor =
+        log.level === "error"
+          ? { r: 255, g: 80, b: 80 }
+          : log.level === "warn"
+            ? { r: 255, g: 200, b: 50 }
+            : { r: 150, g: 150, b: 150 };
+
+      return ui.row({ gap: 1 }, [
+        ui.text(new Date(log.timestamp).toLocaleTimeString(), {
+          style: { fg: { r: 100, g: 100, b: 100 } },
+        }),
+        ui.text(log.level.toUpperCase(), {
+          style: { fg: levelColor },
+        }),
+        ui.text(log.message),
+      ]);
+    },
+    onSelect: (log) => {
+      console.log("Selected log:", log);
+    },
+  });
+});
+```
+
+**Performance**: Renders instantly, scrolls at 60 FPS, uses minimal memory.
+
+## Custom Selection Style
+
+```typescript
+ui.virtualList({
+  id: "styled-list",
+  items,
+  itemHeight: 1,
+  renderItem: (item, index, focused) => {
+    return ui.text(item.name);
+  },
+  selectionStyle: {
+    bg: { r: 70, g: 130, b: 180 },
+    fg: { r: 255, g: 255, b: 255 },
+    bold: true,
+  },
+});
+```
+
+## Complex Item Rendering
+
+```typescript
+interface Task {
+  id: string;
+  title: string;
+  description: string;
+  completed: boolean;
+  priority: "low" | "medium" | "high";
+}
+
+ui.virtualList({
+  id: "task-list",
+  items: tasks,
+  estimateItemHeight: 3, // Multi-line items
+  renderItem: (task, index, focused) => {
+    const priorityColor =
+      task.priority === "high"
+        ? { r: 255, g: 80, b: 80 }
+        : task.priority === "medium"
+          ? { r: 255, g: 200, b: 50 }
+          : { r: 150, g: 150, b: 150 };
+
+    return ui.box(
+      {
+        p: 1,
+        border: "single",
+        style: focused ? { bg: { r: 40, g: 40, b: 60 } } : undefined,
+      },
+      [
+        ui.row({ gap: 1 }, [
+          ui.text(task.completed ? "✓" : "○", {
+            style: { fg: task.completed ? { r: 100, g: 200, b: 100 } : undefined },
+          }),
+          ui.text(task.title, {
+            variant: "heading",
+            style: task.completed ? { dim: true } : undefined,
+          }),
+          ui.spacer({ flex: 1 }),
+          ui.badge({ text: task.priority, variant: "default" }),
+        ]),
+        ui.text(task.description, {
+          style: { fg: { r: 150, g: 150, b: 150 } },
+        }),
+      ],
+    );
+  },
+  onSelect: (task) => {
+    // Toggle task completion
+  },
+});
+```
+
+## Performance Characteristics
+
+| Metric | Fixed Height | Variable Height | Estimated Height |
+|--------|--------------|-----------------|------------------|
+| Initial render | ~5ms | ~5ms | ~5ms |
+| Scroll update | ~1ms | ~2ms | ~2ms |
+| Offset calculation | O(1) | O(n) + binary search | O(n) + corrections |
+| Memory usage | O(viewport + overscan) | O(viewport + overscan + offset array) | O(viewport + overscan + offset array + measurements) |
+| Best for | Uniform items | Known heights | Dynamic content |
+
+## Comparison with Regular Rendering
+
+```typescript
+// WITHOUT virtualization (slow for large lists)
+function slowList(items: Item[]) {
+  return ui.column({ gap: 0 }, items.map((item) => ui.text(item.name)));
+}
+// Problem: Creates 100,000 VNodes, slow render, high memory
+
+// WITH virtualization (fast)
+function fastList(items: Item[]) {
+  return ui.virtualList({
+    id: "fast-list",
+    items,
+    itemHeight: 1,
+    renderItem: (item) => ui.text(item.name),
+  });
+}
+// Solution: Creates ~30 VNodes (viewport size), instant render, low memory
+```
+
+## Props Reference
+
+### VirtualListProps
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `id` | `string` | **Required** | Widget identifier |
+| `items` | `readonly T[]` | **Required** | Data array to render |
+| `itemHeight` | `number \| (item: T, index: number) => number` | — | Fixed or computed height |
+| `estimateItemHeight` | `number \| (item: T, index: number) => number` | — | Height estimate for dynamic content |
+| `measureItemHeight` | `(item: T, index: number, ctx: MeasureCtx) => number` | — | Custom measurement function |
+| `renderItem` | `(item: T, index: number, focused: boolean) => VNode` | **Required** | Item render function |
+| `overscan` | `number` | `3` | Items to render outside viewport |
+| `keyboardNavigation` | `boolean` | `true` | Enable arrow key navigation |
+| `wrapAround` | `boolean` | `false` | Wrap selection end→start |
+| `scrollDirection` | `"natural" \| "traditional"` | `"traditional"` | Mouse wheel direction |
+| `selectionStyle` | `TextStyle` | — | Focused item style |
+| `onScroll` | `(scrollTop: number, visibleRange: [number, number]) => void` | — | Scroll callback |
+| `onSelect` | `(item: T, index: number) => void` | — | Selection callback (Enter key) |
+| `focusable` | `boolean` | `true` | Include in tab order |
+| `accessibleLabel` | `string` | — | Accessibility label |
+| `focusConfig` | `FocusConfig` | — | Focus appearance |
+
+## Related Widgets
+
+- [Table](/widgets/table) - Virtualized table with columns
+- [Tree](/widgets/tree) - Hierarchical virtualized lists
+- [Logs Console](/widgets/logs-console) - High-volume log streaming
+
+## Location in Source
+
+- Implementation: `packages/core/src/widgets/virtualList.ts`
+- Types: `packages/core/src/widgets/types.ts:952-1008`
+- Factory: `packages/core/src/widgets/ui.ts:virtualList()`

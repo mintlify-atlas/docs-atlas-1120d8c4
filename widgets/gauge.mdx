@@ -1,0 +1,340 @@
+---
+title: Gauge
+description: Gauge widget for single-value progress visualization
+---
+
+The Gauge widget displays a single value as a progress indicator with optional label and color thresholds.
+
+## Basic Usage
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.gauge(0.75, {
+  label: "CPU Usage",
+});
+```
+
+## Props
+
+<ParamField path="value" type="number" required>
+  Value from 0 to 1 (0% to 100%).
+</ParamField>
+
+<ParamField path="label" type="string">
+  Label text displayed before the gauge.
+</ParamField>
+
+<ParamField path="variant" type="linear | compact" default="linear">
+  Display variant:
+  - `"linear"` - Full-width horizontal bar
+  - `"compact"` - Minimal inline display
+</ParamField>
+
+<ParamField path="thresholds" type="Array<{ value: number, variant: BadgeVariant }>">
+  Color thresholds based on value ranges. Each threshold specifies:
+  - `value: number` - Threshold value (0-1)
+  - `variant: BadgeVariant` - Color variant to apply
+</ParamField>
+
+<ParamField path="style" type="TextStyle">
+  Optional style override.
+</ParamField>
+
+## Variants
+
+### Linear (Default)
+
+Full-width progress bar with percentage:
+
+```typescript
+ui.gauge(0.42, {
+  label: "Progress",
+  variant: "linear",
+});
+```
+
+Output:
+```
+Progress █████████████████████            42%
+```
+
+### Compact
+
+Minimal inline display:
+
+```typescript
+ui.gauge(0.85, {
+  label: "CPU",
+  variant: "compact",
+});
+```
+
+Output:
+```
+CPU: 85%
+```
+
+## Thresholds
+
+Apply different colors based on value ranges:
+
+```typescript
+ui.gauge(0.92, {
+  label: "Memory",
+  thresholds: [
+    { value: 0.0, variant: "success" },  // 0-50%: green
+    { value: 0.5, variant: "warning" },  // 50-80%: yellow
+    { value: 0.8, variant: "error" },    // 80-100%: red
+  ],
+});
+```
+
+The gauge uses the highest threshold that is ≤ current value.
+
+## Examples
+
+### System Resource Monitor
+
+```typescript
+function resourceMonitor(resources: {
+  cpu: number;
+  memory: number;
+  disk: number;
+}): VNode {
+  const thresholds = [
+    { value: 0.0, variant: "success" as const },
+    { value: 0.7, variant: "warning" as const },
+    { value: 0.9, variant: "error" as const },
+  ];
+  
+  return ui.column({ gap: 1, p: 1 }, [
+    ui.text("Resource Usage", { variant: "heading" }),
+    ui.gauge(resources.cpu / 100, {
+      label: "CPU",
+      thresholds,
+    }),
+    ui.gauge(resources.memory / 100, {
+      label: "Memory",
+      thresholds,
+    }),
+    ui.gauge(resources.disk / 100, {
+      label: "Disk",
+      thresholds,
+    }),
+  ]);
+}
+```
+
+### Deployment Progress
+
+```typescript
+function deploymentGauge(state: {
+  stage: string;
+  progress: number;
+  status: "running" | "success" | "error";
+}): VNode {
+  const variant = state.status === "error"
+    ? "error"
+    : state.status === "success"
+    ? "success"
+    : "info";
+  
+  return ui.column({ gap: 1 }, [
+    ui.text(`Deploying: ${state.stage}`, { style: { bold: true } }),
+    ui.gauge(state.progress, {
+      thresholds: [{ value: 0, variant }],
+    }),
+  ]);
+}
+```
+
+### Quota Display
+
+```typescript
+function quotaGauge(used: number, limit: number, name: string): VNode {
+  const ratio = used / limit;
+  
+  return ui.column({ gap: 0 }, [
+    ui.gauge(ratio, {
+      label: name,
+      thresholds: [
+        { value: 0.0, variant: "success" },
+        { value: 0.8, variant: "warning" },
+        { value: 0.95, variant: "error" },
+      ],
+    }),
+    ui.text(`${used} / ${limit}`, { style: { dim: true } }),
+  ]);
+}
+```
+
+### Dashboard Summary
+
+```typescript
+function dashboardSummary(metrics: Array<{
+  name: string;
+  value: number;
+  max: number;
+}>): VNode {
+  return ui.column({ gap: 1, p: 1 }, [
+    ui.text("System Overview", { variant: "heading" }),
+    ...metrics.map((m) =>
+      ui.gauge(m.value / m.max, {
+        label: m.name,
+        key: m.name,
+      })
+    ),
+  ]);
+}
+```
+
+### Build Status
+
+```typescript
+function buildStatus(tests: {
+  passed: number;
+  total: number;
+}): VNode {
+  const ratio = tests.passed / tests.total;
+  
+  return ui.column({ gap: 0 }, [
+    ui.text("Test Coverage", { style: { bold: true } }),
+    ui.gauge(ratio, {
+      thresholds: [
+        { value: 0.0, variant: "error" },
+        { value: 0.7, variant: "warning" },
+        { value: 0.9, variant: "success" },
+      ],
+    }),
+    ui.text(`${tests.passed}/${tests.total} tests passed`, {
+      style: { dim: true },
+    }),
+  ]);
+}
+```
+
+### Compact Dashboard
+
+```typescript
+function compactDashboard(metrics: Record<string, number>): VNode {
+  return ui.column({ gap: 0, p: 1 }, [
+    ui.text("Metrics", { variant: "heading" }),
+    ...Object.entries(metrics).map(([label, value]) =>
+      ui.gauge(value / 100, {
+        label,
+        variant: "compact",
+        key: label,
+      })
+    ),
+  ]);
+}
+```
+
+### Multi-Stage Progress
+
+```typescript
+function multiStageProgress(stages: Array<{
+  name: string;
+  progress: number;
+  status: "pending" | "active" | "complete" | "error";
+}>): VNode {
+  return ui.column({ gap: 1 }, [
+    ui.text("Pipeline", { variant: "heading" }),
+    ...stages.map((stage) => {
+      const variant =
+        stage.status === "error"
+          ? "error"
+          : stage.status === "complete"
+          ? "success"
+          : stage.status === "active"
+          ? "info"
+          : "default";
+      
+      return ui.column({ gap: 0, key: stage.name }, [
+        ui.text(stage.name, { style: { bold: true } }),
+        ui.gauge(stage.progress, {
+          thresholds: [{ value: 0, variant }],
+        }),
+      ]);
+    }),
+  ]);
+}
+```
+
+### Real-Time Streaming
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+type MetricState = {
+  current: number;
+  peak: number;
+};
+
+function streamingGauge(
+  label: string,
+  state: MetricState
+): VNode {
+  const ratio = state.current / state.peak;
+  
+  return ui.column({ gap: 0 }, [
+    ui.gauge(ratio, {
+      label,
+      thresholds: [
+        { value: 0.0, variant: "success" },
+        { value: 0.7, variant: "warning" },
+        { value: 0.9, variant: "error" },
+      ],
+    }),
+    ui.text(`Current: ${state.current} | Peak: ${state.peak}`, {
+      style: { dim: true },
+    }),
+  ]);
+}
+```
+
+## Styling
+
+### Custom Colors
+
+```typescript
+ui.gauge(0.5, {
+  label: "Custom",
+  style: {
+    fg: "#3b82f6",
+    bold: true,
+  },
+});
+```
+
+### Theme Integration
+
+Gauge automatically uses theme colors for variants:
+
+```typescript
+ui.gauge(0.85, {
+  label: "Themed",
+  thresholds: [
+    { value: 0.8, variant: "error" }, // Uses theme error color
+  ],
+});
+```
+
+## Use Cases
+
+| Scenario | Variant | Thresholds |
+|----------|---------|------------|
+| Resource usage | Linear | Yes (0.7 warning, 0.9 error) |
+| Build progress | Linear | No |
+| Test coverage | Linear | Yes (0.7 warning, 0.9 success) |
+| Quota display | Linear | Yes (0.8 warning, 0.95 error) |
+| Dashboard summary | Compact | Optional |
+| Status list | Compact | No |
+
+## See Also
+
+- [Progress](/widgets/progress) - Generic progress bar
+- [Bar Chart](/widgets/bar-chart) - Multi-value bars
+- [Sparkline](/widgets/sparkline) - Inline trend visualization
+- [Badge](/widgets/badge) - Status indicators

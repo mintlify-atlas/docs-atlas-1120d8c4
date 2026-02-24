@@ -1,0 +1,208 @@
+---
+title: "Lifecycle Hooks"
+description: "useEffect for side effects and cleanup"
+---
+
+## useEffect
+
+Run side effects after commit with optional cleanup.
+
+<ParamField path="effect" type="() => void | (() => void)" required>
+  Effect callback. Can return cleanup function.
+</ParamField>
+
+<ParamField path="deps" type="readonly unknown[]">
+  Dependency array. Re-run effect when deps change (uses `Object.is` comparison).
+</ParamField>
+
+```typescript
+import { defineWidget, ui } from "@rezi-ui/core";
+
+const Clock = defineWidget((props, ctx) => {
+  const [time, setTime] = ctx.useState(() => new Date().toLocaleTimeString());
+
+  ctx.useEffect(() => {
+    const timer = setInterval(() => {
+      setTime(new Date().toLocaleTimeString());
+    }, 1000);
+
+    return () => clearInterval(timer); // Cleanup
+  }, []); // Empty deps = run once on mount
+
+  return ui.text(time);
+});
+```
+
+## Effect Timing
+
+Effects run **after** the render is committed:
+
+```
+1. Widget render function runs
+2. VNode tree reconciled
+3. Layout computed
+4. Frame drawn
+5. ✅ Effects run
+```
+
+## Dependency Array
+
+<ParamField path="undefined" type="no deps">
+  Run on every render.
+</ParamField>
+
+<ParamField path="[]" type="empty array">
+  Run once on mount only.
+</ParamField>
+
+<ParamField path="[a, b]" type="with deps">
+  Run when `a` or `b` changes.
+</ParamField>
+
+```typescript
+const Widget = defineWidget<{ userId: string }>((props, ctx) => {
+  const [data, setData] = ctx.useState(null);
+
+  // Runs every render
+  ctx.useEffect(() => {
+    console.log("Every render");
+  });
+
+  // Runs once on mount
+  ctx.useEffect(() => {
+    console.log("Mounted");
+    return () => console.log("Unmounted");
+  }, []);
+
+  // Runs when userId changes
+  ctx.useEffect(() => {
+    fetchUser(props.userId).then(setData);
+  }, [props.userId]);
+
+  return ui.text(data?.name ?? "Loading...");
+});
+```
+
+## Cleanup Functions
+
+Return a function to clean up side effects:
+
+```typescript
+const Subscription = defineWidget<{ topic: string }>((props, ctx) => {
+  const [messages, setMessages] = ctx.useState<string[]>([]);
+
+  ctx.useEffect(() => {
+    const sub = subscribe(props.topic, (msg) => {
+      setMessages((prev) => [...prev, msg]);
+    });
+
+    // Cleanup runs:
+    // - Before next effect
+    // - On unmount
+    return () => sub.unsubscribe();
+  }, [props.topic]);
+
+  return ui.column(messages.map((msg) => ui.text(msg)));
+});
+```
+
+## Common Patterns
+
+### Fetch Data
+
+```typescript
+const DataFetcher = defineWidget<{ url: string }>((props, ctx) => {
+  const [data, setData] = ctx.useState(null);
+  const [loading, setLoading] = ctx.useState(true);
+
+  ctx.useEffect(() => {
+    let cancelled = false;
+
+    setLoading(true);
+    fetch(props.url)
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled) {
+          setData(data);
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [props.url]);
+
+  if (loading) return ui.text("Loading...");
+  return ui.text(JSON.stringify(data));
+});
+```
+
+### Subscribe to Events
+
+```typescript
+const EventListener = defineWidget((props, ctx) => {
+  const [lastEvent, setLastEvent] = ctx.useState<string | null>(null);
+
+  ctx.useEffect(() => {
+    const handler = (evt: CustomEvent) => {
+      setLastEvent(evt.detail);
+    };
+
+    eventBus.on("custom", handler);
+    return () => eventBus.off("custom", handler);
+  }, []);
+
+  return ui.text(lastEvent ?? "No events yet");
+});
+```
+
+### Timers and Intervals
+
+```typescript
+const Countdown = defineWidget<{ seconds: number }>((props, ctx) => {
+  const [remaining, setRemaining] = ctx.useState(props.seconds);
+
+  ctx.useEffect(() => {
+    if (remaining <= 0) return;
+
+    const timer = setTimeout(() => {
+      setRemaining(remaining - 1);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [remaining]);
+
+  return ui.text(remaining > 0 ? `${remaining}s` : "Done!");
+});
+```
+
+## Rules
+
+<Warning>
+  Effects must follow hook rules: same order every render, no conditional calls.
+</Warning>
+
+```typescript
+// Bad: Conditional effect
+if (props.enabled) {
+  ctx.useEffect(() => {}, []); // Error!
+}
+
+// Good: Condition inside effect
+ctx.useEffect(() => {
+  if (!props.enabled) return;
+  // ... effect logic
+}, [props.enabled]);
+```
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="State Hooks" icon="database" href="/api/hooks/state">
+    useState and useRef
+  </Card>
+  <Card title="Data Hooks" icon="server" href="/api/hooks/utilities">
+    useAsync and useInterval
+  </Card>
+</CardGroup>

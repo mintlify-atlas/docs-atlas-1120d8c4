@@ -1,0 +1,237 @@
+---
+title: "Terminal Capabilities"
+description: "Detecting and adapting to terminal features"
+---
+
+## Overview
+
+Rezi detects terminal capabilities at runtime to enable graceful degradation. The `TerminalCaps` type exposes what features are supported.
+
+```typescript
+import type { TerminalCaps } from "@rezi-ui/core";
+
+const caps = await app.backend.getCaps();
+console.log(caps.colorMode); // 0=unknown, 1=16, 2=256, 3=rgb
+```
+
+## TerminalCaps Type
+
+<ResponseField name="colorMode" type="ColorMode">
+  Color support level: `0` (unknown), `1` (16-color), `2` (256-color), `3` (RGB/24-bit).
+</ResponseField>
+
+<ResponseField name="supportsMouse" type="boolean">
+  Mouse input support (SGR 1006 protocol).
+</ResponseField>
+
+<ResponseField name="supportsBracketedPaste" type="boolean">
+  Bracketed paste mode support.
+</ResponseField>
+
+<ResponseField name="supportsFocusEvents" type="boolean">
+  Terminal focus in/out events.
+</ResponseField>
+
+<ResponseField name="supportsOsc52" type="boolean">
+  OSC 52 clipboard access.
+</ResponseField>
+
+<ResponseField name="supportsSyncUpdate" type="boolean">
+  Synchronized output (DEC SM 2026) for flicker-free rendering.
+</ResponseField>
+
+<ResponseField name="supportsScrollRegion" type="boolean">
+  Scroll region support.
+</ResponseField>
+
+<ResponseField name="supportsCursorShape" type="boolean">
+  Cursor shape control (bar, underline, block).
+</ResponseField>
+
+<ResponseField name="supportsOutputWaitWritable" type="boolean">
+  Output backpressure support.
+</ResponseField>
+
+<ResponseField name="supportsUnderlineStyles" type="boolean">
+  Extended underline styles (double, curly, dotted, dashed).
+</ResponseField>
+
+<ResponseField name="supportsColoredUnderlines" type="boolean">
+  Independent underline color (SGR 58/59).
+</ResponseField>
+
+<ResponseField name="supportsHyperlinks" type="boolean">
+  OSC 8 hyperlink support.
+</ResponseField>
+
+<ResponseField name="sgrAttrsSupported" type="number">
+  Bitmask of supported SGR attributes.
+</ResponseField>
+
+## Color Mode Detection
+
+```typescript
+import {
+  COLOR_MODE_UNKNOWN,
+  COLOR_MODE_16,
+  COLOR_MODE_256,
+  COLOR_MODE_RGB,
+  getBestColorMode,
+} from "@rezi-ui/core";
+
+const caps = await app.backend.getCaps();
+
+switch (caps.colorMode) {
+  case COLOR_MODE_RGB:
+    console.log("24-bit RGB colors supported");
+    break;
+  case COLOR_MODE_256:
+    console.log("256 colors supported");
+    break;
+  case COLOR_MODE_16:
+    console.log("16 colors only");
+    break;
+  default:
+    console.log("Color support unknown");
+}
+
+const best = getBestColorMode(caps);
+```
+
+## Cursor Shape Support
+
+```typescript
+import {
+  supportsCursorShaping,
+  ZR_CURSOR_SHAPE_BLOCK,
+  ZR_CURSOR_SHAPE_BAR,
+  ZR_CURSOR_SHAPE_UNDERLINE,
+} from "@rezi-ui/core";
+
+const caps = await app.backend.getCaps();
+
+if (supportsCursorShaping(caps)) {
+  // Use cursor shape commands
+  console.log("Cursor shaping supported");
+} else {
+  // Fallback to default cursor
+  console.log("Using default cursor");
+}
+```
+
+## Default Capabilities
+
+```typescript
+import { DEFAULT_TERMINAL_CAPS } from "@rezi-ui/core";
+
+// Conservative defaults for unknown terminals
+const defaults = DEFAULT_TERMINAL_CAPS;
+// {
+//   colorMode: COLOR_MODE_UNKNOWN,
+//   supportsMouse: false,
+//   supportsBracketedPaste: false,
+//   supportsFocusEvents: false,
+//   supportsOsc52: false,
+//   supportsSyncUpdate: false,
+//   supportsScrollRegion: false,
+//   supportsCursorShape: false,
+//   supportsOutputWaitWritable: false,
+//   supportsUnderlineStyles: false,
+//   supportsColoredUnderlines: false,
+//   supportsHyperlinks: false,
+//   sgrAttrsSupported: 0,
+// }
+```
+
+## Terminal Profile
+
+Detailed terminal information (optional):
+
+```typescript
+import type { TerminalProfile } from "@rezi-ui/core";
+
+const profile = await app.backend.getProfile?.();
+if (profile) {
+  console.log(profile.name); // "xterm-256color", "alacritty", etc.
+  console.log(profile.version);
+}
+```
+
+## Graceful Degradation
+
+Adapt UI based on capabilities:
+
+```typescript
+import { defineWidget, ui } from "@rezi-ui/core";
+import { COLOR_MODE_16 } from "@rezi-ui/core";
+
+const AdaptiveWidget = defineWidget((props, ctx) => {
+  const theme = ctx.useTheme();
+
+  // Use semantic tokens when available
+  if (theme) {
+    return ui.button({
+      id: ctx.id("btn"),
+      label: "Click",
+      intent: "primary", // Auto-styled
+    });
+  }
+
+  // Fallback for low-color terminals
+  return ui.button({
+    id: ctx.id("btn"),
+    label: "Click",
+    fg: { r: 255, g: 255, b: 255 },
+    bg: { r: 0, g: 0, b: 255 },
+  });
+});
+```
+
+## Environment Detection
+
+```typescript
+import { createNodeApp } from "@rezi-ui/node";
+
+const app = createNodeApp({ initialState: {} });
+
+await app.backend.start();
+const caps = await app.backend.getCaps();
+
+if (process.env.COLORTERM === "truecolor") {
+  console.log("RGB colors likely supported");
+}
+
+if (process.env.TERM?.includes("256color")) {
+  console.log("256 colors likely supported");
+}
+```
+
+## NO_COLOR Support
+
+`@rezi-ui/node` automatically handles `NO_COLOR`:
+
+```bash
+NO_COLOR=1 node dist/main.js
+```
+
+```typescript
+import { createNodeApp } from "@rezi-ui/node";
+
+const app = createNodeApp({
+  initialState: {},
+  theme: darkTheme, // Auto-converted to monochrome when NO_COLOR=1
+});
+
+console.log(app.isNoColor); // true
+```
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Custom Backends" href="/api/custom-backends">
+    Implementing getCaps()
+  </Card>
+  <Card title="Theme System" href="/guide/themes">
+    Adapting themes
+  </Card>
+</CardGroup>

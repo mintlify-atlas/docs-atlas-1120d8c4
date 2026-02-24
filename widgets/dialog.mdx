@@ -1,0 +1,453 @@
+---
+title: "Dialog"
+description: "Simplified confirmation dialog with declarative actions (sugar over Modal)"
+icon: "message-question"
+---
+
+## Overview
+
+The `dialog` widget is a simplified API for creating confirmation dialogs with declarative action buttons. It's syntactic sugar over the `modal` widget, designed for common confirmation, alert, and prompt flows.
+
+## Basic Usage
+
+```typescript
+import { ui } from "@rezi-ui/core";
+import { defineWidget } from "@rezi-ui/core";
+
+const DialogExample = defineWidget((ctx) => {
+  const [showDialog, setShowDialog] = ctx.useState(false);
+
+  return ui.layers([
+    ui.column({ gap: 1, p: 1 }, [
+      ui.button({
+        id: "open-dialog",
+        label: "Open Dialog",
+        onPress: () => setShowDialog(true),
+      }),
+    ]),
+    showDialog &&
+      ui.dialog({
+        id: "confirm-dialog",
+        title: "Confirm Action",
+        message: "Are you sure you want to proceed?",
+        actions: [
+          {
+            label: "Cancel",
+            onPress: () => setShowDialog(false),
+          },
+          {
+            label: "Confirm",
+            intent: "primary",
+            onPress: () => {
+              handleConfirm();
+              setShowDialog(false);
+            },
+          },
+        ],
+        onClose: () => setShowDialog(false),
+      }),
+  ]);
+});
+```
+
+## Props
+
+<ParamField path="id" type="string" required>
+  Unique identifier for focus routing.
+</ParamField>
+
+<ParamField path="message" type="string | VNode" required>
+  Dialog message content. Can be plain text or any VNode.
+</ParamField>
+
+<ParamField path="actions" type="readonly DialogAction[]" required>
+  Array of action button descriptors.
+</ParamField>
+
+<ParamField path="title" type="string">
+  Optional title rendered in dialog header.
+</ParamField>
+
+<ParamField path="onClose" type="() => void">
+  Callback when dialog should close.
+</ParamField>
+
+### Modal Props
+
+Dialog accepts all modal props except `content` and `actions`:
+
+<ParamField path="width" type="number | 'auto'">
+  Dialog width in cells.
+</ParamField>
+
+<ParamField path="height" type="number">
+  Dialog height in cells.
+</ParamField>
+
+<ParamField path="backdrop" type="ModalBackdrop" default="'dim'">
+  Backdrop style: `"none"`, `"dim"`, `"opaque"`, or custom config.
+</ParamField>
+
+<ParamField path="closeOnBackdrop" type="boolean" default="true">
+  Close when backdrop is clicked.
+</ParamField>
+
+<ParamField path="closeOnEscape" type="boolean" default="true">
+  Close when ESC key is pressed.
+</ParamField>
+
+<ParamField path="initialFocus" type="string">
+  ID of element to focus when dialog opens.
+</ParamField>
+
+<ParamField path="returnFocusTo" type="string">
+  ID of element to return focus to when dialog closes.
+</ParamField>
+
+## DialogAction Interface
+
+```typescript
+type DialogAction = {
+  id?: string;
+  label: string;
+  intent?: "primary" | "danger";
+  onPress: () => void;
+  disabled?: boolean;
+  focusable?: boolean;
+};
+```
+
+<ParamField path="label" type="string" required>
+  Button label text.
+</ParamField>
+
+<ParamField path="onPress" type="() => void" required>
+  Callback when button is pressed.
+</ParamField>
+
+<ParamField path="intent" type="DialogActionIntent">
+  Button intent:
+  - `"primary"` - Primary call-to-action
+  - `"danger"` - Destructive action
+</ParamField>
+
+<ParamField path="id" type="string">
+  Optional button ID. Auto-generated if omitted.
+</ParamField>
+
+<ParamField path="disabled" type="boolean">
+  Disable the action button.
+</ParamField>
+
+<ParamField path="focusable" type="boolean">
+  Control focus order participation.
+</ParamField>
+
+## Keyboard Controls
+
+| Key | Action |
+|-----|--------|
+| `ESC` | Close dialog |
+| `Tab` | Navigate between action buttons |
+| `Enter` | Activate focused button |
+
+## Confirmation Dialog
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.dialog({
+  id: "confirm",
+  title: "Confirm Action",
+  message: "Are you sure you want to continue?",
+  actions: [
+    {
+      label: "Cancel",
+      onPress: () => closeDialog(),
+    },
+    {
+      label: "Continue",
+      intent: "primary",
+      onPress: () => {
+        performAction();
+        closeDialog();
+      },
+    },
+  ],
+  onClose: closeDialog,
+});
+```
+
+## Destructive Confirmation
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.dialog({
+  id: "delete-confirm",
+  title: "Delete Item",
+  message: "This action cannot be undone. Are you sure?",
+  actions: [
+    {
+      label: "Cancel",
+      onPress: () => closeDialog(),
+    },
+    {
+      label: "Delete",
+      intent: "danger",
+      onPress: () => {
+        deleteItem();
+        closeDialog();
+      },
+    },
+  ],
+  backdrop: "opaque",
+  closeOnBackdrop: false, // Force explicit choice
+  closeOnEscape: false,
+  onClose: closeDialog,
+});
+```
+
+## Alert Dialog
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.dialog({
+  id: "alert",
+  title: "Operation Complete",
+  message: "Your changes have been saved successfully.",
+  actions: [
+    {
+      label: "OK",
+      intent: "primary",
+      onPress: () => closeDialog(),
+    },
+  ],
+  onClose: closeDialog,
+});
+```
+
+## Multi-Action Dialog
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.dialog({
+  id: "unsaved-changes",
+  title: "Unsaved Changes",
+  message: "You have unsaved changes. What would you like to do?",
+  actions: [
+    {
+      label: "Discard",
+      intent: "danger",
+      onPress: () => {
+        discardChanges();
+        closeDialog();
+      },
+    },
+    {
+      label: "Cancel",
+      onPress: () => closeDialog(),
+    },
+    {
+      label: "Save",
+      intent: "primary",
+      onPress: () => {
+        saveChanges();
+        closeDialog();
+      },
+    },
+  ],
+  closeOnBackdrop: false,
+  onClose: closeDialog,
+});
+```
+
+## Rich Content Dialog
+
+Use VNode for complex message content:
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.dialog({
+  id: "rich-dialog",
+  title: "Delete Multiple Items",
+  message: ui.column({ gap: 1 }, [
+    ui.text("The following items will be deleted:"),
+    ui.column({ gap: 0, pl: 2 }, [
+      ui.text("• Document.pdf"),
+      ui.text("• Image.png"),
+      ui.text("• Video.mp4"),
+    ]),
+    ui.text("This action cannot be undone.", { style: { bold: true } }),
+  ]),
+  actions: [
+    {
+      label: "Cancel",
+      onPress: closeDialog,
+    },
+    {
+      label: "Delete All",
+      intent: "danger",
+      onPress: () => {
+        deleteItems();
+        closeDialog();
+      },
+    },
+  ],
+  onClose: closeDialog,
+});
+```
+
+## Disabled Actions
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+const ValidatedDialog = defineWidget((ctx) => {
+  const [agreed, setAgreed] = ctx.useState(false);
+
+  return ui.dialog({
+    id: "terms-dialog",
+    title: "Terms and Conditions",
+    message: ui.column({ gap: 1 }, [
+      ui.text("Please read and accept the terms and conditions."),
+      ui.checkbox({
+        id: "terms-checkbox",
+        checked: agreed,
+        label: "I agree to the terms and conditions",
+        onChange: setAgreed,
+      }),
+    ]),
+    actions: [
+      {
+        label: "Cancel",
+        onPress: closeDialog,
+      },
+      {
+        label: "Accept",
+        intent: "primary",
+        disabled: !agreed,
+        onPress: () => {
+          acceptTerms();
+          closeDialog();
+        },
+      },
+    ],
+    closeOnBackdrop: false,
+    closeOnEscape: false,
+    onClose: closeDialog,
+  });
+});
+```
+
+## Error Dialog
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.dialog({
+  id: "error-dialog",
+  title: "Error",
+  message: ui.column({ gap: 1 }, [
+    ui.text("An error occurred:", { style: { bold: true } }),
+    ui.text(error.message, { style: { fg: { r: 255, g: 100, b: 100 } } }),
+    error.stack && ui.text(error.stack, { variant: "code", dim: true }),
+  ]),
+  actions: [
+    {
+      label: "Copy Error",
+      onPress: () => {
+        copyToClipboard(error.message);
+      },
+    },
+    {
+      label: "Close",
+      intent: "primary",
+      onPress: closeDialog,
+    },
+  ],
+  width: 60,
+  onClose: closeDialog,
+});
+```
+
+## Loading Dialog
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.dialog({
+  id: "loading-dialog",
+  title: "Processing",
+  message: ui.column({ gap: 1, items: "center" }, [
+    ui.spinner({ variant: "dots" }),
+    ui.text("Please wait..."),
+  ]),
+  actions: [], // No actions during loading
+  closeOnBackdrop: false,
+  closeOnEscape: false,
+});
+```
+
+## Dialog vs Modal
+
+**Use Dialog when:**
+- Simple confirmation or alert
+- 1-3 action buttons
+- Plain text or simple message content
+
+**Use Modal when:**
+- Complex forms or multi-step flows
+- Custom layout control needed
+- Dynamic action buttons (not declarative array)
+
+```typescript
+// Dialog: Simple and declarative
+ui.dialog({
+  id: "simple",
+  message: "Confirm?",
+  actions: [
+    { label: "No", onPress: close },
+    { label: "Yes", intent: "primary", onPress: confirm },
+  ],
+});
+
+// Modal: Complex and flexible
+ui.modal({
+  id: "complex",
+  title: "Edit Profile",
+  content: ui.form([...formFields]),
+  actions: [cancelButton, saveButton],
+});
+```
+
+## Best Practices
+
+1. **Keep messages concise** - One or two sentences max
+2. **Use intent correctly** - `"primary"` for safe actions, `"danger"` for destructive
+3. **Provide escape route** - Always include Cancel or Close option
+4. **Focus primary action** - Use `initialFocus` to direct keyboard users
+5. **Disable backdrop close** - For critical decisions, set `closeOnBackdrop: false`
+6. **Rich content sparingly** - Use VNodes only when necessary
+
+## Accessibility
+
+- Focus automatically trapped within dialog
+- Tab navigates between action buttons
+- ESC closes dialog (unless disabled)
+- Action buttons are keyboard accessible
+- Screen readers announce dialog title and message
+
+## Related Widgets
+
+- [Modal](/widgets/modal) - For complex dialogs with custom layout
+- [Callout](/widgets/callout) - For inline alert messages
+- [Toast](/widgets/toast) - For non-blocking notifications
+
+## Location in Source
+
+- Types: `packages/core/src/widgets/types.ts:1090-1109`
+- Factory: `packages/core/src/widgets/ui.ts:1208`

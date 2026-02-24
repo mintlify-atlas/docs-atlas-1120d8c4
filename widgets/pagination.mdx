@@ -1,0 +1,377 @@
+---
+title: "Pagination"
+description: "Page-based navigation with Left/Right arrows and optional first/last jumps"
+icon: "angles-left"
+---
+
+## Overview
+
+The `pagination` widget provides page-based navigation controls with previous/next buttons and optional first/last page jumps. Supports keyboard navigation with arrow keys.
+
+## Basic Usage
+
+```typescript
+import { ui } from "@rezi-ui/core";
+import { defineWidget } from "@rezi-ui/core";
+
+const PaginatedList = defineWidget((ctx) => {
+  const [page, setPage] = ctx.useState(1);
+  const totalPages = 10;
+
+  return ui.column({ gap: 1 }, [
+    ui.text(`Page ${page} of ${totalPages}`, { variant: "caption" }),
+    ContentForPage(page),
+    ui.pagination({
+      id: "content-pagination",
+      page,
+      totalPages,
+      onChange: setPage,
+    }),
+  ]);
+});
+```
+
+## Props
+
+<ParamField path="id" type="string" required>
+  Unique identifier for focus routing.
+</ParamField>
+
+<ParamField path="page" type="number" required>
+  Current page number (1-based).
+</ParamField>
+
+<ParamField path="totalPages" type="number" required>
+  Total number of pages.
+</ParamField>
+
+<ParamField path="onChange" type="(page: number) => void" required>
+  Callback when page changes.
+</ParamField>
+
+<ParamField path="showFirstLast" type="boolean" default="false">
+  Show first (⟨⟨) and last (⟩⟩) page buttons.
+</ParamField>
+
+### Design System Props
+
+<ParamField path="dsVariant" type="WidgetVariant" default="soft">
+  Design system visual variant: `"solid"`, `"soft"`, `"outline"`, `"ghost"`.
+</ParamField>
+
+<ParamField path="dsTone" type="WidgetTone" default="default">
+  Design system color tone: `"default"`, `"primary"`, `"success"`, `"warning"`, `"danger"`.
+</ParamField>
+
+<ParamField path="dsSize" type="WidgetSize" default="sm">
+  Design system size preset: `"xs"`, `"sm"`, `"md"`, `"lg"`, `"xl"`.
+</ParamField>
+
+## Keyboard Navigation
+
+Pagination supports keyboard shortcuts:
+
+| Key | Action |
+|-----|--------|
+| `Left` | Go to previous page |
+| `Right` | Go to next page |
+| `Home` | Jump to first page (if `showFirstLast` enabled) |
+| `End` | Jump to last page (if `showFirstLast` enabled) |
+| `Enter` | Activate focused button |
+| `Space` | Activate focused button |
+
+## With First/Last Buttons
+
+```typescript
+ui.pagination({
+  id: "full-pagination",
+  page: state.currentPage,
+  totalPages: state.totalPages,
+  onChange: (page) => app.update({ currentPage: page }),
+  showFirstLast: true,
+});
+```
+
+## Table Pagination
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+const PaginatedTable = defineWidget((ctx, props: { data: User[] }) => {
+  const [page, setPage] = ctx.useState(1);
+  const pageSize = 10;
+  const totalPages = Math.ceil(props.data.length / pageSize);
+
+  const startIndex = (page - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const pageData = props.data.slice(startIndex, endIndex);
+
+  return ui.column({ gap: 1 }, [
+    ui.table({
+      id: "users-table",
+      columns,
+      data: pageData,
+      getRowKey: (row) => row.id,
+    }),
+    ui.row({ justify: "between", items: "center" }, [
+      ui.text(
+        `Showing ${startIndex + 1}-${Math.min(endIndex, props.data.length)} of ${props.data.length}`,
+        { variant: "caption" }
+      ),
+      ui.pagination({
+        id: "table-pagination",
+        page,
+        totalPages,
+        onChange: setPage,
+        showFirstLast: true,
+      }),
+    ]),
+  ]);
+});
+```
+
+## Search Results Pagination
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+const SearchResults = defineWidget((ctx) => {
+  const [query, setQuery] = ctx.useState("");
+  const [page, setPage] = ctx.useState(1);
+  const [results, setResults] = ctx.useState<SearchResult[]>([]);
+  const [totalPages, setTotalPages] = ctx.useState(1);
+
+  const performSearch = async (searchQuery: string, pageNum: number) => {
+    const response = await searchAPI(searchQuery, pageNum);
+    setResults(response.results);
+    setTotalPages(response.totalPages);
+  };
+
+  ctx.useEffect(() => {
+    if (query) {
+      performSearch(query, page);
+    }
+  }, [query, page]);
+
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
+  };
+
+  return ui.column({ gap: 1 }, [
+    ui.input("search-input", query, {
+      placeholder: "Search...",
+      onInput: (value) => {
+        setQuery(value);
+        setPage(1); // Reset to page 1 on new search
+      },
+    }),
+    ui.divider(),
+    results.length > 0
+      ? ui.column({ gap: 1 }, [
+          ...results.map((result) => ResultCard(result)),
+          ui.pagination({
+            id: "search-pagination",
+            page,
+            totalPages,
+            onChange: handlePageChange,
+            showFirstLast: true,
+          }),
+        ])
+      : ui.empty("No results found"),
+  ]);
+});
+```
+
+## API Data Pagination
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+const APIDataList = defineWidget((ctx) => {
+  const [page, setPage] = ctx.useState(1);
+  const [data, setData] = ctx.useState<Item[]>([]);
+  const [totalPages, setTotalPages] = ctx.useState(1);
+  const [loading, setLoading] = ctx.useState(false);
+
+  const loadPage = async (pageNum: number) => {
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/items?page=${pageNum}`);
+      const json = await response.json();
+      setData(json.items);
+      setTotalPages(json.totalPages);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  ctx.useEffect(() => {
+    loadPage(page);
+  }, [page]);
+
+  return ui.column({ gap: 1 }, [
+    loading
+      ? ui.row({ gap: 1, items: "center" }, [
+          ui.spinner({ variant: "dots" }),
+          ui.text("Loading..."),
+        ])
+      : ui.column({ gap: 0 }, data.map((item) => ItemRow(item))),
+    ui.pagination({
+      id: "api-pagination",
+      page,
+      totalPages,
+      onChange: setPage,
+      showFirstLast: true,
+    }),
+  ]);
+});
+```
+
+## Page Info Display
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.row({ justify: "between", items: "center" }, [
+  ui.text(`Page ${page} of ${totalPages}`, { variant: "caption" }),
+  ui.pagination({
+    id: "pagination",
+    page,
+    totalPages,
+    onChange: setPage,
+  }),
+]);
+```
+
+## Design System Integration
+
+```typescript
+// Primary pagination buttons
+ui.pagination({
+  id: "primary-pagination",
+  page: state.page,
+  totalPages: state.totalPages,
+  onChange: setPage,
+  dsTone: "primary",
+});
+
+// Larger pagination controls
+ui.pagination({
+  id: "large-pagination",
+  page: state.page,
+  totalPages: state.totalPages,
+  onChange: setPage,
+  dsSize: "md",
+});
+
+// Outline variant
+ui.pagination({
+  id: "outline-pagination",
+  page: state.page,
+  totalPages: state.totalPages,
+  onChange: setPage,
+  dsVariant: "outline",
+});
+```
+
+## Infinite Scroll Alternative
+
+For continuous scrolling instead of pagination:
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+const InfiniteScrollList = defineWidget((ctx, props: { data: Item[] }) => {
+  const [displayCount, setDisplayCount] = ctx.useState(20);
+  const pageSize = 20;
+
+  const hasMore = displayCount < props.data.length;
+
+  const loadMore = () => {
+    setDisplayCount(displayCount + pageSize);
+  };
+
+  return ui.column({ gap: 1 }, [
+    ...props.data.slice(0, displayCount).map((item) => ItemCard(item)),
+    hasMore
+      ? ui.button({
+          id: "load-more",
+          label: "Load More",
+          onPress: loadMore,
+          intent: "secondary",
+        })
+      : ui.text("No more items", { variant: "caption", dim: true }),
+  ]);
+});
+```
+
+## Best Practices
+
+1. **Show page context** - Display "Page X of Y" or "Showing 1-10 of 100"
+2. **Reset on filter change** - Go back to page 1 when filters/search changes
+3. **Use first/last for large sets** - Enable `showFirstLast` for 10+ pages
+4. **Preserve scroll position** - Don't auto-scroll to top on page change
+5. **Disable at boundaries** - Previous button disabled on page 1, Next on last page
+
+## Examples
+
+### Log Viewer with Pagination
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+const LogViewer = defineWidget((ctx, props: { logs: LogEntry[] }) => {
+  const [page, setPage] = ctx.useState(1);
+  const logsPerPage = 50;
+  const totalPages = Math.ceil(props.logs.length / logsPerPage);
+
+  const startIndex = (page - 1) * logsPerPage;
+  const endIndex = startIndex + logsPerPage;
+  const pageLogs = props.logs.slice(startIndex, endIndex);
+
+  return ui.panel("Logs", [
+    ui.column({ gap: 1 }, [
+      ui.row({ justify: "between", items: "center" }, [
+        ui.text(`${props.logs.length} entries`, { variant: "caption" }),
+        ui.pagination({
+          id: "log-pagination",
+          page,
+          totalPages,
+          onChange: setPage,
+          showFirstLast: true,
+        }),
+      ]),
+      ui.divider(),
+      ui.column(
+        { gap: 0 },
+        pageLogs.map((log, index) =>
+          ui.text(`[${log.timestamp}] ${log.message}`, {
+            key: `log-${startIndex + index}`,
+            variant: "code",
+          })
+        )
+      ),
+    ]),
+  ]);
+});
+```
+
+## Accessibility
+
+- Pagination buttons are keyboard navigable with Tab
+- Arrow keys provide quick page switching
+- Disabled buttons at boundaries prevent invalid navigation
+- Current page state is visually indicated
+- Screen readers announce page changes
+
+## Related Widgets
+
+- [Table](/widgets/table) - Often paired with pagination for large datasets
+- [Virtual List](/widgets/virtual-list) - Alternative to pagination for long lists
+- [Breadcrumb](/widgets/breadcrumb) - For hierarchical navigation
+
+## Location in Source
+
+- Implementation: `packages/core/src/widgets/pagination.ts`
+- Types: `packages/core/src/widgets/types.ts:1587-1601`
+- Factory: `packages/core/src/widgets/ui.ts:1517`

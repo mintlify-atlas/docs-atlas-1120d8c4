@@ -1,0 +1,229 @@
+---
+title: "Text"
+description: "Display text content with styling and wrapping options"
+---
+
+## Overview
+
+The Text widget is the fundamental building block for displaying text in Rezi. It supports styling, variants, text overflow handling, and wrapping.
+
+## Basic Usage
+
+<CodeGroup>
+```typescript ui.text() API
+import { ui } from '@rezi-ui/core';
+
+// Simple text
+ui.text('Hello, world!')
+
+// Text with style
+ui.text('Error message', { fg: { r: 255, g: 0, b: 0 }, bold: true })
+
+// Using a variant
+ui.text('Page Title', { variant: 'heading' })
+```
+
+```tsx JSX
+import { Text } from '@rezi-ui/jsx';
+
+// Simple text
+<Text>Hello, world!</Text>
+
+// Text with style
+<Text style={{ fg: { r: 255, g: 0, b: 0 }, bold: true }}>
+  Error message
+</Text>
+
+// Using a variant
+<Text variant="heading">Page Title</Text>
+```
+</CodeGroup>
+
+## Props
+
+<ParamField path="content" type="string" required>
+  The text content to display.
+</ParamField>
+
+<ParamField path="variant" type="TextVariant">
+  Text display variant with predefined styling.
+  
+  - `"body"` - Regular body text (default)
+  - `"heading"` - Bold heading text
+  - `"caption"` - Dimmed secondary text
+  - `"code"` - Monospace code text
+  - `"label"` - Label text
+</ParamField>
+
+<ParamField path="wrap" type="boolean" default="false">
+  When true, text wraps to multiple lines instead of single-line truncation.
+</ParamField>
+
+<ParamField path="textOverflow" type="'clip' | 'ellipsis' | 'middle' | 'start'" default="'clip'">
+  How to handle text that exceeds available width.
+  
+  - `"clip"` - Cut off text at boundary
+  - `"ellipsis"` - Add "..." at end
+  - `"middle"` - Add "..." in middle (preserves start and end)
+  - `"start"` - Add "..." at start (preserves end)
+</ParamField>
+
+<ParamField path="maxWidth" type="number">
+  Maximum width for overflow handling (in terminal cells).
+</ParamField>
+
+<ParamField path="style" type="TextStyle">
+  Visual styling options for the text.
+  
+  <Expandable title="TextStyle Properties">
+    - `fg` - Foreground color (RGB)
+    - `bg` - Background color (RGB)
+    - `bold` - Bold text
+    - `dim` - Dimmed text
+    - `italic` - Italic text
+    - `underline` - Underlined text
+    - `strikethrough` - Strikethrough text
+    - `inverse` - Swap foreground and background
+    - `overline` - Overlined text
+    - `blink` - Blinking text
+    - `underlineStyle` - Underline style variant
+    - `underlineColor` - Custom underline color
+  </Expandable>
+</ParamField>
+
+<ParamField path="id" type="string">
+  Optional unique identifier for the widget.
+</ParamField>
+
+<ParamField path="key" type="string">
+  Optional reconciliation key for lists.
+</ParamField>
+
+## Text Variants
+
+Rezi provides predefined text variants for common use cases:
+
+```typescript
+// Heading - bold, primary emphasis
+ui.text('Section Title', { variant: 'heading' })
+
+// Caption - dimmed, secondary text
+ui.text('Last updated: 2 hours ago', { variant: 'caption' })
+
+// Code - monospace font
+ui.text('npm install @rezi-ui/core', { variant: 'code' })
+
+// Label - for form labels and UI text
+ui.text('Username:', { variant: 'label' })
+```
+
+## Text Wrapping
+
+By default, text renders on a single line. Enable wrapping for multi-line text:
+
+```typescript
+ui.text(
+  'This is a long paragraph that will wrap across multiple lines when the wrap property is enabled.',
+  { wrap: true }
+)
+```
+
+<Note>
+  Text wrapping uses grapheme-safe hard breaks and is newline-aware.
+</Note>
+
+## Overflow Handling
+
+Control how text behaves when it exceeds available width:
+
+```typescript
+const longFilename = '/home/user/documents/project/very-long-filename.txt';
+
+// Clip at boundary
+ui.text(longFilename, { textOverflow: 'clip', maxWidth: 30 })
+// Output: "/home/user/documents/project/"
+
+// Ellipsis at end
+ui.text(longFilename, { textOverflow: 'ellipsis', maxWidth: 30 })
+// Output: "/home/user/documents/proj..."
+
+// Ellipsis in middle (preserves both ends)
+ui.text(longFilename, { textOverflow: 'middle', maxWidth: 30 })
+// Output: "/home/user/...filename.txt"
+
+// Ellipsis at start (preserves end)
+ui.text(longFilename, { textOverflow: 'start', maxWidth: 30 })
+// Output: ".../very-long-filename.txt"
+```
+
+## Styling Examples
+
+### Colors
+
+```typescript
+import { rgb } from '@rezi-ui/core';
+
+// RGB colors
+ui.text('Success', { fg: rgb(0, 255, 0) })
+ui.text('Warning', { fg: rgb(255, 165, 0), bg: rgb(50, 50, 50) })
+
+// Inline RGB
+ui.text('Error', { fg: { r: 255, g: 0, b: 0 } })
+```
+
+### Text Attributes
+
+```typescript
+// Bold and italic
+ui.text('Important!', { bold: true, italic: true })
+
+// Underlined with custom style
+ui.text('Link', {
+  underline: true,
+  underlineStyle: 'curly',
+  underlineColor: { r: 0, g: 150, b: 255 }
+})
+
+// Dimmed caption text
+ui.text('Optional field', { dim: true })
+
+// Inverse colors
+ui.text('Highlighted', { inverse: true })
+```
+
+## Common Patterns
+
+### Error Messages
+
+```typescript
+ui.text('✗ Build failed', {
+  fg: { r: 255, g: 0, b: 0 },
+  bold: true
+})
+```
+
+### Status Indicators
+
+```typescript
+ui.column({ gap: 0 }, [
+  ui.text('● Running', { fg: { r: 0, g: 255, b: 0 } }),
+  ui.text('● Stopped', { fg: { r: 128, g: 128, b: 128 } }),
+  ui.text('● Failed', { fg: { r: 255, g: 0, b: 0 } })
+])
+```
+
+### Multi-line Content
+
+```typescript
+ui.text(
+  'This is a longer description that spans multiple lines. ' +
+  'It will wrap naturally based on the available width.',
+  { wrap: true, maxWidth: 50 }
+)
+```
+
+## Related Widgets
+
+- [RichText](/widgets/rich-text) - Multiple styled spans in one widget
+- [Badge](/widgets/badge) - Compact status labels
+- [Callout](/widgets/callout) - Highlighted messages

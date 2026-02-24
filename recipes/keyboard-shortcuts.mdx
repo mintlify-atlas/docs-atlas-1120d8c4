@@ -1,0 +1,605 @@
+---
+title: Keyboard Shortcuts
+description: Implementing global and contextual keyboard shortcuts with chord sequences
+---
+
+# Keyboard Shortcuts
+
+Patterns for implementing keyboard shortcuts, keybindings, and command palettes in Rezi applications.
+
+## Problem
+
+You need to:
+- Add global keyboard shortcuts (Ctrl+S, Ctrl+Q)
+- Implement modal keymaps (Vim-style normal/insert modes)
+- Support chord sequences (Ctrl+K Ctrl+S)
+- Display shortcuts to users
+- Build command palettes
+
+## Solution
+
+Use `app.keys()` for global bindings, `app.modes()` for contextual keymaps, and provide visual feedback with `ui.kbd()`.
+
+## Global Keyboard Shortcuts
+
+```typescript
+import { ui } from "@rezi-ui/core";
+import { createNodeApp } from "@rezi-ui/node";
+
+type State = {
+  content: string;
+  saved: boolean;
+};
+
+const app = createNodeApp<State>({
+  initialState: { content: "", saved: true },
+});
+
+app.view((state) =>
+  ui.page({ p: 1 }, [
+    ui.panel("Editor", [
+      ui.row({ gap: 2, pb: 1, justify: "between" }, [
+        ui.text(state.saved ? "Saved" : "Modified", {
+          variant: state.saved ? "caption" : "label",
+        }),
+        ui.row({ gap: 1 }, [
+          ui.kbd(["Ctrl", "S"]),
+          ui.text("Save", { variant: "caption" }),
+        ]),
+      ]),
+      ui.input({
+        id: "editor",
+        value: state.content,
+        onInput: (value) =>
+          app.update((s) => ({ ...s, content: value, saved: false })),
+      }),
+    ]),
+  ])
+);
+
+// Global shortcuts
+app.keys({
+  "ctrl+s": {
+    handler: (ctx) => ctx.update((s) => ({ ...s, saved: true })),
+    description: "Save document",
+  },
+  "ctrl+q": {
+    handler: () => app.stop(),
+    description: "Quit application",
+  },
+  "ctrl+z": {
+    handler: (ctx) => {
+      // Undo logic
+      console.log("Undo");
+    },
+    description: "Undo",
+  },
+  "ctrl+shift+z": {
+    handler: () => console.log("Redo"),
+    description: "Redo",
+  },
+});
+
+await app.start();
+```
+
+**Key features:**
+- **`handler`** - Function to execute when shortcut is pressed
+- **`description`** - Metadata for help displays
+- **`ctx`** - Access to app state and update function
+
+## Shorthand Syntax
+
+For simple handlers without descriptions:
+
+```typescript
+app.keys({
+  q: () => app.stop(), // Simple function
+  "ctrl+c": () => app.stop(), // No description needed
+});
+```
+
+## Modal Keymaps (Vim-style)
+
+Implement mode-based keybindings:
+
+```typescript
+type State = {
+  content: string;
+  mode: "normal" | "insert";
+};
+
+const app = createNodeApp<State>({
+  initialState: { content: "", mode: "insert" },
+});
+
+app.view((state) =>
+  ui.page({ p: 1 }, [
+    ui.panel("Editor", [
+      ui.text(`Mode: ${state.mode}`, { variant: "caption" }),
+      ui.input({
+        id: "editor",
+        value: state.content,
+        disabled: state.mode === "normal",
+        onInput: (value) => app.update((s) => ({ ...s, content: value })),
+      }),
+      ui.divider(),
+      ui.column({ gap: 0 }, [
+        ui.text("Shortcuts:", { variant: "label" }),
+        ui.row({ gap: 1 }, [ui.kbd("Esc"), ui.text("→ Normal mode")]),
+        ui.row({ gap: 1 }, [ui.kbd("i"), ui.text("→ Insert mode (from normal)")]),
+        ui.row({ gap: 1 }, [ui.kbd("q"), ui.text("→ Quit (from normal)")]),
+      ]),
+    ]),
+  ])
+);
+
+// Global shortcuts (active in all modes)
+app.keys({
+  "ctrl+q": () => app.stop(),
+});
+
+// Mode-specific shortcuts
+app.modes({
+  insert: {
+    escape: {
+      handler: (ctx) => ctx.update((s) => ({ ...s, mode: "normal" })),
+      description: "Enter normal mode",
+    },
+  },
+  normal: {
+    i: {
+      handler: (ctx) => ctx.update((s) => ({ ...s, mode: "insert" })),
+      description: "Enter insert mode",
+    },
+    q: {
+      handler: () => app.stop(),
+      description: "Quit",
+    },
+    dd: {
+      handler: (ctx) => ctx.update((s) => ({ ...s, content: "" })),
+      description: "Delete all content",
+    },
+  },
+});
+
+// Set initial mode
+app.setMode("insert");
+
+await app.start();
+```
+
+**Mode features:**
+- **Mode isolation** - Keys only active in specific modes
+- **Global overrides** - `app.keys()` bindings work in all modes
+- **Dynamic mode switching** - `app.setMode(modeName)`
+
+## Chord Sequences
+
+Multi-key sequences (e.g., Ctrl+K Ctrl+S):
+
+```typescript
+app.keys({
+  "ctrl+k ctrl+s": {
+    handler: (ctx) => {
+      console.log("Open settings");
+      ctx.update((s) => ({ ...s, showSettings: true }));
+    },
+    description: "Open settings",
+  },
+  "ctrl+k ctrl+t": {
+    handler: () => console.log("Toggle theme"),
+    description: "Toggle theme",
+  },
+  "ctrl+k ctrl+k": {
+    handler: () => console.log("Clear all"),
+    description: "Clear all",
+  },
+});
+```
+
+### Chord Feedback
+
+Show pending chord state to users:
+
+```typescript
+app.view((state) =>
+  ui.page({ p: 1 }, [
+    ui.row({ gap: 1 }, [
+      ui.text("Status:"),
+      ui.text(
+        app.pendingChord ? `Waiting: ${app.pendingChord}` : "Ready",
+        { variant: "caption" }
+      ),
+    ]),
+    // ... rest of UI
+  ])
+);
+```
+
+**`app.pendingChord`** contains the current partial chord (e.g., `"ctrl+k"` while waiting for the next key).
+
+## Displaying Shortcuts
+
+### Manual Shortcut Display
+
+```typescript
+ui.column({ gap: 1 }, [
+  ui.row({ gap: 1 }, [
+    ui.kbd(["Ctrl", "S"]),
+    ui.text("Save"),
+  ]),
+  ui.row({ gap: 1 }, [
+    ui.kbd(["Ctrl", "Q"]),
+    ui.text("Quit"),
+  ]),
+  ui.row({ gap: 1 }, [
+    ui.kbd(["Ctrl", "K"]),
+    ui.kbd(["Ctrl", "S"]),
+    ui.text("Open Settings"),
+  ]),
+]);
+```
+
+### Auto-Generated Help
+
+Display all registered keybindings:
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+type State = { showHelp: boolean };
+
+app.view((state) =>
+  ui.layers([
+    ui.page({ p: 1 }, [
+      ui.button({
+        id: "help",
+        label: "Show Shortcuts",
+        onPress: () => app.update((s) => ({ ...s, showHelp: true })),
+      }),
+    ]),
+
+    state.showHelp &&
+      ui.modal({
+        id: "help-modal",
+        title: "Keyboard Shortcuts",
+        content: ui.keybindingHelp(app.getBindings()),
+        actions: [
+          ui.button({
+            id: "close",
+            label: "Close",
+            onPress: () => app.update((s) => ({ ...s, showHelp: false })),
+          }),
+        ],
+        onClose: () => app.update((s) => ({ ...s, showHelp: false })),
+      }),
+  ])
+);
+
+app.keys({
+  "?": {
+    handler: (ctx) => ctx.update((s) => ({ ...s, showHelp: true })),
+    description: "Show keyboard shortcuts",
+  },
+});
+```
+
+**`app.getBindings()`** returns all registered keybindings with descriptions for the current mode.
+
+## Command Palette
+
+Searchable command interface:
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+type Command = {
+  id: string;
+  label: string;
+  description: string;
+  shortcut?: string;
+  action: () => void;
+};
+
+type State = {
+  showPalette: boolean;
+  paletteQuery: string;
+};
+
+const commands: Command[] = [
+  {
+    id: "save",
+    label: "Save",
+    description: "Save current document",
+    shortcut: "Ctrl+S",
+    action: () => console.log("Save"),
+  },
+  {
+    id: "settings",
+    label: "Open Settings",
+    description: "Open application settings",
+    shortcut: "Ctrl+,",
+    action: () => console.log("Settings"),
+  },
+  {
+    id: "quit",
+    label: "Quit",
+    description: "Exit application",
+    shortcut: "Ctrl+Q",
+    action: () => app.stop(),
+  },
+];
+
+function filterCommands(commands: Command[], query: string): Command[] {
+  if (!query) return commands;
+  const lower = query.toLowerCase();
+  return commands.filter(
+    (cmd) =>
+      cmd.label.toLowerCase().includes(lower) ||
+      cmd.description.toLowerCase().includes(lower) ||
+      cmd.shortcut?.toLowerCase().includes(lower)
+  );
+}
+
+const app = createNodeApp<State>({
+  initialState: { showPalette: false, paletteQuery: "" },
+});
+
+app.view((state) => {
+  const filtered = filterCommands(commands, state.paletteQuery);
+
+  return ui.layers([
+    ui.page({ p: 1 }, [
+      ui.panel("Application", [
+        ui.text("Press Ctrl+P to open command palette"),
+      ]),
+    ]),
+
+    state.showPalette &&
+      ui.commandPalette({
+        id: "palette",
+        query: state.paletteQuery,
+        items: filtered.map((cmd) => ({
+          id: cmd.id,
+          label: cmd.label,
+          description: cmd.description,
+          shortcut: cmd.shortcut,
+          onSelect: () => {
+            cmd.action();
+            app.update((s) => ({ ...s, showPalette: false, paletteQuery: "" }));
+          },
+        })),
+        onQueryChange: (query) =>
+          app.update((s) => ({ ...s, paletteQuery: query })),
+        onClose: () =>
+          app.update((s) => ({ ...s, showPalette: false, paletteQuery: "" })),
+        placeholder: "Type a command...",
+      }),
+  ]);
+});
+
+app.keys({
+  "ctrl+p": {
+    handler: (ctx) => ctx.update((s) => ({ ...s, showPalette: true })),
+    description: "Open command palette",
+  },
+});
+
+await app.start();
+```
+
+## Context-Aware Shortcuts
+
+Shortcuts that behave differently based on app state:
+
+```typescript
+type State = {
+  activeTab: "editor" | "preview";
+  content: string;
+};
+
+app.keys({
+  "ctrl+e": {
+    handler: (ctx) => {
+      if (ctx.state.activeTab === "preview") {
+        ctx.update((s) => ({ ...s, activeTab: "editor" }));
+      }
+    },
+    description: "Switch to editor (from preview)",
+  },
+  "ctrl+p": {
+    handler: (ctx) => {
+      if (ctx.state.activeTab === "editor") {
+        ctx.update((s) => ({ ...s, activeTab: "preview" }));
+      }
+    },
+    description: "Switch to preview (from editor)",
+  },
+  "ctrl+s": {
+    handler: (ctx) => {
+      if (ctx.state.activeTab === "editor") {
+        // Save logic
+        console.log("Saved:", ctx.state.content);
+      }
+    },
+    description: "Save (editor only)",
+  },
+});
+```
+
+## Conditional Keybindings
+
+Show different shortcuts based on state:
+
+```typescript
+app.view((state) => {
+  const shortcuts =
+    state.mode === "edit"
+      ? [
+          { keys: ["Ctrl", "S"], label: "Save" },
+          { keys: ["Esc"], label: "Cancel" },
+        ]
+      : [
+          { keys: ["E"], label: "Edit" },
+          { keys: ["D"], label: "Delete" },
+        ];
+
+  return ui.page({ p: 1 }, [
+    ui.panel("Shortcuts", [
+      ui.column({ gap: 1 }, [
+        ...shortcuts.map((s, i) =>
+          ui.row({ gap: 1, key: String(i) }, [
+            ui.kbd(s.keys),
+            ui.text(s.label),
+          ])
+        ),
+      ]),
+    ]),
+  ]);
+});
+```
+
+## Key Binding Priority
+
+1. **Widget-level handlers** - Inputs, buttons capture first
+2. **Modal mode keys** - Current mode's `app.modes()` bindings
+3. **Global keys** - `app.keys()` bindings
+4. **Fallback** - Default system behavior
+
+## Overlay Item Shortcuts
+
+Display shortcuts in dropdown menus:
+
+```typescript
+ui.dropdown({
+  id: "menu",
+  items: [
+    {
+      id: "save",
+      label: "Save",
+      shortcut: "Ctrl+S",
+      onSelect: () => console.log("Save"),
+    },
+    {
+      id: "open",
+      label: "Open",
+      shortcut: "Ctrl+O",
+      onSelect: () => console.log("Open"),
+    },
+    { type: "divider" },
+    {
+      id: "quit",
+      label: "Quit",
+      shortcut: "Ctrl+Q",
+      onSelect: () => app.stop(),
+    },
+  ],
+  trigger: ui.button({ id: "menu-btn", label: "File" }),
+});
+
+// Register corresponding global shortcuts
+app.keys({
+  "ctrl+s": () => console.log("Save"),
+  "ctrl+o": () => console.log("Open"),
+  "ctrl+q": () => app.stop(),
+});
+```
+
+**Note:** `shortcut` on dropdown items is display/filter only - you must register actual keybindings with `app.keys()`.
+
+## Platform-Specific Modifiers
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+const isMac = process.platform === "darwin";
+const modKey = isMac ? "cmd" : "ctrl";
+
+app.keys({
+  [`${modKey}+s`]: () => console.log("Save"),
+  [`${modKey}+q`]: () => app.stop(),
+});
+
+app.view(() =>
+  ui.page({ p: 1 }, [
+    ui.row({ gap: 1 }, [
+      ui.kbd([isMac ? "Cmd" : "Ctrl", "S"]),
+      ui.text("Save"),
+    ]),
+  ])
+);
+```
+
+## Common Patterns
+
+### Navigation Shortcuts
+
+```typescript
+app.keys({
+  "ctrl+1": (ctx) => ctx.update((s) => ({ ...s, activeTab: 0 })),
+  "ctrl+2": (ctx) => ctx.update((s) => ({ ...s, activeTab: 1 })),
+  "ctrl+3": (ctx) => ctx.update((s) => ({ ...s, activeTab: 2 })),
+  "ctrl+tab": (ctx) =>
+    ctx.update((s) => ({ ...s, activeTab: (s.activeTab + 1) % 3 })),
+  "ctrl+shift+tab": (ctx) =>
+    ctx.update((s) => ({ ...s, activeTab: (s.activeTab - 1 + 3) % 3 })),
+});
+```
+
+### Debugging Shortcuts
+
+```typescript
+app.keys({
+  "ctrl+shift+d": {
+    handler: (ctx) => {
+      console.log("Current state:", ctx.state);
+      ctx.update((s) => ({ ...s, debugMode: !s.debugMode }));
+    },
+    description: "Toggle debug mode",
+  },
+  "ctrl+shift+l": {
+    handler: () => console.log("Logs:", app.getLogs()),
+    description: "Dump logs",
+  },
+});
+```
+
+### Quick Actions
+
+```typescript
+app.keys({
+  "ctrl+n": {
+    handler: (ctx) => ctx.update((s) => ({ ...s, showNewDialog: true })),
+    description: "New item",
+  },
+  "ctrl+f": {
+    handler: (ctx) => ctx.update((s) => ({ ...s, showSearch: true })),
+    description: "Find",
+  },
+  "/": {
+    handler: (ctx) => ctx.update((s) => ({ ...s, showSearch: true })),
+    description: "Search (quick)",
+  },
+});
+```
+
+## Best Practices
+
+1. **Use standard conventions** - Ctrl+S (save), Ctrl+Q (quit), Ctrl+Z (undo)
+2. **Provide visual shortcuts** - Display key hints with `ui.kbd()`
+3. **Add descriptions** - Enable auto-generated help with metadata
+4. **Avoid conflicts** - Don't override browser/system shortcuts
+5. **Use modes for complex apps** - Separate editing/navigation contexts
+6. **Show pending chords** - Display `app.pendingChord` for feedback
+7. **Test keyboard navigation** - Ensure all features are keyboard-accessible
+8. **Document shortcuts** - Provide a help modal with `app.getBindings()`
+9. **Use command palette for discoverability** - Searchable command list
+10. **Platform-aware modifiers** - Use Cmd on Mac, Ctrl elsewhere
+
+## Related
+
+- [Kbd Widget](/widgets/kbd) - Displaying keyboard shortcuts
+- [Command Palette Widget](/widgets/command-palette) - Searchable commands
+- [Modal Patterns Recipe](/recipes/modals) - Modal keyboard handling
+- [Focus Management](/concepts/focus) - Focus navigation

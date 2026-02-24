@@ -1,0 +1,144 @@
+---
+title: Introduction
+description: Rezi is a high-performance TypeScript TUI framework with near-native rendering powered by a deterministic C engine.
+---
+
+<Info>
+**Status: Alpha** — Rezi is under active development and changing rapidly. APIs and behavior may change between releases, and Rezi is not yet recommended for production workloads.
+</Info>
+
+## What is Rezi?
+
+Rezi is a high-performance terminal UI framework for TypeScript. You write declarative widget trees — a native C engine handles layout diffing and rendering.
+
+**56 built-in widgets** cover everything from layout primitives and form controls to data tables, virtual lists, navigation, overlays, a code editor, diff viewer, and advanced visualization widgets.
+
+**Sub-character resolution graphics** via braille (2×4), sextant (2×3), quadrant (2×2), and halfblock (1×2) blitters let you draw lines, shapes, and gradients within a single terminal cell grid. Inline images work via Kitty, Sixel, or iTerm2 graphics protocols with automatic blitter fallback.
+
+**Binary drawlists + native C framebuffer diffing** move the hot rendering path out of JavaScript — the framework stays ergonomic at the top and fast on real workloads.
+
+## Quick Example
+
+```ts
+import { ui } from "@rezi-ui/core";
+import { createNodeApp } from "@rezi-ui/node";
+
+const app = createNodeApp<{ count: number }>({
+  initialState: { count: 0 },
+});
+
+app.view((s) =>
+  ui.page({
+    p: 1,
+    gap: 1,
+    header: ui.header({ title: "Counter", subtitle: "Beautiful defaults" }),
+    body: ui.panel("Count", [
+      ui.row({ gap: 1, items: "center" }, [
+        ui.text(String(s.count), { variant: "heading" }),
+        ui.spacer({ flex: 1 }),
+        ui.button("inc", "+1", {
+          intent: "primary",
+          onPress: () => app.update((prev) => ({ count: prev.count + 1 })),
+        }),
+      ]),
+    ]),
+  }),
+);
+
+app.keys({ q: () => app.stop() });
+await app.start();
+```
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Native Performance" icon="bolt">
+    Binary drawlists + C framebuffer diffing — 10-200x faster than React-based TUI frameworks in most scenarios.
+  </Card>
+  
+  <Card title="56 Built-in Widgets" icon="grid">
+    Complete widget catalog from primitives to advanced components: tables, virtual lists, code editor, diff viewer, charts, canvas, and more.
+  </Card>
+  
+  <Card title="Sub-Character Graphics" icon="paintbrush">
+    Canvas drawing at 2×4 braille resolution. Charts, heatmaps, sparklines, and inline images with automatic terminal protocol detection.
+  </Card>
+  
+  <Card title="JSX Without React" icon="code">
+    Optional `@rezi-ui/jsx` maps JSX directly to Rezi VNodes with zero React runtime overhead.
+  </Card>
+  
+  <Card title="Deterministic Rendering" icon="arrows-rotate">
+    Same state + same events = same frames. Versioned binary protocol and pinned Unicode tables ensure reproducible output.
+  </Card>
+  
+  <Card title="Developer Experience" icon="wand-magic-sparkles">
+    Hot state-preserving reload, 6 built-in themes, declarative animation APIs, automatic focus management, and syntax tokenizers.
+  </Card>
+</CardGroup>
+
+## How It Works
+
+Rezi separates authoring from rendering:
+
+```
+Application Code (TypeScript)
+        │
+        ▼
+@rezi-ui/core      Layout, widgets, protocol builders
+        │ ZRDL drawlist
+        ▼
+@rezi-ui/node      Node.js/Bun backend
+        │
+        ▼
+@rezi-ui/native    N-API binding
+        │
+        ▼
+Zireael (C engine) Framebuffer diff, ANSI emission
+        │
+        ▼
+Terminal
+```
+
+Data flows down as binary drawlists (ZRDL). Input events flow up as event batches (ZREV). Both are versioned binary formats validated at the boundary.
+
+## Who is Rezi for?
+
+Rezi is built for:
+
+- **Real-time dashboards** — stable live telemetry displays
+- **Developer tooling** — CLI tools with rich interactive UIs
+- **Control planes** — operations consoles for infrastructure management
+- **Log viewers** — high-performance text processing and display
+- **Terminal-first applications** — teams who want TypeScript ergonomics without sacrificing performance
+
+## Performance
+
+Rezi is benchmarked against Ink, OpenTUI (React and Core drivers), Bubble Tea, terminal-kit, blessed, and Ratatui across 22 scenarios covering primitive workloads, terminal-level rendering, and full-app UI composition.
+
+**vs Ink** — 10-200x faster across all measured scenarios  
+**vs OpenTUI (React)** — ~10x faster geomean across 21 scenarios  
+**vs OpenTUI (Core)** — ~2.6x faster geomean, faster in 19/21 scenarios  
+**vs Bubble Tea** — faster in 20/21 scenarios
+
+See [BENCHMARKS.md](https://github.com/RtlZeroMemory/Rezi/blob/main/BENCHMARKS.md) for full methodology, caveats, and reproduction steps.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Install Rezi packages and set up your environment
+  </Card>
+  
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Build your first Rezi app in under 5 minutes
+  </Card>
+  
+  <Card title="JSX Support" icon="code" href="/jsx">
+    Learn how to use JSX with Rezi (no React runtime)
+  </Card>
+  
+  <Card title="Examples" icon="book" href="/examples">
+    Explore templates and example applications
+  </Card>
+</CardGroup>

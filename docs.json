@@ -1,122 +1,241 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "Rezi",
+  "theme": "aspen",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#0ea5e9",
+    "light": "#38bdf8",
+    "dark": "#0284c7"
   },
-  "favicon": "/favicon.svg",
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/RtlZeroMemory/Rezi"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/RtlZeroMemory/Rezi"
+    }
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Getting Started",
             "pages": [
-              "index",
+              "introduction",
+              "installation",
               "quickstart",
-              "development"
+              "jsx",
+              "examples"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Core Concepts",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "concepts/overview",
+              "concepts/architecture",
+              "concepts/widgets",
+              "concepts/composition",
+              "concepts/lifecycle"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Guides",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "guides/layout",
+              "guides/styling",
+              "guides/theming",
+              "guides/input-focus",
+              "guides/mouse-support",
+              "guides/animation",
+              "guides/routing",
+              "guides/graphics",
+              "guides/performance",
+              "guides/debugging",
+              "guides/testing"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "Recipes",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "recipes/forms",
+              "recipes/data-tables",
+              "recipes/modals",
+              "recipes/keyboard-shortcuts",
+              "recipes/loading-states"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "Widgets",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Primitives",
             "pages": [
-              "api-reference/introduction"
+              "widgets/text",
+              "widgets/box",
+              "widgets/row-column",
+              "widgets/spacer",
+              "widgets/divider"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Inputs",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "widgets/button",
+              "widgets/input",
+              "widgets/textarea",
+              "widgets/checkbox",
+              "widgets/radio-group",
+              "widgets/select",
+              "widgets/slider",
+              "widgets/field"
+            ]
+          },
+          {
+            "group": "Data Display",
+            "pages": [
+              "widgets/table",
+              "widgets/virtual-list",
+              "widgets/tree",
+              "widgets/code-editor",
+              "widgets/diff-viewer",
+              "widgets/logs-console"
+            ]
+          },
+          {
+            "group": "Navigation",
+            "pages": [
+              "widgets/tabs",
+              "widgets/accordion",
+              "widgets/breadcrumb",
+              "widgets/pagination",
+              "widgets/link"
+            ]
+          },
+          {
+            "group": "Overlays",
+            "pages": [
+              "widgets/modal",
+              "widgets/dropdown",
+              "widgets/toast",
+              "widgets/command-palette",
+              "widgets/dialog"
+            ]
+          },
+          {
+            "group": "Visualization",
+            "pages": [
+              "widgets/canvas",
+              "widgets/image",
+              "widgets/line-chart",
+              "widgets/scatter",
+              "widgets/heatmap",
+              "widgets/bar-chart",
+              "widgets/gauge",
+              "widgets/sparkline"
+            ]
+          },
+          {
+            "group": "Layout",
+            "pages": [
+              "widgets/grid",
+              "widgets/split-pane",
+              "widgets/panel-group"
+            ]
+          },
+          {
+            "group": "Feedback",
+            "pages": [
+              "widgets/spinner",
+              "widgets/progress",
+              "widgets/badge",
+              "widgets/status",
+              "widgets/callout",
+              "widgets/error-display"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Packages",
+            "pages": [
+              "api/core",
+              "api/node",
+              "api/jsx",
+              "api/native",
+              "api/testkit",
+              "api/create-rezi"
+            ]
+          },
+          {
+            "group": "Hooks",
+            "pages": [
+              "api/hooks/state",
+              "api/hooks/animation",
+              "api/hooks/lifecycle",
+              "api/hooks/utilities"
+            ]
+          },
+          {
+            "group": "Advanced",
+            "pages": [
+              "api/widget-authoring",
+              "api/custom-backends",
+              "api/terminal-capabilities"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Architecture",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "architecture/introduction",
+              "architecture/render-pipeline",
+              "architecture/layout-engine",
+              "architecture/event-system"
+            ]
+          },
+          {
+            "group": "Protocol",
+            "pages": [
+              "architecture/protocol/overview",
+              "architecture/protocol/zrdl",
+              "architecture/protocol/zrev",
+              "architecture/protocol/versioning",
+              "architecture/protocol/abi"
+            ]
+          },
+          {
+            "group": "Backend",
+            "pages": [
+              "architecture/backend/node",
+              "architecture/backend/native",
+              "architecture/backend/worker-model",
+              "architecture/backend/terminal-detection"
+            ]
+          },
+          {
+            "group": "Reference",
+            "pages": [
+              "architecture/benchmarks",
+              "architecture/determinism",
+              "architecture/safety"
             ]
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+    ]
   }
 }

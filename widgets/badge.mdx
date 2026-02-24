@@ -1,0 +1,371 @@
+---
+title: "Badge"
+description: "Compact visual label for displaying status, counts, or categories"
+---
+
+## Overview
+
+The Badge widget displays a compact, inline label with semantic color variants. Use badges to highlight status, counts, categories, or other metadata in your interface.
+
+## Usage
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+// Basic badge
+ui.badge("New")
+
+// With semantic variant
+ui.badge("Error", { variant: "error" })
+ui.badge("Success", { variant: "success" })
+ui.badge("Warning", { variant: "warning" })
+ui.badge("Info", { variant: "info" })
+```
+
+## Props
+
+<ParamField path="text" type="string" required>
+  Badge text content to display
+</ParamField>
+
+<ParamField path="variant" type="string" default="default">
+  Visual variant determining the badge color scheme:
+  - `"default"` - Neutral gray badge
+  - `"success"` - Green success indicator
+  - `"warning"` - Yellow warning indicator
+  - `"error"` - Red error indicator
+  - `"info"` - Blue informational indicator
+</ParamField>
+
+<ParamField path="style" type="TextStyle">
+  Optional style override for the badge text and background
+</ParamField>
+
+<ParamField path="key" type="string">
+  Optional reconciliation key
+</ParamField>
+
+## Examples
+
+### Basic Badge Display
+
+```typescript
+function StatusBadge(status: "active" | "pending" | "failed") {
+  const variant = 
+    status === "active" ? "success" :
+    status === "pending" ? "warning" :
+    "error";
+  
+  return ui.badge(status, { variant });
+}
+```
+
+### Badge Variants Showcase
+
+```typescript
+function BadgeVariants() {
+  return ui.row({ gap: 2, p: 1 }, [
+    ui.badge("default"),
+    ui.badge("success", { variant: "success" }),
+    ui.badge("warning", { variant: "warning" }),
+    ui.badge("error", { variant: "error" }),
+    ui.badge("info", { variant: "info" }),
+  ]);
+}
+```
+
+### Count Badges
+
+```typescript
+function NotificationBadges(state: {
+  messages: number;
+  alerts: number;
+  errors: number;
+}) {
+  return ui.row({ gap: 2, items: "center" }, [
+    ui.icon("ui.mail"),
+    ui.badge(String(state.messages), { variant: "info" }),
+    
+    ui.icon("status.alert"),
+    ui.badge(String(state.alerts), { variant: "warning" }),
+    
+    ui.icon("status.error"),
+    ui.badge(String(state.errors), { variant: "error" }),
+  ]);
+}
+```
+
+### Status Indicator with Badge
+
+```typescript
+type Service = {
+  name: string;
+  status: "running" | "stopped" | "error";
+};
+
+function ServiceStatus(service: Service) {
+  const badgeProps = {
+    running: { text: "Running", variant: "success" as const },
+    stopped: { text: "Stopped", variant: "default" as const },
+    error: { text: "Error", variant: "error" as const },
+  }[service.status];
+  
+  return ui.row({ gap: 1, items: "center" }, [
+    ui.text(service.name),
+    ui.badge(badgeProps.text, { variant: badgeProps.variant }),
+  ]);
+}
+```
+
+### Table Column with Badges
+
+```typescript
+type User = {
+  id: string;
+  name: string;
+  role: "admin" | "user" | "guest";
+  active: boolean;
+};
+
+function UserTable(users: readonly User[]) {
+  return ui.table<User>({
+    id: "users-table",
+    columns: [
+      { key: "name", header: "Name", flex: 1 },
+      {
+        key: "role",
+        header: "Role",
+        width: 12,
+        render: (value) => {
+          const role = String(value);
+          const variant = role === "admin" ? "info" : "default";
+          return ui.badge(role, { variant });
+        },
+      },
+      {
+        key: "active",
+        header: "Status",
+        width: 12,
+        render: (value) => 
+          ui.badge(
+            value ? "Active" : "Inactive",
+            { variant: value ? "success" : "default" }
+          ),
+      },
+    ],
+    data: users,
+    getRowKey: (user) => user.id,
+  });
+}
+```
+
+### Custom Styled Badges
+
+```typescript
+import { rgb } from "@rezi-ui/core";
+
+function CustomBadges() {
+  return ui.row({ gap: 2 }, [
+    // Custom purple badge
+    ui.badge("Premium", {
+      style: {
+        fg: rgb(200, 150, 255),
+        bg: rgb(80, 40, 120),
+        bold: true,
+      },
+    }),
+    
+    // Custom orange badge
+    ui.badge("Beta", {
+      style: {
+        fg: rgb(255, 200, 100),
+        bg: rgb(120, 80, 20),
+      },
+    }),
+  ]);
+}
+```
+
+## Badge Patterns
+
+### Feature Flags
+
+```typescript
+type Feature = {
+  name: string;
+  enabled: boolean;
+  experimental: boolean;
+};
+
+function FeatureBadges(feature: Feature) {
+  return ui.row({ gap: 1 }, [
+    ui.text(feature.name),
+    feature.enabled && ui.badge("Enabled", { variant: "success" }),
+    feature.experimental && ui.badge("Experimental", { variant: "warning" }),
+  ]);
+}
+```
+
+### Version Tags
+
+```typescript
+function PackageVersion(pkg: { name: string; version: string; latest: boolean }) {
+  return ui.row({ gap: 1, items: "center" }, [
+    ui.text(pkg.name, { variant: "heading" }),
+    ui.badge(pkg.version),
+    pkg.latest && ui.badge("Latest", { variant: "info" }),
+  ]);
+}
+```
+
+### Priority Indicators
+
+```typescript
+type Priority = "low" | "medium" | "high" | "urgent";
+
+function PriorityBadge(priority: Priority) {
+  const config = {
+    low: { text: "Low", variant: "default" as const },
+    medium: { text: "Medium", variant: "info" as const },
+    high: { text: "High", variant: "warning" as const },
+    urgent: { text: "Urgent", variant: "error" as const },
+  }[priority];
+  
+  return ui.badge(config.text, { variant: config.variant });
+}
+```
+
+### Workflow States
+
+```typescript
+type WorkflowState = "draft" | "review" | "approved" | "published" | "archived";
+
+function WorkflowBadge(state: WorkflowState) {
+  const config = {
+    draft: { variant: "default" as const },
+    review: { variant: "warning" as const },
+    approved: { variant: "success" as const },
+    published: { variant: "info" as const },
+    archived: { variant: "default" as const },
+  }[state];
+  
+  return ui.badge(state, { variant: config.variant });
+}
+```
+
+### Category Tags
+
+```typescript
+type Article = {
+  title: string;
+  categories: readonly string[];
+};
+
+function ArticleCard(article: Article) {
+  return ui.panel(article.title, [
+    ui.row({ gap: 1, wrap: true }, [
+      ...article.categories.map((cat) =>
+        ui.badge(cat, { key: cat })
+      ),
+    ]),
+  ]);
+}
+```
+
+## Combining with Other Widgets
+
+### With Status Indicator
+
+```typescript
+function ServiceBadge(service: { name: string; online: boolean }) {
+  return ui.row({ gap: 1, items: "center" }, [
+    ui.status(service.online ? "online" : "offline"),
+    ui.text(service.name),
+    ui.badge(service.online ? "Up" : "Down", {
+      variant: service.online ? "success" : "error",
+    }),
+  ]);
+}
+```
+
+### With Icons
+
+```typescript
+function NotificationBadge(count: number) {
+  return ui.row({ gap: 1, items: "center" }, [
+    ui.icon("ui.bell"),
+    count > 0 && ui.badge(String(count), { variant: "error" }),
+  ]);
+}
+```
+
+### In Button Labels
+
+```typescript
+function InboxButton(unreadCount: number) {
+  return ui.button({
+    id: "inbox-btn",
+    label: `Inbox ${unreadCount > 0 ? `(${unreadCount})` : ""}`,
+    intent: unreadCount > 0 ? "primary" : "secondary",
+  });
+}
+```
+
+## Design System Integration
+
+Badges use theme colors for semantic variants:
+
+- `success` → theme success color (typically green)
+- `warning` → theme warning color (typically yellow)
+- `error` → theme danger/error color (typically red)
+- `info` → theme info color (typically blue)
+- `default` → theme muted color (typically gray)
+
+<Note>
+  When the active theme provides semantic color tokens, badges automatically use appropriate background and text colors for maximum visibility.
+</Note>
+
+## Accessibility
+
+Badges are purely visual indicators. Ensure the information is also communicated through:
+
+1. **Text labels** - Don't rely solely on color
+2. **Context** - Provide meaningful surrounding context
+3. **Descriptions** - Include descriptive text when color alone isn't sufficient
+
+```typescript
+// Good: Text conveys meaning
+ui.badge("High Priority", { variant: "error" })
+
+// Better: Context + badge
+ui.row({ gap: 1 }, [
+  ui.text("Priority:"),
+  ui.badge("High", { variant: "error" }),
+])
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Keep text concise" icon="text-size">
+    Use 1-2 words maximum for badge text. Long text breaks the visual balance.
+  </Card>
+  
+  <Card title="Use semantic variants" icon="palette">
+    Match badge colors to meaning: success (green), warning (yellow), error (red), info (blue).
+  </Card>
+  
+  <Card title="Consistent placement" icon="location-dot">
+    Position badges consistently across your interface for predictable scanning.
+  </Card>
+  
+  <Card title="Don't overuse" icon="triangle-exclamation">
+    Too many badges create visual noise. Use sparingly for important information.
+  </Card>
+</CardGroup>
+
+## Related Widgets
+
+- [Status](/widgets/status) - For connection/availability status with colored dots
+- [Tag](/widgets/tag) - For removable category labels
+- [Callout](/widgets/callout) - For larger, more prominent alerts and messages

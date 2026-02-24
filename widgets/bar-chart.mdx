@@ -1,0 +1,388 @@
+---
+title: Bar Chart
+description: Bar chart widget for categorical data visualization
+---
+
+The Bar Chart widget renders horizontal or vertical bars with automatic scaling, labels, and value display.
+
+## Basic Usage
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.barChart({
+  data: [
+    { label: "Product A", value: 45 },
+    { label: "Product B", value: 32 },
+    { label: "Product C", value: 58 },
+  ],
+});
+```
+
+## Props
+
+<ParamField path="key" type="string">
+  Reconciliation key.
+</ParamField>
+
+<ParamField path="data" type="BarChartItem[]" required>
+  Data items to display. Each item has:
+  - `label: string` - Item label
+  - `value: number` - Item value
+  - `variant?: BadgeVariant` - Optional color variant
+</ParamField>
+
+<ParamField path="orientation" type="horizontal | vertical" default="horizontal">
+  Chart orientation.
+</ParamField>
+
+<ParamField path="showValues" type="boolean" default="true">
+  Show numeric values on bars.
+</ParamField>
+
+<ParamField path="showLabels" type="boolean" default="true">
+  Show item labels.
+</ParamField>
+
+<ParamField path="maxBarLength" type="number">
+  Maximum bar length in cells. Auto-scales if omitted.
+</ParamField>
+
+<ParamField path="highRes" type="boolean" default="false">
+  Enable sub-cell rendering for smoother bars.
+</ParamField>
+
+<ParamField path="blitter" type="GraphicsBlitter">
+  Rendering mode for highRes mode. One of `"braille"`, `"sextant"`, `"quadrant"`, `"halfblock"`.
+</ParamField>
+
+<ParamField path="style" type="TextStyle">
+  Optional style override for chart.
+</ParamField>
+
+## Data Format
+
+```typescript
+type BarChartItem = {
+  label: string;
+  value: number;
+  variant?: "default" | "success" | "warning" | "error" | "info";
+};
+```
+
+### Basic Data
+
+```typescript
+ui.barChart({
+  data: [
+    { label: "Mon", value: 12 },
+    { label: "Tue", value: 19 },
+    { label: "Wed", value: 15 },
+    { label: "Thu", value: 25 },
+    { label: "Fri", value: 22 },
+  ],
+});
+```
+
+### Colored Bars
+
+```typescript
+ui.barChart({
+  data: [
+    { label: "Passed", value: 85, variant: "success" },
+    { label: "Failed", value: 12, variant: "error" },
+    { label: "Skipped", value: 3, variant: "warning" },
+  ],
+});
+```
+
+## Orientation
+
+### Horizontal (Default)
+
+Bars extend to the right:
+
+```typescript
+ui.barChart({
+  orientation: "horizontal",
+  data: [
+    { label: "Alpha", value: 40 },
+    { label: "Beta", value: 65 },
+    { label: "Gamma", value: 30 },
+  ],
+});
+```
+
+Output:
+```
+Alpha  ████████████████████ 40
+Beta   █████████████████████████████████ 65
+Gamma  ███████████████ 30
+```
+
+### Vertical
+
+Bars extend upward:
+
+```typescript
+ui.barChart({
+  orientation: "vertical",
+  data: [
+    { label: "Q1", value: 20 },
+    { label: "Q2", value: 35 },
+    { label: "Q3", value: 28 },
+    { label: "Q4", value: 42 },
+  ],
+});
+```
+
+## Display Options
+
+### Hide Values
+
+```typescript
+ui.barChart({
+  data: items,
+  showValues: false,
+});
+```
+
+### Hide Labels
+
+```typescript
+ui.barChart({
+  data: items,
+  showLabels: false,
+});
+```
+
+### Fixed Bar Length
+
+```typescript
+ui.barChart({
+  data: items,
+  maxBarLength: 40, // All bars scale to 40 cells max
+});
+```
+
+## High-Resolution Mode
+
+Enable sub-cell rendering for smoother bars:
+
+```typescript
+ui.barChart({
+  data: items,
+  highRes: true,
+  blitter: "sextant", // 2x3 sub-cell blocks
+});
+```
+
+Best blitters for bar charts:
+- `"sextant"` - Best balance of resolution and visibility
+- `"halfblock"` - Good for horizontal bars
+- `"quadrant"` - Good for vertical bars
+
+## Examples
+
+### Test Results
+
+```typescript
+function testResultsChart(results: {
+  passed: number;
+  failed: number;
+  skipped: number;
+}): VNode {
+  return ui.column({ gap: 1 }, [
+    ui.text("Test Results", { variant: "heading" }),
+    ui.barChart({
+      data: [
+        { label: "Passed", value: results.passed, variant: "success" },
+        { label: "Failed", value: results.failed, variant: "error" },
+        { label: "Skipped", value: results.skipped, variant: "warning" },
+      ],
+      maxBarLength: 50,
+    }),
+  ]);
+}
+```
+
+### Resource Usage
+
+```typescript
+function resourceChart(resources: Array<{
+  name: string;
+  used: number;
+  total: number;
+}>): VNode {
+  const data = resources.map((r) => ({
+    label: r.name,
+    value: (r.used / r.total) * 100,
+    variant: r.used / r.total > 0.9 ? "error" : "success",
+  }));
+  
+  return ui.column({ gap: 1 }, [
+    ui.text("Resource Usage", { variant: "heading" }),
+    ui.barChart({
+      data,
+      showValues: true,
+    }),
+  ]);
+}
+```
+
+### Sales Comparison
+
+```typescript
+function salesComparison(sales: Array<{
+  product: string;
+  amount: number;
+}>): VNode {
+  const sorted = [...sales].sort((a, b) => b.amount - a.amount);
+  
+  return ui.column({ gap: 1 }, [
+    ui.text("Top Products", { variant: "heading" }),
+    ui.barChart({
+      orientation: "horizontal",
+      data: sorted.slice(0, 10).map((s) => ({
+        label: s.product,
+        value: s.amount,
+      })),
+      maxBarLength: 60,
+      highRes: true,
+      blitter: "sextant",
+    }),
+  ]);
+}
+```
+
+### Vertical Timeline
+
+```typescript
+function activityTimeline(hours: Array<{
+  hour: string;
+  events: number;
+}>): VNode {
+  return ui.column({ gap: 1 }, [
+    ui.text("Hourly Activity", { variant: "heading" }),
+    ui.barChart({
+      orientation: "vertical",
+      data: hours.map((h) => ({
+        label: h.hour,
+        value: h.events,
+      })),
+      showValues: true,
+    }),
+  ]);
+}
+```
+
+### Threshold Coloring
+
+```typescript
+function metricChart(
+  metrics: Array<{ name: string; value: number }>,
+  thresholds: { warning: number; error: number }
+): VNode {
+  const data = metrics.map((m) => {
+    let variant: BarChartItem["variant"] = "success";
+    if (m.value >= thresholds.error) {
+      variant = "error";
+    } else if (m.value >= thresholds.warning) {
+      variant = "warning";
+    }
+    
+    return {
+      label: m.name,
+      value: m.value,
+      variant,
+    };
+  });
+  
+  return ui.barChart({ data });
+}
+```
+
+### Compact Dashboard
+
+```typescript
+function compactMetrics(metrics: Record<string, number>): VNode {
+  return ui.column({ gap: 1 }, [
+    ui.text("System Metrics", { variant: "heading" }),
+    ui.barChart({
+      data: Object.entries(metrics).map(([label, value]) => ({
+        label,
+        value,
+      })),
+      showLabels: true,
+      showValues: true,
+      maxBarLength: 30,
+    }),
+  ]);
+}
+```
+
+### Stacked View Simulation
+
+```typescript
+function categoryBreakdown(
+  categories: Array<{ name: string; values: number[] }>
+): VNode {
+  return ui.column({ gap: 2 }, [
+    ui.text("Category Breakdown", { variant: "heading" }),
+    ...categories.map((cat) =>
+      ui.column({ gap: 0, key: cat.name }, [
+        ui.text(cat.name, { style: { bold: true } }),
+        ui.barChart({
+          data: cat.values.map((v, i) => ({
+            label: `Item ${i + 1}`,
+            value: v,
+          })),
+          showLabels: false,
+          maxBarLength: 40,
+        }),
+      ])
+    ),
+  ]);
+}
+```
+
+## Styling
+
+### Custom Colors
+
+```typescript
+ui.barChart({
+  data: items,
+  style: {
+    fg: "#3b82f6",
+    bold: true,
+  },
+});
+```
+
+### Per-Item Variants
+
+Use the `variant` field for semantic colors:
+
+```typescript
+const data: BarChartItem[] = [
+  { label: "Low", value: 20, variant: "success" },
+  { label: "Medium", value: 50, variant: "warning" },
+  { label: "High", value: 80, variant: "error" },
+];
+
+ui.barChart({ data });
+```
+
+## Performance
+
+- Standard mode: Instant for any reasonable dataset
+- High-res mode: Best for < 100 items
+- Vertical orientation: Requires more vertical space
+
+## See Also
+
+- [Gauge](/widgets/gauge) - Single-value progress indicator
+- [Sparkline](/widgets/sparkline) - Inline mini charts
+- [Progress](/widgets/progress) - Horizontal progress bars
+- [Heatmap](/widgets/heatmap) - 2D matrix visualization

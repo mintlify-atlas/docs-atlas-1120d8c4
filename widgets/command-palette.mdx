@@ -1,0 +1,611 @@
+---
+title: "Command Palette"
+description: "Quick-access command execution with search, keyboard navigation, and multiple sources"
+icon: "terminal"
+---
+
+## Overview
+
+The `commandPalette` widget provides a searchable command launcher for quick access to app functionality. Supports multiple command sources, async item loading, keyboard navigation, and prefix-based filtering.
+
+## Basic Usage
+
+```typescript
+import { ui } from "@rezi-ui/core";
+import { defineWidget } from "@rezi-ui/core";
+
+const CommandPaletteExample = defineWidget((ctx) => {
+  const [paletteOpen, setPaletteOpen] = ctx.useState(false);
+  const [query, setQuery] = ctx.useState("");
+  const [selectedIndex, setSelectedIndex] = ctx.useState(0);
+
+  const commandSource: CommandSource = {
+    id: "commands",
+    name: "Commands",
+    prefix: ">",
+    getItems: (q) => [
+      {
+        id: "new-file",
+        label: "New File",
+        description: "Create a new file",
+        shortcut: "Ctrl+N",
+        icon: "📄",
+        sourceId: "commands",
+      },
+      {
+        id: "open-file",
+        label: "Open File",
+        description: "Open an existing file",
+        shortcut: "Ctrl+O",
+        icon: "📂",
+        sourceId: "commands",
+      },
+      {
+        id: "save",
+        label: "Save",
+        description: "Save current file",
+        shortcut: "Ctrl+S",
+        icon: "💾",
+        sourceId: "commands",
+      },
+    ].filter((item) => item.label.toLowerCase().includes(q.toLowerCase())),
+  };
+
+  return ui.layers([
+    ui.column({ gap: 1, p: 1 }, [
+      ui.button({
+        id: "open-palette",
+        label: "Open Command Palette",
+        onPress: () => setPaletteOpen(true),
+      }),
+      ui.text("Press Ctrl+K to open", { variant: "caption", dim: true }),
+    ]),
+    paletteOpen &&
+      ui.commandPalette({
+        id: "cmd-palette",
+        open: paletteOpen,
+        query,
+        sources: [commandSource],
+        selectedIndex,
+        onQueryChange: setQuery,
+        onSelect: (item) => {
+          handleCommand(item.id);
+          setPaletteOpen(false);
+          setQuery("");
+        },
+        onClose: () => {
+          setPaletteOpen(false);
+          setQuery("");
+        },
+        onSelectionChange: setSelectedIndex,
+      }),
+  ]);
+});
+```
+
+## Props
+
+<ParamField path="id" type="string" required>
+  Unique identifier for focus routing.
+</ParamField>
+
+<ParamField path="open" type="boolean" required>
+  Visible state of the palette.
+</ParamField>
+
+<ParamField path="query" type="string" required>
+  Current search query.
+</ParamField>
+
+<ParamField path="sources" type="readonly CommandSource[]" required>
+  Command sources to search.
+</ParamField>
+
+<ParamField path="selectedIndex" type="number" required>
+  Selected item index in results list.
+</ParamField>
+
+<ParamField path="onQueryChange" type="(query: string) => void" required>
+  Callback when query changes.
+</ParamField>
+
+<ParamField path="onSelect" type="(item: CommandItem) => void" required>
+  Callback when item is selected.
+</ParamField>
+
+<ParamField path="onClose" type="() => void" required>
+  Callback when palette should close.
+</ParamField>
+
+<ParamField path="onSelectionChange" type="(index: number) => void">
+  Callback when selection index changes.
+</ParamField>
+
+<ParamField path="loading" type="boolean" default="false">
+  Loading state for async sources.
+</ParamField>
+
+<ParamField path="placeholder" type="string" default="'Type a command...'">
+  Placeholder text for search input.
+</ParamField>
+
+<ParamField path="maxVisible" type="number" default="10">
+  Maximum visible items in results list.
+</ParamField>
+
+<ParamField path="width" type="number" default="60">
+  Palette width in cells.
+</ParamField>
+
+<ParamField path="focusable" type="boolean" default="true">
+  Opt out of Tab focus order.
+</ParamField>
+
+<ParamField path="accessibleLabel" type="string">
+  Optional semantic label for accessibility.
+</ParamField>
+
+### Styling
+
+<ParamField path="frameStyle" type="OverlayFrameStyle">
+  Frame/surface colors for palette background, text, and border.
+</ParamField>
+
+<ParamField path="selectionStyle" type="TextStyle">
+  Optional style override for selected result row highlighting.
+</ParamField>
+
+<ParamField path="focusConfig" type="FocusConfig">
+  Optional focus appearance configuration.
+</ParamField>
+
+## Keyboard Navigation
+
+| Key | Action |
+|-----|--------|
+| `Up` | Select previous item |
+| `Down` | Select next item |
+| `Enter` | Execute selected command |
+| `ESC` | Close palette |
+| `Ctrl+K` | Common shortcut to open palette (app-level binding) |
+
+## Command Sources
+
+### CommandSource Interface
+
+```typescript
+type CommandSource = {
+  id: string;
+  name: string;
+  prefix?: string; // e.g., ">", "@", "#"
+  getItems: (query: string) => CommandItem[] | Promise<CommandItem[]>;
+  priority?: number; // Higher = first
+};
+```
+
+### CommandItem Interface
+
+```typescript
+type CommandItem = {
+  id: string;
+  label: string;
+  description?: string;
+  shortcut?: string;
+  icon?: string;
+  sourceId: string;
+  data?: unknown; // Payload for onSelect
+  disabled?: boolean;
+};
+```
+
+## Multiple Command Sources
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+const MultiSourcePalette = defineWidget((ctx) => {
+  const [paletteOpen, setPaletteOpen] = ctx.useState(false);
+  const [query, setQuery] = ctx.useState("");
+  const [selectedIndex, setSelectedIndex] = ctx.useState(0);
+
+  const commandSource: CommandSource = {
+    id: "commands",
+    name: "Commands",
+    prefix: ">",
+    priority: 1,
+    getItems: (q) =>
+      commands.filter((cmd) => cmd.label.toLowerCase().includes(q.toLowerCase())),
+  };
+
+  const fileSource: CommandSource = {
+    id: "files",
+    name: "Files",
+    prefix: "@",
+    priority: 2,
+    getItems: async (q) => {
+      const files = await searchFiles(q);
+      return files.map((file) => ({
+        id: file.path,
+        label: file.name,
+        description: file.path,
+        icon: "📄",
+        sourceId: "files",
+        data: file,
+      }));
+    },
+  };
+
+  const symbolSource: CommandSource = {
+    id: "symbols",
+    name: "Symbols",
+    prefix: "#",
+    priority: 3,
+    getItems: (q) =>
+      symbols
+        .filter((sym) => sym.name.toLowerCase().includes(q.toLowerCase()))
+        .map((sym) => ({
+          id: sym.id,
+          label: sym.name,
+          description: sym.type,
+          icon: sym.kind === "function" ? "ƒ" : "Ξ",
+          sourceId: "symbols",
+          data: sym,
+        })),
+  };
+
+  return ui.layers([
+    MainContent(),
+    paletteOpen &&
+      ui.commandPalette({
+        id: "cmd-palette",
+        open: paletteOpen,
+        query,
+        sources: [commandSource, fileSource, symbolSource],
+        selectedIndex,
+        placeholder: "Type > for commands, @ for files, # for symbols",
+        onQueryChange: setQuery,
+        onSelect: (item) => {
+          handleSelection(item);
+          setPaletteOpen(false);
+        },
+        onClose: () => setPaletteOpen(false),
+        onSelectionChange: setSelectedIndex,
+      }),
+  ]);
+});
+```
+
+## Async Command Loading
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+const AsyncPalette = defineWidget((ctx) => {
+  const [paletteOpen, setPaletteOpen] = ctx.useState(false);
+  const [query, setQuery] = ctx.useState("");
+  const [selectedIndex, setSelectedIndex] = ctx.useState(0);
+  const [loading, setLoading] = ctx.useState(false);
+
+  const asyncSource: CommandSource = {
+    id: "api-search",
+    name: "API Search",
+    getItems: async (q) => {
+      if (!q) return [];
+      setLoading(true);
+      try {
+        const results = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+        const data = await results.json();
+        return data.items.map((item: any) => ({
+          id: item.id,
+          label: item.name,
+          description: item.description,
+          sourceId: "api-search",
+          data: item,
+        }));
+      } finally {
+        setLoading(false);
+      }
+    },
+  };
+
+  return ui.layers([
+    MainContent(),
+    paletteOpen &&
+      ui.commandPalette({
+        id: "async-palette",
+        open: paletteOpen,
+        query,
+        sources: [asyncSource],
+        selectedIndex,
+        loading,
+        onQueryChange: setQuery,
+        onSelect: handleSelection,
+        onClose: () => setPaletteOpen(false),
+        onSelectionChange: setSelectedIndex,
+      }),
+  ]);
+});
+```
+
+## Prefix Filtering
+
+```typescript
+const sources: CommandSource[] = [
+  {
+    id: "commands",
+    name: "Commands",
+    prefix: ">", // Triggered by ">command"
+    getItems: getCommands,
+  },
+  {
+    id: "files",
+    name: "Files",
+    prefix: "@", // Triggered by "@filename"
+    getItems: searchFiles,
+  },
+  {
+    id: "symbols",
+    name: "Symbols",
+    prefix: "#", // Triggered by "#symbol"
+    getItems: searchSymbols,
+  },
+];
+
+// User types: ">new file"
+// Only "commands" source is queried with "new file"
+
+// User types: "@main.ts"
+// Only "files" source is queried with "main.ts"
+```
+
+## Recent Commands
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+const PaletteWithRecents = defineWidget((ctx) => {
+  const [paletteOpen, setPaletteOpen] = ctx.useState(false);
+  const [query, setQuery] = ctx.useState("");
+  const [selectedIndex, setSelectedIndex] = ctx.useState(0);
+  const [recentCommands, setRecentCommands] = ctx.useState<CommandItem[]>([]);
+
+  const recordCommand = (item: CommandItem) => {
+    const updated = [
+      item,
+      ...recentCommands.filter((cmd) => cmd.id !== item.id),
+    ].slice(0, 5); // Keep last 5
+    setRecentCommands(updated);
+  };
+
+  const recentSource: CommandSource = {
+    id: "recent",
+    name: "Recent",
+    priority: 10,
+    getItems: (q) => {
+      if (q) return [];
+      return recentCommands;
+    },
+  };
+
+  const commandSource: CommandSource = {
+    id: "all-commands",
+    name: "All Commands",
+    getItems: (q) =>
+      allCommands.filter((cmd) => cmd.label.toLowerCase().includes(q.toLowerCase())),
+  };
+
+  return ui.layers([
+    MainContent(),
+    paletteOpen &&
+      ui.commandPalette({
+        id: "palette-with-recents",
+        open: paletteOpen,
+        query,
+        sources: [recentSource, commandSource],
+        selectedIndex,
+        placeholder: query ? "Search commands..." : "Recent commands",
+        onQueryChange: setQuery,
+        onSelect: (item) => {
+          recordCommand(item);
+          executeCommand(item);
+          setPaletteOpen(false);
+        },
+        onClose: () => setPaletteOpen(false),
+        onSelectionChange: setSelectedIndex,
+      }),
+  ]);
+});
+```
+
+## Global Keybinding
+
+```typescript
+import { createNodeApp } from "@rezi-ui/node";
+
+const app = createNodeApp({ view, initialState });
+
+// Register Ctrl+K to open command palette
+app.keys("default", [
+  {
+    sequence: "Ctrl+K",
+    description: "Open command palette",
+    action: () => {
+      app.update((state) => ({ ...state, paletteOpen: true }));
+    },
+  },
+]);
+```
+
+## Command Categories
+
+```typescript
+const categorizedSource: CommandSource = {
+  id: "commands",
+  name: "Commands",
+  getItems: (query) => {
+    const categories = [
+      { name: "File", commands: fileCommands },
+      { name: "Edit", commands: editCommands },
+      { name: "View", commands: viewCommands },
+      { name: "Help", commands: helpCommands },
+    ];
+
+    return categories.flatMap((cat) =>
+      cat.commands
+        .filter((cmd) => cmd.label.toLowerCase().includes(query.toLowerCase()))
+        .map((cmd) => ({
+          ...cmd,
+          description: `${cat.name}: ${cmd.description}`,
+        }))
+    );
+  },
+};
+```
+
+## Custom Styling
+
+```typescript
+ui.commandPalette({
+  id: "styled-palette",
+  open: paletteOpen,
+  query,
+  sources,
+  selectedIndex,
+  frameStyle: {
+    background: { r: 20, g: 20, b: 30 },
+    foreground: { r: 220, g: 220, b: 230 },
+    border: { r: 80, g: 90, b: 120 },
+  },
+  selectionStyle: {
+    bg: { r: 50, g: 100, b: 150 },
+    fg: { r: 255, g: 255, b: 255 },
+  },
+  onQueryChange: setQuery,
+  onSelect: handleSelect,
+  onClose: closeP alette,
+  onSelectionChange: setSelectedIndex,
+});
+```
+
+## Best Practices
+
+1. **Fuzzy matching** - Implement fuzzy search for better UX
+2. **Recent commands** - Show recently used commands when query is empty
+3. **Keyboard shortcuts** - Display shortcuts next to commands
+4. **Icons** - Use icons to visually distinguish command types
+5. **Categories** - Group related commands with prefixes or descriptions
+6. **Async loading** - Show loading state for slow sources
+7. **Global hotkey** - Bind to Ctrl+K or Ctrl+P for quick access
+
+## Examples
+
+### VS Code-style Command Palette
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+const EditorPalette = defineWidget((ctx) => {
+  const [paletteOpen, setPaletteOpen] = ctx.useState(false);
+  const [query, setQuery] = ctx.useState("");
+  const [selectedIndex, setSelectedIndex] = ctx.useState(0);
+
+  const sources: CommandSource[] = [
+    {
+      id: "commands",
+      name: "Commands",
+      prefix: ">",
+      getItems: (q) => [
+        {
+          id: "file.new",
+          label: "File: New File",
+          shortcut: "Ctrl+N",
+          icon: "📄",
+          sourceId: "commands",
+        },
+        {
+          id: "file.open",
+          label: "File: Open File",
+          shortcut: "Ctrl+O",
+          icon: "📂",
+          sourceId: "commands",
+        },
+        {
+          id: "view.commandPalette",
+          label: "View: Command Palette",
+          shortcut: "Ctrl+Shift+P",
+          icon: "⌨️",
+          sourceId: "commands",
+        },
+      ].filter((item) => item.label.toLowerCase().includes(q.toLowerCase())),
+    },
+    {
+      id: "files",
+      name: "Go to File",
+      getItems: async (q) => {
+        const files = await searchWorkspaceFiles(q);
+        return files.map((file) => ({
+          id: file.path,
+          label: file.name,
+          description: file.path,
+          icon: getFileIcon(file),
+          sourceId: "files",
+          data: file,
+        }));
+      },
+    },
+    {
+      id: "symbols",
+      name: "Go to Symbol",
+      prefix: "@",
+      getItems: async (q) => {
+        const symbols = await searchSymbols(q);
+        return symbols.map((sym) => ({
+          id: sym.id,
+          label: sym.name,
+          description: `${sym.kind} in ${sym.file}`,
+          icon: getSymbolIcon(sym.kind),
+          sourceId: "symbols",
+          data: sym,
+        }));
+      },
+    },
+  ];
+
+  return ui.commandPalette({
+    id: "editor-palette",
+    open: paletteOpen,
+    query,
+    sources,
+    selectedIndex,
+    width: 70,
+    maxVisible: 15,
+    placeholder: "Type > for commands, @ for symbols, or search files",
+    onQueryChange: setQuery,
+    onSelect: (item) => {
+      handleSelection(item);
+      setPaletteOpen(false);
+    },
+    onClose: () => setPaletteOpen(false),
+    onSelectionChange: setSelectedIndex,
+  });
+});
+```
+
+## Accessibility
+
+- Keyboard-first design with arrow key navigation
+- Search input is auto-focused when palette opens
+- Selected item is visually highlighted
+- ESC key always closes palette
+- Screen readers announce selected items
+
+## Related Widgets
+
+- [Dropdown](/widgets/dropdown) - For contextual menus
+- [Modal](/widgets/modal) - For blocking dialogs
+- [Input](/widgets/input) - For text input fields
+
+## Location in Source
+
+- Types: `packages/core/src/widgets/types.ts:1605-1680`
+- Factory: `packages/core/src/widgets/ui.ts:1543`

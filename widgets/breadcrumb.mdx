@@ -1,0 +1,326 @@
+---
+title: "Breadcrumb"
+description: "Navigation path display with clickable segments showing current location hierarchy"
+icon: "chevron-right"
+---
+
+## Overview
+
+The `breadcrumb` widget displays a navigation path as a horizontal list of clickable segments separated by a delimiter. The last item represents the current location and is rendered as non-clickable text.
+
+## Basic Usage
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.breadcrumb({
+  items: [
+    {
+      label: "Home",
+      onPress: () => navigateTo("/"),
+    },
+    {
+      label: "Products",
+      onPress: () => navigateTo("/products"),
+    },
+    {
+      label: "Laptops",
+      onPress: () => navigateTo("/products/laptops"),
+    },
+    {
+      label: "MacBook Pro",
+      // No onPress - current page
+    },
+  ],
+});
+```
+
+## Props
+
+<ParamField path="items" type="readonly BreadcrumbItem[]" required>
+  Array of breadcrumb items. Each item has:
+  - `label` (string) - Display text
+  - `onPress` (() => void, optional) - Navigation callback. Omit for current page (last item)
+</ParamField>
+
+<ParamField path="separator" type="string" default="/">
+  Character or string to separate breadcrumb items.
+</ParamField>
+
+<ParamField path="id" type="string">
+  Optional unique identifier for the breadcrumb widget.
+</ParamField>
+
+<ParamField path="key" type="string">
+  Optional reconciliation key for rendering optimization.
+</ParamField>
+
+### Design System Props
+
+<ParamField path="dsVariant" type="WidgetVariant" default="ghost">
+  Design system visual variant: `"solid"`, `"soft"`, `"outline"`, `"ghost"`.
+</ParamField>
+
+<ParamField path="dsTone" type="WidgetTone" default="default">
+  Design system color tone: `"default"`, `"primary"`, `"success"`, `"warning"`, `"danger"`.
+</ParamField>
+
+<ParamField path="dsSize" type="WidgetSize" default="sm">
+  Design system size preset: `"xs"`, `"sm"`, `"md"`, `"lg"`, `"xl"`.
+</ParamField>
+
+## Custom Separator
+
+```typescript
+// Arrow separator
+ui.breadcrumb({
+  items: breadcrumbItems,
+  separator: " > ",
+});
+
+// Dot separator
+ui.breadcrumb({
+  items: breadcrumbItems,
+  separator: " · ",
+});
+
+// Unicode arrow
+ui.breadcrumb({
+  items: breadcrumbItems,
+  separator: " → ",
+});
+```
+
+## File Path Navigation
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+const FilePathBreadcrumb = defineWidget((ctx) => {
+  const [currentPath, setCurrentPath] = ctx.useState(
+    "/home/user/projects/rezi/src/widgets"
+  );
+
+  const pathParts = currentPath.split("/").filter((p) => p);
+
+  const items = [
+    {
+      label: "/",
+      onPress: () => setCurrentPath("/"),
+    },
+    ...pathParts.map((part, index) => {
+      const path = "/" + pathParts.slice(0, index + 1).join("/");
+      return {
+        label: part,
+        onPress:
+          index < pathParts.length - 1
+            ? () => setCurrentPath(path)
+            : undefined,
+      };
+    }),
+  ];
+
+  return ui.breadcrumb({
+    items,
+    separator: "/",
+  });
+});
+```
+
+## Router Integration
+
+Use `ui.routerBreadcrumb()` for automatic breadcrumbs from router history:
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+function view(state: AppState) {
+  return ui.routerBreadcrumb(
+    app.router,
+    [
+      { path: "/", label: "Home", view: HomeView },
+      { path: "/products", label: "Products", view: ProductsView },
+      { path: "/products/:id", label: "Product", view: ProductView },
+    ],
+    {
+      separator: " > ",
+    }
+  );
+}
+```
+
+## With Page Header
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+ui.column({ gap: 1 }, [
+  ui.breadcrumb({
+    items: [
+      { label: "Dashboard", onPress: () => navigate("/dashboard") },
+      { label: "Users", onPress: () => navigate("/users") },
+      { label: "Alice" },
+    ],
+  }),
+  ui.text("Alice's Profile", { variant: "heading" }),
+  ui.divider(),
+  ProfileContent(),
+]);
+```
+
+## Design System Integration
+
+```typescript
+// Primary tone breadcrumbs
+ui.breadcrumb({
+  items: breadcrumbItems,
+  dsTone: "primary",
+});
+
+// Larger breadcrumbs
+ui.breadcrumb({
+  items: breadcrumbItems,
+  dsSize: "md",
+});
+
+// Soft variant with outline
+ui.breadcrumb({
+  items: breadcrumbItems,
+  dsVariant: "soft",
+});
+```
+
+## Dynamic Breadcrumbs
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+const DynamicBreadcrumb = defineWidget((ctx, props: { path: string }) => {
+  const buildBreadcrumbs = (path: string) => {
+    const segments = path.split("/").filter((s) => s);
+
+    return [
+      { label: "Home", onPress: () => navigateTo("/") },
+      ...segments.map((segment, index) => {
+        const segmentPath = "/" + segments.slice(0, index + 1).join("/");
+        const isLast = index === segments.length - 1;
+
+        return {
+          label: segment.charAt(0).toUpperCase() + segment.slice(1),
+          onPress: isLast ? undefined : () => navigateTo(segmentPath),
+        };
+      }),
+    ];
+  };
+
+  return ui.breadcrumb({
+    items: buildBreadcrumbs(props.path),
+  });
+});
+```
+
+## Keyboard Navigation
+
+Breadcrumb items are standard clickable elements:
+
+| Key | Action |
+|-----|--------|
+| `Tab` | Move to next breadcrumb item |
+| `Shift+Tab` | Move to previous breadcrumb item |
+| `Enter` | Activate focused breadcrumb (navigate) |
+| `Space` | Activate focused breadcrumb (navigate) |
+
+## Best Practices
+
+1. **Last item is current page** - Don't add `onPress` to the final item
+2. **Keep labels concise** - Use 1-2 words per segment
+3. **Limit depth** - Show 3-5 levels max; truncate deep hierarchies
+4. **Use consistent separators** - Stick with `/`, `>`, or `·` throughout app
+5. **Match URL structure** - Breadcrumbs should reflect actual navigation hierarchy
+
+## Examples
+
+### E-commerce Navigation
+
+```typescript
+ui.breadcrumb({
+  items: [
+    { label: "Home", onPress: () => navigate("/") },
+    { label: "Electronics", onPress: () => navigate("/electronics") },
+    { label: "Computers", onPress: () => navigate("/electronics/computers") },
+    {
+      label: "Laptops",
+      onPress: () => navigate("/electronics/computers/laptops"),
+    },
+    { label: state.product.name },
+  ],
+  separator: " > ",
+});
+```
+
+### Documentation Navigator
+
+```typescript
+ui.breadcrumb({
+  items: [
+    { label: "Docs", onPress: () => navigate("/docs") },
+    { label: "Widgets", onPress: () => navigate("/docs/widgets") },
+    { label: "Navigation", onPress: () => navigate("/docs/widgets/navigation") },
+    { label: "Breadcrumb" },
+  ],
+  separator: " / ",
+});
+```
+
+### File Manager
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+const FileManager = defineWidget((ctx) => {
+  const [currentDir, setCurrentDir] = ctx.useState("/home/user/documents");
+
+  const pathSegments = currentDir.split("/").filter((s) => s);
+
+  const breadcrumbItems = [
+    { label: "Root", onPress: () => setCurrentDir("/") },
+    ...pathSegments.map((segment, index) => {
+      const path = "/" + pathSegments.slice(0, index + 1).join("/");
+      const isLast = index === pathSegments.length - 1;
+
+      return {
+        label: segment,
+        onPress: isLast ? undefined : () => setCurrentDir(path),
+      };
+    }),
+  ];
+
+  return ui.column({ gap: 1 }, [
+    ui.breadcrumb({
+      items: breadcrumbItems,
+      separator: "/",
+    }),
+    ui.divider(),
+    FileList({ directory: currentDir }),
+  ]);
+});
+```
+
+## Accessibility
+
+- Breadcrumb items are rendered as focusable buttons or text
+- Clickable items respond to Enter and Space keys
+- Current page item (last) is non-interactive text
+- Use `accessibleLabel` on parent container for screen readers
+
+## Related Widgets
+
+- [Link](/widgets/link) - For standalone hyperlinks
+- [Tabs](/widgets/tabs) - For horizontal navigation between views
+- [Pagination](/widgets/pagination) - For page-based navigation
+
+## Location in Source
+
+- Implementation: `packages/core/src/widgets/breadcrumb.ts`
+- Types: `packages/core/src/widgets/types.ts:1567-1585`
+- Factory: `packages/core/src/widgets/ui.ts:1509`

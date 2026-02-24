@@ -1,0 +1,517 @@
+---
+title: Heatmap
+description: Heatmap widget for 2D matrix data visualization
+---
+
+The Heatmap widget renders 2D data matrices as color-coded grids with scientific color scales.
+
+## Basic Usage
+
+```typescript
+import { ui } from "@rezi-ui/core";
+
+const data = [
+  [10, 20, 30],
+  [40, 50, 60],
+  [70, 80, 90],
+];
+
+ui.heatmap({
+  id: "demo",
+  width: 30,
+  height: 15,
+  data,
+  colorScale: "viridis",
+});
+```
+
+## Props
+
+<ParamField path="id" type="string">
+  Widget identifier for debugging.
+</ParamField>
+
+<ParamField path="width" type="number" required>
+  Display width in terminal columns.
+</ParamField>
+
+<ParamField path="height" type="number" required>
+  Display height in terminal rows.
+</ParamField>
+
+<ParamField path="data" type="number[][]" required>
+  2D matrix as `[row][col]` array. Each row must have the same length.
+</ParamField>
+
+<ParamField path="colorScale" type="HeatmapColorScale" default="viridis">
+  Color scale for mapping values:
+  - `"viridis"` - Purple to yellow (perceptually uniform)
+  - `"plasma"` - Purple to yellow (high contrast)
+  - `"inferno"` - Black to yellow (fire-like)
+  - `"magma"` - Black to white (magma-like)
+  - `"turbo"` - Rainbow (high saturation)
+  - `"grayscale"` - Black to white
+</ParamField>
+
+<ParamField path="min" type="number">
+  Minimum value for color mapping (auto if omitted).
+</ParamField>
+
+<ParamField path="max" type="number">
+  Maximum value for color mapping (auto if omitted).
+</ParamField>
+
+## Data Format
+
+Data is a 2D array indexed as `[row][col]`:
+
+```typescript
+const data: number[][] = [
+  [10, 20, 30], // Row 0
+  [40, 50, 60], // Row 1
+  [70, 80, 90], // Row 2
+];
+
+ui.heatmap({
+  id: "matrix",
+  width: 30,
+  height: 15,
+  data,
+});
+```
+
+### Matrix Shape
+
+All rows must have the same length:
+
+```typescript
+// Valid
+const valid = [
+  [1, 2, 3],
+  [4, 5, 6],
+];
+
+// Invalid - rows have different lengths
+const invalid = [
+  [1, 2, 3],
+  [4, 5], // Wrong!
+];
+```
+
+## Color Scales
+
+### Viridis (Default)
+
+Perceptually uniform, colorblind-friendly. Purple → Green → Yellow.
+
+```typescript
+ui.heatmap({
+  width: 40,
+  height: 20,
+  data: matrix,
+  colorScale: "viridis",
+});
+```
+
+**Best for:** General-purpose scientific visualization, accessibility.
+
+### Plasma
+
+High contrast, warm colors. Purple → Pink → Yellow.
+
+```typescript
+ui.heatmap({
+  width: 40,
+  height: 20,
+  data: matrix,
+  colorScale: "plasma",
+});
+```
+
+**Best for:** Highlighting peaks, dramatic visualization.
+
+### Inferno
+
+Fire-like gradient. Black → Red → Yellow.
+
+```typescript
+ui.heatmap({
+  width: 40,
+  height: 20,
+  data: matrix,
+  colorScale: "inferno",
+});
+```
+
+**Best for:** Temperature, heat, intensity.
+
+### Magma
+
+Magma gradient. Black → Purple → White.
+
+```typescript
+ui.heatmap({
+  width: 40,
+  height: 20,
+  data: matrix,
+  colorScale: "magma",
+});
+```
+
+**Best for:** Subtle gradients, elegant visualizations.
+
+### Turbo
+
+Rainbow gradient with high saturation. Blue → Green → Yellow → Red.
+
+```typescript
+ui.heatmap({
+  width: 40,
+  height: 20,
+  data: matrix,
+  colorScale: "turbo",
+});
+```
+
+**Best for:** Wide dynamic range, eye-catching.
+
+### Grayscale
+
+Simple black to white gradient.
+
+```typescript
+ui.heatmap({
+  width: 40,
+  height: 20,
+  data: matrix,
+  colorScale: "grayscale",
+});
+```
+
+**Best for:** Monochrome displays, printing.
+
+## Value Range
+
+### Auto-Scaling (Default)
+
+Values auto-scale to data range:
+
+```typescript
+const data = [
+  [10, 50],
+  [30, 90],
+];
+
+ui.heatmap({
+  width: 20,
+  height: 10,
+  data, // min=10, max=90 (computed)
+});
+```
+
+### Fixed Range
+
+Manually set min/max for consistent scaling:
+
+```typescript
+ui.heatmap({
+  width: 40,
+  height: 20,
+  data: matrix,
+  min: 0,
+  max: 100,
+  colorScale: "viridis",
+});
+```
+
+### Partial Override
+
+```typescript
+ui.heatmap({
+  width: 40,
+  height: 20,
+  data: matrix,
+  min: 0, // Fix minimum, auto max
+});
+```
+
+## Examples
+
+### Correlation Matrix
+
+```typescript
+function correlationHeatmap(
+  features: string[],
+  correlations: number[][]
+): VNode {
+  return ui.column({ gap: 1 }, [
+    ui.text("Feature Correlations", { variant: "heading" }),
+    ui.heatmap({
+      id: "correlations",
+      width: 60,
+      height: 30,
+      data: correlations,
+      min: -1,
+      max: 1,
+      colorScale: "plasma",
+    }),
+    // Feature labels (simplified)
+    ui.row({ gap: 1 }, features.map((f) => ui.text(f, { style: { dim: true } }))),
+  ]);
+}
+```
+
+### CPU Usage Grid
+
+```typescript
+type UsageState = {
+  history: number[][]; // [time][core]
+};
+
+function cpuHeatmap(state: UsageState): VNode {
+  return ui.column({ gap: 1 }, [
+    ui.text("CPU Usage per Core", { variant: "heading" }),
+    ui.heatmap({
+      id: "cpu",
+      width: 70,
+      height: 25,
+      data: state.history,
+      min: 0,
+      max: 100,
+      colorScale: "inferno",
+    }),
+    ui.row({ gap: 2 }, [
+      ui.text("Time →", { style: { dim: true } }),
+      ui.spacer({ flex: 1 }),
+      ui.text("0%", { style: { fg: "#000" } }),
+      ui.text(→"),
+      ui.text("100%", { style: { fg: "#ffff00" } }),
+    ]),
+  ]);
+}
+```
+
+### Geographic Heat
+
+```typescript
+function geographicHeatmap(
+  gridData: number[][],
+  labels: { x: string; y: string }
+): VNode {
+  return ui.column({ gap: 1 }, [
+    ui.text("Geographic Distribution", { variant: "heading" }),
+    ui.heatmap({
+      id: "geo",
+      width: 80,
+      height: 40,
+      data: gridData,
+      colorScale: "viridis",
+    }),
+    ui.row({ gap: 1 }, [
+      ui.text(labels.x),
+      ui.spacer({ flex: 1 }),
+      ui.text(labels.y),
+    ]),
+  ]);
+}
+```
+
+### Real-Time Activity
+
+```typescript
+import { defineWidget } from "@rezi-ui/core";
+
+type ActivityState = {
+  grid: number[][];
+  maxHistory: number;
+};
+
+function activityHeatmap(state: ActivityState): VNode {
+  // Trim to max history length
+  const trimmed = state.grid.slice(-state.maxHistory);
+  
+  return ui.heatmap({
+    id: "activity",
+    width: 60,
+    height: 30,
+    data: trimmed,
+    min: 0,
+    colorScale: "turbo",
+  });
+}
+```
+
+### Comparison Heatmaps
+
+```typescript
+function comparisonHeatmaps(
+  before: number[][],
+  after: number[][]
+): VNode {
+  // Compute global min/max for consistent scaling
+  const allValues = [...before.flat(), ...after.flat()];
+  const min = Math.min(...allValues);
+  const max = Math.max(...allValues);
+  
+  return ui.row({ gap: 2, p: 1 }, [
+    ui.column({ gap: 1, flex: 1 }, [
+      ui.text("Before", { variant: "heading" }),
+      ui.heatmap({
+        id: "before",
+        width: 40,
+        height: 30,
+        data: before,
+        min,
+        max,
+        colorScale: "viridis",
+      }),
+    ]),
+    ui.column({ gap: 1, flex: 1 }, [
+      ui.text("After", { variant: "heading" }),
+      ui.heatmap({
+        id: "after",
+        width: 40,
+        height: 30,
+        data: after,
+        min,
+        max,
+        colorScale: "viridis",
+      }),
+    ]),
+  ]);
+}
+```
+
+### Sparse Matrix
+
+```typescript
+function sparseMatrixHeatmap(
+  rows: number,
+  cols: number,
+  sparseData: Array<{ row: number; col: number; value: number }>
+): VNode {
+  // Convert sparse to dense
+  const dense: number[][] = Array.from({ length: rows }, () =>
+    Array(cols).fill(0)
+  );
+  
+  for (const { row, col, value } of sparseData) {
+    if (row >= 0 && row < rows && col >= 0 && col < cols) {
+      dense[row][col] = value;
+    }
+  }
+  
+  return ui.heatmap({
+    id: "sparse",
+    width: 70,
+    height: 35,
+    data: dense,
+    min: 0,
+    colorScale: "magma",
+  });
+}
+```
+
+### Time-Series Heatmap
+
+```typescript
+function timeSeriesHeatmap(
+  timestamps: string[],
+  series: Array<{ name: string; values: number[] }>
+): VNode {
+  // Transpose: series as rows, time as columns
+  const data = series.map((s) => s.values);
+  
+  return ui.column({ gap: 1 }, [
+    ui.text("Metric History", { variant: "heading" }),
+    ui.heatmap({
+      id: "timeseries",
+      width: 80,
+      height: 30,
+      data,
+      colorScale: "plasma",
+    }),
+    // Time labels
+    ui.row({ gap: 1 }, [
+      ui.text(timestamps[0], { style: { dim: true } }),
+      ui.spacer({ flex: 1 }),
+      ui.text(timestamps[timestamps.length - 1], { style: { dim: true } }),
+    ]),
+    // Series labels
+    ...series.map((s, i) =>
+      ui.text(`Row ${i}: ${s.name}`, { style: { dim: true }, key: s.name })
+    ),
+  ]);
+}
+```
+
+## Performance
+
+### Matrix Size Limits
+
+Performance depends on total cells:
+
+- Small (< 1000 cells): Instant
+- Medium (< 10000 cells): Fast
+- Large (> 10000 cells): Consider downsampling
+
+### Downsampling Large Matrices
+
+```typescript
+function downsampleMatrix(
+  data: number[][],
+  targetRows: number,
+  targetCols: number
+): number[][] {
+  const sourceRows = data.length;
+  const sourceCols = data[0]?.length ?? 0;
+  
+  if (sourceRows <= targetRows && sourceCols <= targetCols) {
+    return data;
+  }
+  
+  const rowStep = Math.ceil(sourceRows / targetRows);
+  const colStep = Math.ceil(sourceCols / targetCols);
+  
+  const result: number[][] = [];
+  
+  for (let r = 0; r < sourceRows; r += rowStep) {
+    const row: number[] = [];
+    for (let c = 0; c < sourceCols; c += colStep) {
+      row.push(data[r][c]);
+    }
+    result.push(row);
+  }
+  
+  return result;
+}
+
+const largeMatrix = generate2DData(1000, 1000);
+const downsampled = downsampleMatrix(largeMatrix, 100, 100);
+
+ui.heatmap({
+  id: "downsampled",
+  width: 60,
+  height: 30,
+  data: downsampled,
+});
+```
+
+## Color Scale Selection Guide
+
+| Use Case | Recommended Scale |
+|----------|------------------|
+| General purpose | `viridis` |
+| Accessibility | `viridis`, `grayscale` |
+| Temperature | `inferno`, `magma` |
+| Correlation | `plasma` |
+| Wide range | `turbo` |
+| Printing | `grayscale` |
+| Dramatic | `plasma`, `inferno` |
+
+## See Also
+
+- [Canvas](/widgets/canvas) - Custom graphics
+- [Scatter Plot](/widgets/scatter) - Point-based visualization
+- [Bar Chart](/widgets/bar-chart) - Categorical data
+- [Line Chart](/widgets/line-chart) - Time series
