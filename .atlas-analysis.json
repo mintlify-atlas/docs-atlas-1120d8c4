@@ -1,0 +1,281 @@
+{
+  "projectType": "framework",
+  "projectName": "Rezi",
+  "projectDescription": "High-performance TypeScript TUI framework with near-native rendering powered by deterministic C engine",
+  "theme": "aspen",
+  "primaryColor": "#0ea5e9",
+  "lightColor": "#38bdf8",
+  "darkColor": "#0284c7",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart",
+              "jsx",
+              "examples"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/overview",
+              "concepts/architecture",
+              "concepts/widgets",
+              "concepts/composition",
+              "concepts/lifecycle"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/layout",
+              "guides/styling",
+              "guides/theming",
+              "guides/input-focus",
+              "guides/mouse-support",
+              "guides/animation",
+              "guides/routing",
+              "guides/graphics",
+              "guides/performance",
+              "guides/debugging",
+              "guides/testing"
+            ]
+          },
+          {
+            "group": "Recipes",
+            "pages": [
+              "recipes/forms",
+              "recipes/data-tables",
+              "recipes/modals",
+              "recipes/keyboard-shortcuts",
+              "recipes/loading-states"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Widgets",
+        "groups": [
+          {
+            "group": "Primitives",
+            "pages": [
+              "widgets/text",
+              "widgets/box",
+              "widgets/row-column",
+              "widgets/spacer",
+              "widgets/divider"
+            ]
+          },
+          {
+            "group": "Inputs",
+            "pages": [
+              "widgets/button",
+              "widgets/input",
+              "widgets/textarea",
+              "widgets/checkbox",
+              "widgets/radio-group",
+              "widgets/select",
+              "widgets/slider",
+              "widgets/field"
+            ]
+          },
+          {
+            "group": "Data Display",
+            "pages": [
+              "widgets/table",
+              "widgets/virtual-list",
+              "widgets/tree",
+              "widgets/code-editor",
+              "widgets/diff-viewer",
+              "widgets/logs-console"
+            ]
+          },
+          {
+            "group": "Navigation",
+            "pages": [
+              "widgets/tabs",
+              "widgets/accordion",
+              "widgets/breadcrumb",
+              "widgets/pagination",
+              "widgets/link"
+            ]
+          },
+          {
+            "group": "Overlays",
+            "pages": [
+              "widgets/modal",
+              "widgets/dropdown",
+              "widgets/toast",
+              "widgets/command-palette",
+              "widgets/dialog"
+            ]
+          },
+          {
+            "group": "Visualization",
+            "pages": [
+              "widgets/canvas",
+              "widgets/image",
+              "widgets/line-chart",
+              "widgets/scatter",
+              "widgets/heatmap",
+              "widgets/bar-chart",
+              "widgets/gauge",
+              "widgets/sparkline"
+            ]
+          },
+          {
+            "group": "Layout",
+            "pages": [
+              "widgets/grid",
+              "widgets/split-pane",
+              "widgets/panel-group"
+            ]
+          },
+          {
+            "group": "Feedback",
+            "pages": [
+              "widgets/spinner",
+              "widgets/progress",
+              "widgets/badge",
+              "widgets/status",
+              "widgets/callout",
+              "widgets/error-display"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Packages",
+            "pages": [
+              "api/core",
+              "api/node",
+              "api/jsx",
+              "api/native",
+              "api/testkit",
+              "api/create-rezi"
+            ]
+          },
+          {
+            "group": "Hooks",
+            "pages": [
+              "api/hooks/state",
+              "api/hooks/animation",
+              "api/hooks/lifecycle",
+              "api/hooks/utilities"
+            ]
+          },
+          {
+            "group": "Advanced",
+            "pages": [
+              "api/widget-authoring",
+              "api/custom-backends",
+              "api/terminal-capabilities"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Architecture",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "architecture/introduction",
+              "architecture/render-pipeline",
+              "architecture/layout-engine",
+              "architecture/event-system"
+            ]
+          },
+          {
+            "group": "Protocol",
+            "pages": [
+              "architecture/protocol/overview",
+              "architecture/protocol/zrdl",
+              "architecture/protocol/zrev",
+              "architecture/protocol/versioning",
+              "architecture/protocol/abi"
+            ]
+          },
+          {
+            "group": "Backend",
+            "pages": [
+              "architecture/backend/node",
+              "architecture/backend/native",
+              "architecture/backend/worker-model",
+              "architecture/backend/terminal-detection"
+            ]
+          },
+          {
+            "group": "Reference",
+            "pages": [
+              "architecture/benchmarks",
+              "architecture/determinism",
+              "architecture/safety"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "56+ built-in widgets for building terminal UIs",
+    "Native C rendering engine for near-native performance",
+    "Declarative component API with hooks and composition",
+    "Advanced layout engine with flexbox, grid, and intrinsic sizing",
+    "Built-in animation system with transition hooks",
+    "Sub-character resolution graphics via canvas with multiple blitters",
+    "Inline image rendering with Kitty, Sixel, and iTerm2 protocols",
+    "Chart widgets (line, scatter, heatmap, bar, gauge, sparkline)",
+    "Optional JSX support without React runtime",
+    "Deterministic rendering with record and replay",
+    "6 built-in themes with runtime switching",
+    "Comprehensive input handling (keyboard, mouse, focus management)",
+    "Router with navigation components",
+    "Hot state-preserving reload for development"
+  ],
+  "publicApiSurface": [
+    "ui.text()",
+    "ui.box()",
+    "ui.row()",
+    "ui.column()",
+    "ui.button()",
+    "ui.input()",
+    "ui.textarea()",
+    "ui.checkbox()",
+    "ui.select()",
+    "ui.table()",
+    "ui.virtualList()",
+    "ui.modal()",
+    "ui.tabs()",
+    "ui.canvas()",
+    "ui.image()",
+    "ui.lineChart()",
+    "ui.codeEditor()",
+    "ui.commandPalette()",
+    "createNodeApp()",
+    "defineWidget()",
+    "useTransition()",
+    "useSpring()",
+    "useSequence()",
+    "useStagger()",
+    "app.view()",
+    "app.keys()",
+    "app.start()",
+    "app.update()",
+    "app.setTheme()",
+    "createRouter()",
+    "each()",
+    "show()",
+    "when()",
+    "match()"
+  ]
+}
